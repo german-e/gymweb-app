@@ -21,15 +21,23 @@
                 <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
                 <div class="row g-3">
-                    <div class="col-md-4">
-                        <label asp-for="Input.Dni" class="form-label"></label>
-                        <input asp-for="Input.Dni" class="form-control" />
+                    <div class="col-md-6">
+                        <label class="form-label">Socio (buscar por DNI o Nombre)</label>
+                        <input id="socio-search" class="form-control" list="socios-list" placeholder="Ej: 12345678 o Pérez" autocomplete="off" />
+                        <datalist id="socios-list"></datalist>
+                        <small id="socio-elegido" class="text-muted d-block mt-1"></small>
+                        <input type="hidden" asp-for="Input.SocioId" />
+                        <input type="hidden" asp-for="Input.Dni" />
                         <span asp-validation-for="Input.Dni" class="text-danger"></span>
                     </div>
 
                     <div class="col-md-4">
-                        <label asp-for="Input.Importe" class="form-label"></label>
+                        <label asp-for="Input.Importe" class="form-label d-flex justify-content-between align-items-center">
+                            <span>@Html.DisplayNameFor(m => m.Input.Importe)</span>
+                            <button type="button" id="btn-pagar-total" class="btn btn-sm btn-outline-primary">Pagar total</button>
+                        </label>
                         <input asp-for="Input.Importe" class="form-control" />
+                        <div class="form-text" id="ayuda-faltante" style="display:none;"></div>
                         <span asp-validation-for="Input.Importe" class="text-danger"></span>
                     </div>
 
@@ -58,6 +66,21 @@
                     </div>
                 </div>
 
+                <div id="saldo-panel" class="alert alert-info mt-3 d-none">
+                    <div class="d-flex flex-column gap-1">
+                        <div><strong>Plan:</strong> <span id="saldo-plan">-</span></div>
+                        <div>
+                            <strong>Periodo:</strong> <span id="saldo-desde">-</span> a <span id="saldo-hasta">-</span>
+                        </div>
+                        <div class="d-flex gap-3 flex-wrap">
+                            <span><strong>Precio:</strong> $ <span id="saldo-precio">0</span></span>
+                            <span><strong>Pagado:</strong> $ <span id="saldo-pagado">0</span></span>
+                            <span><strong>Faltante:</strong> $ <span id="saldo-faltante">0</span></span>
+                        </div>
+                        <div class="text-muted" id="saldo-sinplan" style="display:none;">No hay una suscripción activa. Podés registrar un pago libre.</div>
+                    </div>
+                </div>
+
                 <div class="mt-4 d-flex gap-2">
                     <button type="submit" class="btn btn-primary">Guardar</button>
                     <a asp-page="/Pagos/Index" class="btn btn-secondary">Cancelar</a>
@@ -69,4 +92,130 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        (function () {
+            const $search = document.getElementById('socio-search');
+            const $list = document.getElementById('socios-list');
+            const $elegido = document.getElementById('socio-elegido');
+            const $inputSocioId = document.querySelector('input[name="Input.SocioId"]');
+            const $inputDni = document.querySelector('input[name="Input.Dni"]');
+
+            const $panel = document.getElementById('saldo-panel');
+            const $plan = document.getElementById('saldo-plan');
+            const $desde = document.getElementById('saldo-desde');
+            const $hasta = document.getElementById('saldo-hasta');
+            const $precio = document.getElementById('saldo-precio');
+            const $pagado = document.getElementById('saldo-pagado');
+            const $faltante = document.getElementById('saldo-faltante');
+            const $sinplan = document.getElementById('saldo-sinplan');
+            const $importe = document.getElementById('Input_Importe');
+            const $btnTotal = document.getElementById('btn-pagar-total');
+            const $ayuda = document.getElementById('ayuda-faltante');
+
+            let debounce;
+            let faltanteActual = null; // número o null
+            function buscar(term) {
+                fetch(`?handler=BuscarSocios&term=${encodeURIComponent(term)}`)
+                    .then(r => r.json())
+                    .then(items => {
+                        $list.innerHTML = '';
+                        items.forEach(s => {
+                            const opt = document.createElement('option');
+                            opt.value = `${s.dni}`;
+                            opt.label = `${s.nombre} · DNI ${s.dni}`;
+                            opt.dataset.id = s.id;
+                            $list.appendChild(opt);
+                        });
+                    })
+                    .catch(() => { /* noop */ });
+            }
+
+            function cargarSaldo(socioId) {
+                fetch(`?handler=SaldoSocio&socioId=${encodeURIComponent(socioId)}`)
+                    .then(r => r.json())
+                    .then(x => {
+                        $panel.classList.remove('d-none');
+                        if (!x.ok) return;
+                        if (x.sinPlan) {
+                            $plan.textContent = '-';
+                            $desde.textContent = '-';
+                            $hasta.textContent = '-';
+                            $precio.textContent = '0';
+                            $pagado.textContent = '0';
+                            $faltante.textContent = '0';
+                            $sinplan.style.display = '';
+                            faltanteActual = null;
+                            $ayuda.style.display = 'none';
+                            return;
+                        }
+                        $sinplan.style.display = 'none';
+                        $plan.textContent = x.plan;
+                        $desde.textContent = new Date(x.periodo.desde).toLocaleDateString();
+                        $hasta.textContent = new Date(x.periodo.hasta).toLocaleDateString();
+                        $precio.textContent = x.precio;
+                        $pagado.textContent = x.pagado;
+                        $faltante.textContent = x.faltante;
+                        faltanteActual = Number(x.faltante || 0);
+                        if ($importe && (!+$importe.value || +$importe.value <= 0)) {
+                            $importe.value = x.faltante || '';
+                        }
+                        actualizarAyuda();
+                    })
+                    .catch(() => { /* noop */ });
+            }
+
+            $search.addEventListener('input', (e) => {
+                clearTimeout(debounce);
+                const term = e.target.value.trim();
+                debounce = setTimeout(() => buscar(term), 200);
+                // Reset selección si el usuario está tipeando
+                $inputSocioId.value = '';
+                $inputDni.value = term;
+                $elegido.textContent = '';
+                $panel.classList.add('d-none');
+            });
+
+            $search.addEventListener('change', () => {
+                // Ver si el valor matchea alguna opción
+                const val = $search.value;
+                const match = Array.from($list.options).find(o => o.value === val);
+                if (match) {
+                    $inputSocioId.value = match.dataset.id || '';
+                    $inputDni.value = match.value;
+                    $elegido.textContent = match.label || '';
+                    if ($inputSocioId.value) cargarSaldo($inputSocioId.value);
+                }
+            });
+
+            if ($search.value) buscar($search.value);
+
+            function actualizarAyuda() {
+                if (faltanteActual == null || !$importe) { $ayuda.style.display = 'none'; return; }
+                const v = Number($importe.value || 0);
+                if (!v) { $ayuda.style.display = 'none'; return; }
+                const queda = Math.max(0, faltanteActual - v);
+                if (queda > 0) {
+                    $ayuda.textContent = `Quedará faltante: $ ${queda}`;
+                    $ayuda.style.display = '';
+                } else {
+                    $ayuda.textContent = '';
+                    $ayuda.style.display = 'none';
+                }
+            }
+
+            if ($importe) {
+                $importe.addEventListener('input', actualizarAyuda);
+            }
+
+            if ($btnTotal) {
+                $btnTotal.addEventListener('click', () => {
+                    if (faltanteActual != null && $importe) {
+                        $importe.value = String(faltanteActual);
+                        $importe.dispatchEvent(new Event('input'));
+                        $importe.focus();
+                    }
+                });
+            }
+        })();
+    </script>
 }

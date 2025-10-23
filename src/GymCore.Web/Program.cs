@@ -4,6 +4,8 @@ using GymCore.Infraestructura.Repositorios;
 using GymCore.Dominio.Entidades;
 using GymCore.Dominio.Enums;
 using GymCore.Aplicacion.Abstractiones;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Data.Sqlite;
 // Ensure this using matches the actual namespace where ISocioRepository is defined
 
 var builder = WebApplication.CreateBuilder(args);
@@ -60,6 +62,33 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<GymDbContext>();
     try { db.Database.EnsureCreated(); } catch { /* opcional: log */ }
 
+    // Ajuste de esquema en SQLite: agregar columna TarjetaCodigo si falta e índice único
+    try
+    {
+        var conn = db.Database.GetDbConnection();
+        await conn.OpenAsync();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "PRAGMA table_info('Socios')";
+            using var reader = await cmd.ExecuteReaderAsync();
+            var tieneTarjeta = false;
+            while (await reader.ReadAsync())
+            {
+                // PRAGMA table_info: 0:cid,1:name,2:type,...
+                var col = reader.GetString(1);
+                if (col == "TarjetaCodigo") { tieneTarjeta = true; break; }
+            }
+            if (!tieneTarjeta)
+            {
+                await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Socios\" ADD COLUMN \"TarjetaCodigo\" TEXT NULL;");
+                await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS \"IX_Socios_TarjetaCodigo\" ON \"Socios\" (\"TarjetaCodigo\");");
+                // Inicial: usar DNI como código de tarjeta
+                await db.Database.ExecuteSqlRawAsync("UPDATE \"Socios\" SET \"TarjetaCodigo\" = \"Dni\" WHERE \"TarjetaCodigo\" IS NULL;");
+            }
+        }
+    }
+    catch { /* best-effort */ }
+
     // Seed mínimo para pruebas de check-in
     if (!db.Planes.Any())
     {
@@ -95,7 +124,8 @@ using (var scope = app.Services.CreateScope())
             Nombre = "Juan",
             Apellido = "Pérez",
             Dni = "12345678",
-            FechaAlta = DateTime.UtcNow
+            FechaAlta = DateTime.UtcNow,
+            TarjetaCodigo = "12345678"
         };
         db.Socios.Add(socio);
         await db.SaveChangesAsync();
@@ -127,7 +157,7 @@ app.MapPost("/api/asistencias/checkin", async (GymDbContext db, CheckInRequest r
     var socio = await db.Socios
         .Include(s => s.Suscripciones)
             .ThenInclude(sp => sp.Plan)
-        .FirstOrDefaultAsync(s => s.Dni == code);
+        .FirstOrDefaultAsync(s => s.TarjetaCodigo == code || s.Dni == code);
 
     if (socio is null)
         return Results.Ok(new { ok = false, mensaje = "Socio no encontrado" });

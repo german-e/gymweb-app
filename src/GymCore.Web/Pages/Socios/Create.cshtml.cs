@@ -25,7 +25,9 @@ public class CreateModel : PageModel
             Dni = Dni.Trim(),
             Apellido = Apellido.Trim(),
             Nombre = Nombre.Trim(),
-            FechaAlta = DateTime.UtcNow
+            FechaAlta = DateTime.UtcNow,
+            // Inicialmente, igualamos TarjetaCodigo al DNI; luego se puede rotar a un código aleatorio
+            TarjetaCodigo = Dni.Trim()
         };
         await _repo.AgregarAsync(socio);
         return RedirectToPage("/Socios/Socios");

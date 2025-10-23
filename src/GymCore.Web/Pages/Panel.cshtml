@@ -1,4 +1,5 @@
 @page "/panel"
+@model GymCore.Web.Pages.PanelModel
 @{
     ViewData["Title"] = "Panel de gestión";
 }
@@ -23,7 +24,7 @@
                     <div class="d-flex align-items-center justify-content-between">
                         <div>
                             <div class="kpi-label">Socios activos</div>
-                            <div class="kpi-value">128</div>
+                            <div class="kpi-value">@Model.SociosActivos</div>
                         </div>
                         <span class="kpi-icon text-primary" aria-hidden="true">🏋️</span>
                     </div>
@@ -36,7 +37,7 @@
                     <div class="d-flex align-items-center justify-content-between">
                         <div>
                             <div class="kpi-label">Suscripciones vencidas</div>
-                            <div class="kpi-value text-danger">12</div>
+                            <div class="kpi-value text-danger">@Model.SuscripcionesVencidas</div>
                         </div>
                         <span class="kpi-icon text-danger" aria-hidden="true">⏰</span>
                     </div>
@@ -49,7 +50,7 @@
                     <div class="d-flex align-items-center justify-content-between">
                         <div>
                             <div class="kpi-label">Ingresos del mes</div>
-                            <div class="kpi-value">$ 1.250.000</div>
+                            <div class="kpi-value">$ @Model.IngresosDelMes</div>
                         </div>
                         <span class="kpi-icon text-success" aria-hidden="true">💵</span>
                     </div>
@@ -62,7 +63,7 @@
                     <div class="d-flex align-items-center justify-content-between">
                         <div>
                             <div class="kpi-label">Asistencias hoy</div>
-                            <div class="kpi-value">56</div>
+                            <div class="kpi-value">@Model.AsistenciasHoy</div>
                         </div>
                         <span class="kpi-icon text-info" aria-hidden="true">📍</span>
                     </div>

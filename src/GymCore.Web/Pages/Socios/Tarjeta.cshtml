@@ -1,0 +1,66 @@
+@page "{id:int}"
+@model GymCore.Web.Pages.Socios.TarjetaModel
+@{
+    Layout = "/Pages/Shared/_Layout.cshtml";
+    ViewData["Title"] = "Tarjeta de socio";
+}
+
+<section class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h4 mb-0">Tarjeta de socio</h1>
+        <div class="d-print-none d-flex gap-2">
+            <a asp-page="/Socios/Socios" class="btn btn-outline-secondary">Volver</a>
+            <button class="btn btn-primary" onclick="window.print()">Imprimir</button>
+        </div>
+    </div>
+
+    @if (Model.Socio == null)
+    {
+        <div class="alert alert-danger">No se encontró el socio.</div>
+    }
+    else
+    {
+        <div class="card shadow-sm tarjeta-socio mx-auto">
+            <div class="card-body d-flex flex-column align-items-center text-center">
+                <div class="mb-2">
+                    <div class="fw-bold fs-5">@Model.Socio.Apellido, @Model.Socio.Nombre</div>
+                    <div class="text-muted">DNI: @Model.Socio.Dni</div>
+                </div>
+                <div class="my-2">
+                    <svg id="barcode"></svg>
+                </div>
+                <div class="text-muted small">Código: @Model.Codigo</div>
+            </div>
+        </div>
+    }
+</section>
+
+<style>
+@@media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .navbar, .footer, .d-print-none { display: none !important; }
+    .tarjeta-socio { box-shadow: none !important; border: 1px solid #000 !important; }
+}
+.tarjeta-socio { max-width: 520px; }
+#barcode { width: 100%; height: 140px; }
+</style>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function(){
+            const code = '@Model.Codigo';
+            try {
+                JsBarcode('#barcode', code, {
+                    format: 'CODE128',
+                    lineColor: '#000',
+                    width: 2,
+                    height: 100,
+                    displayValue: true,
+                    fontSize: 16,
+                    margin: 10
+                });
+            } catch (e) { /* noop */ }
+        });
+    </script>
+}

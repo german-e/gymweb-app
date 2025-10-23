@@ -5,6 +5,8 @@ public class Socio
 
     public int Id { get; set; }
     public string Dni { get; set; } = null!;
+    // Código de tarjeta para escaneo (preferible a DNI). Puede ser nulo si aún no se emitió tarjeta.
+    public string? TarjetaCodigo { get; set; }
     public string Apellido { get; set; } = null!;
     public string Nombre { get; set; } = null!;
     public DateTime FechaAlta { get; set; } = DateTime.UtcNow;

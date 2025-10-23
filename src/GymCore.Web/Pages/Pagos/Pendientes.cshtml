@@ -1,0 +1,71 @@
+@page
+@model GymCore.Web.Pages.Pagos.PendientesModel
+@{
+    ViewData["Title"] = "Deudas";
+}
+
+<section class="container py-4">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
+        <div>
+            <h1 class="h4 mb-1">Deudas</h1>
+            <p class="text-muted mb-0">Socios con suscripción activa y saldo faltante.</p>
+        </div>
+        <div>
+            <a asp-page="/Pagos/Index" class="btn btn-outline-secondary">Ver pagos</a>
+        </div>
+    </div>
+
+    <form method="get" class="row g-2 align-items-center mb-3">
+        <div class="col-12 col-md">
+            <input name="q" value="@Model.Q" class="form-control" placeholder="Buscar por DNI, apellido o nombre" />
+        </div>
+        <div class="col-12 col-md-auto">
+            <button class="btn btn-outline-primary" type="submit">Buscar</button>
+        </div>
+    </form>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>DNI</th>
+                        <th>Socio</th>
+                        <th>Plan</th>
+                        <th>Periodo</th>
+                        <th class="text-end">Precio</th>
+                        <th class="text-end">Pagado</th>
+                        <th class="text-end">Faltante</th>
+                        <th class="text-end" style="width: 160px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @if (Model.Items.Count == 0)
+                {
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-4">No hay deudas para mostrar</td>
+                    </tr>
+                }
+                else
+                {
+                    foreach (var it in Model.Items)
+                    {
+                        <tr>
+                            <td>@it.Dni</td>
+                            <td>@it.Nombre</td>
+                            <td>@it.Plan</td>
+                            <td>@it.Desde.ToString("dd/MM/yyyy") - @it.Hasta.ToString("dd/MM/yyyy")</td>
+                            <td class="text-end">$ @it.Precio @it.Moneda</td>
+                            <td class="text-end">$ @it.Pagado @it.Moneda</td>
+                            <td class="text-end fw-semibold text-danger">$ @it.Faltante @it.Moneda</td>
+                            <td class="text-end">
+                                <a asp-page="/Pagos/Nuevo" asp-route-dni="@it.Dni" class="btn btn-sm btn-primary">Registrar pago</a>
+                            </td>
+                        </tr>
+                    }
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>

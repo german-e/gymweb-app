@@ -18,9 +18,12 @@ public class NuevoModel : PageModel
 
     public class InputModel
     {
-        [Required]
         [Display(Name = "DNI del socio")]
         public string Dni { get; set; } = string.Empty;
+
+        // Permite seleccionar directamente por ID cuando se usa el buscador
+        [Display(Name = "Socio")]
+        public int? SocioId { get; set; }
 
         [Required]
         [Range(1, 1_000_000)]
@@ -51,15 +54,31 @@ public class NuevoModel : PageModel
         if (!ModelState.IsValid)
             return Page();
 
-        var dni = Input.Dni.Trim();
-        var socio = await _db.Socios
+        Socio? socio = null;
+        if (Input.SocioId.HasValue)
+        {
+            socio = await _db.Socios
+                .Include(s => s.Suscripciones)
+                    .ThenInclude(sp => sp.Plan)
+                .FirstOrDefaultAsync(s => s.Id == Input.SocioId.Value);
+        }
+        else
+        {
+            var dni = Input.Dni?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(dni))
+            {
+                ModelState.AddModelError(string.Empty, "Debe seleccionar un socio o ingresar DNI.");
+                return Page();
+            }
+            socio = await _db.Socios
             .Include(s => s.Suscripciones)
                 .ThenInclude(sp => sp.Plan)
-            .FirstOrDefaultAsync(s => s.Dni == dni);
+                .FirstOrDefaultAsync(s => s.Dni == dni);
+        }
 
         if (socio is null)
         {
-            ModelState.AddModelError(string.Empty, $"No se encontró un socio con DNI {dni}.");
+            ModelState.AddModelError(string.Empty, "No se encontró el socio seleccionado.");
             return Page();
         }
 
@@ -89,5 +108,65 @@ public class NuevoModel : PageModel
 
         TempData["PagoOk"] = $"Pago registrado para {socio.Apellido}, {socio.Nombre}.";
         return RedirectToPage("/Pagos/Index");
+    }
+
+    // Handlers auxiliares para búsqueda y saldo
+    public async Task<IActionResult> OnGetBuscarSociosAsync(string term)
+    {
+        term = (term ?? string.Empty).Trim();
+        var q = _db.Socios.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(term))
+        {
+            q = q.Where(s => s.Dni.Contains(term) || s.Apellido.Contains(term) || s.Nombre.Contains(term));
+        }
+        var items = await q.OrderBy(s => s.Apellido).ThenBy(s => s.Nombre)
+            .Take(20)
+            .Select(s => new {
+                id = s.Id,
+                dni = s.Dni,
+                nombre = s.Apellido + ", " + s.Nombre
+            })
+            .ToListAsync();
+        return new JsonResult(items);
+    }
+
+    public async Task<IActionResult> OnGetSaldoSocioAsync(int socioId)
+    {
+        var socio = await _db.Socios
+            .Include(s => s.Suscripciones)
+                .ThenInclude(sp => sp.Plan)
+            .FirstOrDefaultAsync(s => s.Id == socioId);
+        if (socio == null)
+            return new JsonResult(new { ok = false, mensaje = "Socio no encontrado" });
+
+        var ahora = DateTime.Now;
+        var activa = socio.Suscripciones
+            .Where(sp => sp.Estado == EstadoSuscripcion.Activo
+                       && sp.FechaInicio <= ahora
+                       && sp.FechaFin >= ahora)
+            .OrderByDescending(sp => sp.FechaFin)
+            .FirstOrDefault();
+
+        if (activa == null)
+            return new JsonResult(new { ok = true, sinPlan = true, faltante = (decimal?)null });
+
+        var totalPagado = await _db.Pagos
+            .Where(p => p.SocioId == socioId && p.SocioPlanId == activa.Id)
+            .SumAsync(p => (decimal?)p.Importe) ?? 0m;
+
+        var precio = activa.Plan.Precio;
+        var faltante = Math.Max(0m, precio - totalPagado);
+
+        return new JsonResult(new
+        {
+            ok = true,
+            sinPlan = false,
+            plan = activa.Plan.Nombre,
+            precio,
+            pagado = totalPagado,
+            faltante,
+            periodo = new { desde = activa.FechaInicio, hasta = activa.FechaFin },
+            socioPlanId = activa.Id
+        });
     }
 }
