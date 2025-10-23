@@ -1,0 +1,91 @@
+# Build outputs
+bin/
+obj/
+out/
+artifacts/
+publish/
+
+# User-specific
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Visual Studio / VS Code / Rider
+.vs/
+.vscode/
+.idea/
+*.sln.iml
+
+# ReSharper / DotCover
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+*.dotCover
+
+# Logs
+logs/
+log/
+*.log
+
+# Test results / coverage
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+coverage/
+lcov.info
+BenchmarkDotNet.Artifacts/
+
+# NuGet
+packages/
+*.nupkg
+*.snupkg
+.nuget/NuGet.exe
+project.lock.json
+
+# OS junk
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# Temp files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+
+# Certificates (dev)
+*.pfx
+*.p12
+*.cer
+*.key
+
+# Frontend
+node_modules/
+bower_components/
+dist/
+build/
+*.map
+# LibMan restored assets (descomenta si NO querés versionarlas)
+wwwroot/lib/
+
+# SQLite dev databases (no versionar DB local)
+src/**/data/*.db
+src/**/data/*.db-shm
+src/**/data/*.db-wal
+
+# AppSettings locales (mantener Development.json normal si no tiene secretos)
+appsettings.*.Local.json
+appsettings.Local.json
+appsettings.Development.Local.json
+
+# Sonar / herramientas
+.sonarqube/
+SonarQube.xml
+
+# Scaffolding
+ScaffoldingReadMe.txt

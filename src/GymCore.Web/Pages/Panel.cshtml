@@ -1,0 +1,280 @@
+@page "/panel"
+@{
+    ViewData["Title"] = "Panel de gestión";
+}
+
+<section class="container py-4">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-1">Panel de gestión</h1>
+            <p class="text-muted mb-0">Accedé rápido a los módulos más usados y revisá indicadores clave.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-primary" asp-page="/Socios/Socios">Agregar socio</a>
+            <a class="btn btn-outline-secondary" asp-page="/Pagos/Nuevo">Registrar pago</a>
+        </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="row g-3 kpi-row mb-4">
+        <div class="col-6 col-lg-3">
+            <div class="card kpi-card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="kpi-label">Socios activos</div>
+                            <div class="kpi-value">128</div>
+                        </div>
+                        <span class="kpi-icon text-primary" aria-hidden="true">🏋️</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card kpi-card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="kpi-label">Suscripciones vencidas</div>
+                            <div class="kpi-value text-danger">12</div>
+                        </div>
+                        <span class="kpi-icon text-danger" aria-hidden="true">⏰</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card kpi-card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="kpi-label">Ingresos del mes</div>
+                            <div class="kpi-value">$ 1.250.000</div>
+                        </div>
+                        <span class="kpi-icon text-success" aria-hidden="true">💵</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card kpi-card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="kpi-label">Asistencias hoy</div>
+                            <div class="kpi-value">56</div>
+                        </div>
+                        <span class="kpi-icon text-info" aria-hidden="true">📍</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Buscador -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form class="row g-2 align-items-center" role="search" aria-label="Buscar socios o planes">
+                <div class="col-12 col-md">
+                    <input type="search" class="form-control" placeholder="Buscar socios, DNI, plan..." aria-label="Buscar" />
+                </div>
+                <div class="col-12 col-md-auto">
+                    <button type="submit" class="btn btn-outline-primary">Buscar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Módulos -->
+    <h2 class="h5 mb-3">Módulos</h2>
+    <div class="row g-3">
+        <!-- Socios -->
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="card module-card h-100 shadow-sm">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="module-icon bg-primary-subtle text-primary">👤</span>
+                            <h3 class="h6 mb-0">Socios</h3>
+                        </div>
+                        <span class="badge text-bg-light">Gestión</span>
+                    </div>
+                    <p class="text-muted small mb-3">Altas, bajas, edición de datos y estado de suscripción.</p>
+                    <div class="mt-auto d-flex gap-2">
+                        <a class="btn btn-sm btn-primary" asp-page="/Socios/Socios">Abrir</a>
+                        <a class="btn btn-sm btn-outline-secondary" href="#">Nuevo</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Planes -->
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="card module-card h-100 shadow-sm">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="module-icon bg-success-subtle text-success">📦</span>
+                            <h3 class="h6 mb-0">Planes</h3>
+                        </div>
+                        <span class="badge text-bg-light">Catálogo</span>
+                    </div>
+                    <p class="text-muted small mb-3">Definición de planes, precios y periodicidad.</p>
+                    <div class="mt-auto d-flex gap-2">
+                        <a class="btn btn-sm btn-outline-primary" asp-page="/Planes/Planes">Ver planes</a>
+                        <a class="btn btn-sm btn-outline-secondary" asp-page="/Planes/Create">Nuevo plan</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Suscripciones -->
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="card module-card h-100 shadow-sm">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="module-icon bg-warning-subtle text-warning">🪪</span>
+                            <h3 class="h6 mb-0">Suscripciones</h3>
+                        </div>
+                        <span class="badge text-bg-light">Operación</span>
+                    </div>
+                    <p class="text-muted small mb-3">Alta de suscripción, renovaciones y cambios de plan.</p>
+                    <div class="mt-auto d-flex gap-2">
+                        <a class="btn btn-sm btn-outline-primary" asp-page="/Suscripciones/Nueva">Nueva suscripción</a>
+                        <a class="btn btn-sm btn-outline-secondary" asp-page="/Socios/Socios">Renovar</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Pagos -->
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="card module-card h-100 shadow-sm">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="module-icon bg-danger-subtle text-danger">💳</span>
+                            <h3 class="h6 mb-0">Pagos</h3>
+                        </div>
+                        <span class="badge text-bg-light">Caja</span>
+                    </div>
+                    <p class="text-muted small mb-3">Registro de pagos, medios de pago y comprobantes.</p>
+                    <div class="mt-auto d-flex gap-2">
+                        <a class="btn btn-sm btn-outline-primary" asp-page="/Pagos/Nuevo">Registrar</a>
+                        <a class="btn btn-sm btn-outline-secondary" asp-page="/Pagos/Index">Historial</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Asistencias -->
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="card module-card h-100 shadow-sm">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="module-icon bg-info-subtle text-info">📍</span>
+                            <h3 class="h6 mb-0">Asistencias</h3>
+                        </div>
+                        <span class="badge text-bg-light">Control</span>
+                    </div>
+                    <p class="text-muted small mb-3">Marcación de ingreso, historial por socio y reportes diarios.</p>
+                    <div class="mt-auto d-flex gap-2">
+                        <a class="btn btn-sm btn-outline-primary" asp-page="/Asistencias/Ingreso">Registrar</a>
+                        <a class="btn btn-sm btn-outline-secondary" asp-page="/Asistencias/Semanal">Ver semanal</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Clases -->
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="card module-card h-100 shadow-sm">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="module-icon bg-secondary-subtle text-secondary">📅</span>
+                            <h3 class="h6 mb-0">Clases</h3>
+                        </div>
+                        <span class="badge text-bg-light">Agenda</span>
+                    </div>
+                    <p class="text-muted small mb-3">Calendario de clases, cupos y reservas.</p>
+                    <div class="mt-auto d-flex gap-2">
+                        <a class="btn btn-sm btn-outline-primary" href="#">Calendario</a>
+                        <a class="btn btn-sm btn-outline-secondary" href="#">Nueva clase</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Entrenadores -->
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="card module-card h-100 shadow-sm">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="module-icon bg-primary-subtle text-primary">🧑‍🏫</span>
+                            <h3 class="h6 mb-0">Entrenadores</h3>
+                        </div>
+                        <span class="badge text-bg-light">Staff</span>
+                    </div>
+                    <p class="text-muted small mb-3">Gestión del equipo, horarios y asignaciones.</p>
+                    <div class="mt-auto d-flex gap-2">
+                        <a class="btn btn-sm btn-outline-primary" href="#">Listado</a>
+                        <a class="btn btn-sm btn-outline-secondary" href="#">Nuevo</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Reportes -->
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="card module-card h-100 shadow-sm">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="module-icon bg-success-subtle text-success">📊</span>
+                            <h3 class="h6 mb-0">Reportes</h3>
+                        </div>
+                        <span class="badge text-bg-light">Análisis</span>
+                    </div>
+                    <p class="text-muted small mb-3">Indicadores de socios, facturación y retención.</p>
+                    <div class="mt-auto d-flex gap-2">
+                        <a class="btn btn-sm btn-outline-primary" href="#">Ver reportes</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Caja -->
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="card module-card h-100 shadow-sm">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="module-icon bg-danger-subtle text-danger">🧾</span>
+                            <h3 class="h6 mb-0">Caja</h3>
+                        </div>
+                        <span class="badge text-bg-light">Finanzas</span>
+                    </div>
+                    <p class="text-muted small mb-3">Movimientos, cierres y arqueos de caja.</p>
+                    <div class="mt-auto d-flex gap-2">
+                        <a class="btn btn-sm btn-outline-primary" href="#">Abrir caja</a>
+                        <a class="btn btn-sm btn-outline-secondary" href="#">Movimientos</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Configuración -->
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="card module-card h-100 shadow-sm">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="module-icon bg-secondary-subtle text-secondary">⚙️</span>
+                            <h3 class="h6 mb-0">Configuración</h3>
+                        </div>
+                        <span class="badge text-bg-light">Sistema</span>
+                    </div>
+                    <p class="text-muted small mb-3">Datos del gimnasio, usuarios y parámetros generales.</p>
+                    <div class="mt-auto d-flex gap-2">
+                        <a class="btn btn-sm btn-outline-primary" href="#">Ajustes</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

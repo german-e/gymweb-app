@@ -1,0 +1,109 @@
+@page
+@model GymCore.Web.Pages.Asistencias.SemanalModel
+@{
+    ViewData["Title"] = "Asistencia semanal";
+    var inicio = Model.SemanaInicio.ToString("yyyy-MM-dd");
+    var ant = Model.SemanaInicio.AddDays(-7).ToString("yyyy-MM-dd");
+    var sig = Model.SemanaInicio.AddDays(7).ToString("yyyy-MM-dd");
+}
+
+<section class="container py-4">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
+        <div>
+            <h1 class="h4 mb-1">Asistencia semanal</h1>
+            <p class="text-muted mb-0">Resumen de días usados por socio en la semana.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a asp-page="/Asistencias/Semanal" asp-route-start="@ant" class="btn btn-outline-secondary">⟵ Semana anterior</a>
+            <a asp-page="/Asistencias/Semanal" asp-route-start="@sig" class="btn btn-outline-secondary">Semana siguiente ⟶</a>
+        </div>
+    </div>
+
+    <!-- Resumen semanal -->
+    <div class="row g-3 mb-3">
+        <div class="col-12 col-sm-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Socios con asistencia</div>
+                    <div class="fs-4 fw-semibold">@Model.SociosConAsistencia</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Total asistencias</div>
+                    <div class="fs-4 fw-semibold">@Model.TotalAsistenciasSemana</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Promedio por socio</div>
+                    <div class="fs-4 fw-semibold">@Model.PromedioAsistenciasPorSocio</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form method="get" class="mb-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-auto">
+                <label class="form-label">Inicio de semana</label>
+                <input type="date" name="start" value="@inicio" class="form-control" />
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary">Ir</button>
+            </div>
+        </div>
+    </form>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>DNI</th>
+                        <th>Socio</th>
+                        <th>Plan</th>
+                        <th>Días</th>
+                        <th class="text-center">Asistencias</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @if (Model.Items.Count == 0)
+                {
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-4">Sin asistencias en la semana seleccionada</td>
+                    </tr>
+                }
+                else
+                {
+                    foreach (var r in Model.Items)
+                    {
+                        <tr>
+                            <td>@r.Dni</td>
+                            <td>@r.Nombre</td>
+                            <td>@(string.IsNullOrWhiteSpace(r.PlanNombre) ? "-" : r.PlanNombre)</td>
+                            <td>
+                                <span class="badge rounded-pill @(r.Lun ? "bg-primary" : "bg-light text-muted border") me-1" title="Lunes">Lun</span>
+                                <span class="badge rounded-pill @(r.Mar ? "bg-primary" : "bg-light text-muted border") me-1" title="Martes">Mar</span>
+                                <span class="badge rounded-pill @(r.Mie ? "bg-primary" : "bg-light text-muted border") me-1" title="Miércoles">Mie</span>
+                                <span class="badge rounded-pill @(r.Jue ? "bg-primary" : "bg-light text-muted border") me-1" title="Jueves">Jue</span>
+                                <span class="badge rounded-pill @(r.Vie ? "bg-primary" : "bg-light text-muted border") me-1" title="Viernes">Vie</span>
+                                <span class="badge rounded-pill @(r.Sab ? "bg-primary" : "bg-light text-muted border") me-1" title="Sábado">Sab</span>
+                                <span class="badge rounded-pill @(r.Dom ? "bg-primary" : "bg-light text-muted border")" title="Domingo">Dom</span>
+                            </td>
+                            <td class="text-center">@r.TotalAsistencias</td>
+                        </tr>
+                    }
+                }
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer text-muted small">
+            Semana: @Model.SemanaInicio.ToString("dd/MM/yyyy") – @Model.SemanaFinExcl.AddDays(-1).ToString("dd/MM/yyyy")
+        </div>
+    </div>
+</section>

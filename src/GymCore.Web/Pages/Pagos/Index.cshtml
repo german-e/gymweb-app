@@ -1,0 +1,60 @@
+@page
+@model GymCore.Web.Pages.Pagos.IndexModel
+@{
+    ViewData["Title"] = "Pagos";
+}
+
+<section class="container py-4">
+    @if (TempData["PagoOk"] is string okMsg)
+    {
+        <div class="alert alert-success" role="alert">@okMsg</div>
+    }
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
+        <div>
+            <h1 class="h4 mb-1">Pagos</h1>
+            <p class="text-muted mb-0">Listado de pagos registrados.</p>
+        </div>
+        <div>
+            <a asp-page="/Pagos/Nuevo" class="btn btn-primary">Registrar pago</a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Fecha</th>
+                        <th>DNI</th>
+                        <th>Socio</th>
+                        <th class="text-end">Importe</th>
+                        <th>Medio</th>
+                        <th>Observaciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @if (Model.Items.Count == 0)
+                {
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">No hay pagos registrados</td>
+                    </tr>
+                }
+                else
+                {
+                    foreach (var p in Model.Items)
+                    {
+                        <tr>
+                            <td>@p.FechaPago.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>@p.Socio?.Dni</td>
+                            <td>@(p.Socio is null ? "-" : $"{p.Socio.Apellido}, {p.Socio.Nombre}")</td>
+                            <td class="text-end">$ @p.Importe @p.Moneda</td>
+                            <td>@p.Medio</td>
+                            <td>@p.Observaciones</td>
+                        </tr>
+                    }
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>

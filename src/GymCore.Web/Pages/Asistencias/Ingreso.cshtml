@@ -1,0 +1,121 @@
+@page
+@{
+    ViewData["Title"] = "Ingreso";
+}
+
+<section class="container py-5" x-data>
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <h1 class="h4 mb-3">Punto de ingreso</h1>
+                    <p class="text-muted">Apoye la tarjeta en el lector o ingrese el DNI y presione Enter.</p>
+                    <form id="checkin-form" class="d-flex gap-2" onsubmit="return false">
+                        <input id="code" class="form-control form-control-lg" placeholder="DNI o código" autocomplete="off" autofocus />
+                        <button id="btn-ok" class="btn btn-primary btn-lg" type="button">OK</button>
+                    </form>
+                                        <div id="feedback" class="mt-3" role="status" aria-live="polite"></div>
+                    <hr class="my-4" />
+                    <div class="d-flex gap-2">
+                        <a asp-page="/Panel" class="btn btn-outline-secondary">Volver al panel</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Modal confirmación de cargo extra -->
+<div class="modal fade" id="extraModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Cupo semanal excedido</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p>Este socio excedió su cupo semanal de asistencias.</p>
+                <p class="mb-0">¿Deseás registrar el ingreso con un cargo extra?</p>
+                <small class="text-muted">El cargo extra puede registrarse en Pagos.</small>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnConfirmExtra">Registrar con cargo extra</button>
+            </div>
+        </div>
+    </div>
+    </div>
+
+@section Scripts {
+<script>
+(function() {
+    const input = document.getElementById('code');
+    const btn = document.getElementById('btn-ok');
+    const fb = document.getElementById('feedback');
+
+    function beep(ok) {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.type = ok ? 'sine' : 'square';
+            o.frequency.value = ok ? 880 : 220;
+            o.connect(g); g.connect(ctx.destination);
+            o.start();
+            g.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.15);
+            setTimeout(() => o.stop(), 160);
+        } catch {}
+    }
+
+    async function submit(confirmExtra = false) {
+        const code = (input.value || '').trim();
+        if (!code) return;
+        btn.disabled = true;
+        input.disabled = true;
+        fb.innerHTML = '<div class="alert alert-info">Procesando...</div>';
+        try {
+            const res = await fetch('/api/asistencias/checkin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code, confirmExtra })
+            });
+            const data = await res.json();
+            if (data.requiresExtra) {
+                const modalEl = document.getElementById('extraModal');
+                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                modal.show();
+                document.getElementById('btnConfirmExtra').onclick = async () => {
+                    modal.hide();
+                    await submit(true);
+                };
+                fb.innerHTML = `<div class="alert alert-warning">${data.mensaje || 'Se requiere confirmación de cargo extra.'}</div>`;
+            } else if (data.ok) {
+                fb.innerHTML = `<div class="alert alert-success"><strong>${data.socio?.nombre || 'Socio'}</strong>: ${data.mensaje}</div>`;
+                beep(true);
+            } else {
+                fb.innerHTML = `<div class="alert alert-warning">${data.mensaje || 'No se pudo registrar'}</div>`;
+                beep(false);
+            }
+        } catch (e) {
+            fb.innerHTML = '<div class="alert alert-danger">Error de comunicación</div>';
+            beep(false);
+        } finally {
+            input.value = '';
+            input.disabled = false;
+            btn.disabled = false;
+            input.focus();
+        }
+    }
+
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            submit();
+        }
+    });
+    btn.addEventListener('click', () => submit());
+    // Autofocus robusto
+    setTimeout(() => input?.focus(), 100);
+})();
+</script>
+}

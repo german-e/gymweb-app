@@ -1,0 +1,49 @@
+@page
+@model GymCore.Web.Pages.Suscripciones.NuevaModel
+@{
+    ViewData["Title"] = "Nueva suscripción";
+}
+
+<section class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <h1 class="h4 mb-3">Nueva suscripción</h1>
+                    <form method="post">
+                        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label asp-for="SocioId" class="form-label">Socio</label>
+                                <select asp-for="SocioId" class="form-select" asp-items="Model.Socios"></select>
+                                <span asp-validation-for="SocioId" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="PlanId" class="form-label">Plan</label>
+                                <select asp-for="PlanId" class="form-select" asp-items="Model.Planes"></select>
+                                <span asp-validation-for="PlanId" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="FechaInicio" class="form-label"></label>
+                                <input asp-for="FechaInicio" type="date" class="form-control" />
+                                <span class="form-text">Por defecto hoy.</span>
+                            </div>
+                        </div>
+                        <div class="mt-4 d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">Crear suscripción</button>
+                            <a asp-page="/Panel" class="btn btn-outline-secondary">Cancelar</a>
+                        </div>
+                    </form>
+                    @if (!string.IsNullOrEmpty(Model.Mensaje))
+                    {
+                        <div class="alert alert-warning mt-3">@Model.Mensaje</div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+@section Scripts{
+    <partial name="_ValidationScriptsPartial" />
+}

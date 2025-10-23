@@ -1,0 +1,29 @@
+@page "{id:int}"
+@model GymCore.Web.Pages.Planes.DeleteModel
+@{
+    ViewData["Title"] = "Eliminar plan";
+}
+
+<section class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <h1 class="h5 mb-3 text-danger">¿Eliminar plan?</h1>
+                    <dl class="row">
+                        <dt class="col-sm-3">Nombre</dt><dd class="col-sm-9">@Model.Nombre</dd>
+                        <dt class="col-sm-3">Tipo</dt><dd class="col-sm-9">@Model.Tipo</dd>
+                        <dt class="col-sm-3">Precio</dt><dd class="col-sm-9">$ @Model.Precio @Model.Moneda</dd>
+                    </dl>
+                    <form method="post">
+                        <input type="hidden" asp-for="Id" />
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-danger">Eliminar</button>
+                            <a asp-page="/Planes/Planes" class="btn btn-outline-secondary">Cancelar</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

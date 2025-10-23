@@ -1,0 +1,30 @@
+@page "{id:int}"
+@model GymCore.Web.Pages.Socios.DeleteModel
+@{
+    ViewData["Title"] = "Eliminar socio";
+}
+
+<section class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <h1 class="h5 mb-3 text-danger">¿Eliminar socio?</h1>
+                    <p class="text-muted">Esta acción no se puede deshacer.</p>
+                    <dl class="row">
+                        <dt class="col-sm-3">DNI</dt><dd class="col-sm-9">@Model.Dni</dd>
+                        <dt class="col-sm-3">Apellido</dt><dd class="col-sm-9">@Model.Apellido</dd>
+                        <dt class="col-sm-3">Nombre</dt><dd class="col-sm-9">@Model.Nombre</dd>
+                    </dl>
+                    <form method="post">
+                        <input type="hidden" asp-for="Id" />
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-danger">Eliminar</button>
+                            <a asp-page="/Socios/Socios" class="btn btn-outline-secondary">Cancelar</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
