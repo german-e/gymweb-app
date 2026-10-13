@@ -4,278 +4,313 @@
     ViewData["Title"] = "Panel de gestión";
 }
 
-<section class="container py-4">
-    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+<section class="page-shell">
+    <div class="page-header">
         <div>
-            <h1 class="h3 mb-1">Panel de gestión</h1>
-            <p class="text-muted mb-0">Accedé rápido a los módulos más usados y revisá indicadores clave.</p>
+            <span class="eyebrow"><i class="bi bi-graph-up-arrow"></i> Gestión general</span>
+            <h2>Panel de gestión</h2>
+            <p>Accedé rápido a los indicadores clave, alertas y acciones frecuentes del gimnasio.</p>
         </div>
-        <div class="d-flex gap-2">
-            <a class="btn btn-primary" asp-page="/Socios/Socios">Agregar socio</a>
-            <a class="btn btn-outline-secondary" asp-page="/Pagos/Nuevo">Registrar pago</a>
+
+        <div class="header-actions">
+            <a class="primary-btn" asp-page="/Socios/Socios"><i class="bi bi-person-plus"></i> Agregar socio</a>
+            <a class="secondary-btn" asp-page="/Pagos/Index"><i class="bi bi-wallet2"></i> Registrar pago</a>
         </div>
     </div>
 
-    <!-- KPIs -->
-    <div class="row g-3 kpi-row mb-4">
-        <div class="col-6 col-lg-3">
-            <div class="card kpi-card shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <div class="kpi-label">Socios activos</div>
-                            <div class="kpi-value">@Model.SociosActivos</div>
-                        </div>
-                        <span class="kpi-icon text-primary" aria-hidden="true">🏋️</span>
-                    </div>
-                </div>
+    <div class="stats-grid">
+        <article class="stat-card primary">
+            <div class="stat-icon"><i class="bi bi-people-fill"></i></div>
+            <div class="stat-copy">
+                <p>Socios activos</p>
+                <h3>@Model.SociosActivos</h3>
+            </div>
+            <span class="trend positive">+12.4%</span>
+        </article>
+
+        <article class="stat-card warning">
+            <div class="stat-icon"><i class="bi bi-exclamation-triangle"></i></div>
+            <div class="stat-copy">
+                <p>Cuotas vencidas</p>
+                <h3>@Model.SuscripcionesVencidas</h3>
+            </div>
+            <span class="trend negative">-2.1%</span>
+        </article>
+
+        <article class="stat-card success">
+            <div class="stat-icon"><i class="bi bi-cash-stack"></i></div>
+            <div class="stat-copy">
+                <p>Ingresos del mes</p>
+                <h3>$@Model.IngresosDelMes</h3>
+            </div>
+            <span class="trend positive">+8.7%</span>
+        </article>
+
+        <article class="stat-card danger">
+            <div class="stat-icon"><i class="bi bi-geo-alt"></i></div>
+            <div class="stat-copy">
+                <p>Asistencias hoy</p>
+                <h3>@Model.AsistenciasHoy</h3>
+            </div>
+            <span class="trend positive">+5.0%</span>
+        </article>
+    </div>
+
+    <div class="shortcuts-row">
+        <a class="shortcut-pill" asp-page="/Socios/Socios"><i class="bi bi-person-plus"></i> Nuevo socio</a>
+        <a class="shortcut-pill" asp-page="/Asistencias/Ingreso"><i class="bi bi-door-open"></i> Control de ingreso</a>
+        <a class="shortcut-pill" asp-page="/Pagos/Index"><i class="bi bi-receipt"></i> Últimos pagos</a>
+        <a class="shortcut-pill" asp-page="/Planes/Planes"><i class="bi bi-card-list"></i> Ver planes</a>
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="panel-card">
+            <div class="panel-head">
+                <h3>Evolución de socios</h3>
+                <a class="muted-link" href="#">Ver detalle</a>
+            </div>
+
+            <div class="mini-chart" aria-label="Gráfico de evolución de socios">
+                <div class="chart-bar" style="height: 38%;"><span>Ene</span></div>
+                <div class="chart-bar" style="height: 48%;"><span>Feb</span></div>
+                <div class="chart-bar" style="height: 55%;"><span>Mar</span></div>
+                <div class="chart-bar" style="height: 62%;"><span>Abr</span></div>
+                <div class="chart-bar" style="height: 70%;"><span>May</span></div>
+                <div class="chart-bar" style="height: 82%;"><span>Jun</span></div>
+                <div class="chart-bar" style="height: 90%;"><span>Jul</span></div>
             </div>
         </div>
-        <div class="col-6 col-lg-3">
-            <div class="card kpi-card shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <div class="kpi-label">Suscripciones vencidas</div>
-                            <div class="kpi-value text-danger">@Model.SuscripcionesVencidas</div>
-                        </div>
-                        <span class="kpi-icon text-danger" aria-hidden="true">⏰</span>
-                    </div>
-                </div>
+
+        <div class="panel-card">
+            <div class="panel-head">
+                <h3>Alertas importantes</h3>
+                <a class="muted-link" href="#">Ver todo</a>
             </div>
-        </div>
-        <div class="col-6 col-lg-3">
-            <div class="card kpi-card shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <div class="kpi-label">Ingresos del mes</div>
-                            <div class="kpi-value">$ @Model.IngresosDelMes</div>
+
+            <ul class="alert-list">
+                <li class="alert-item">
+                    <div class="alert-guide">
+                        <span class="status-bubble danger"></span>
+                        <div class="alert-copy">
+                            <h4>Cuota vencida</h4>
+                            <p>3 socios requieren seguimiento hoy</p>
                         </div>
-                        <span class="kpi-icon text-success" aria-hidden="true">💵</span>
                     </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-lg-3">
-            <div class="card kpi-card shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <div class="kpi-label">Asistencias hoy</div>
-                            <div class="kpi-value">@Model.AsistenciasHoy</div>
+                    <span class="badge-soft danger">Urgente</span>
+                </li>
+                <li class="alert-item">
+                    <div class="alert-guide">
+                        <span class="status-bubble warning"></span>
+                        <div class="alert-copy">
+                            <h4>Inventario bajo</h4>
+                            <p>Mat. para entrenamiento en stock crítico</p>
                         </div>
-                        <span class="kpi-icon text-info" aria-hidden="true">📍</span>
                     </div>
-                </div>
-            </div>
+                    <span class="badge-soft warning">Aviso</span>
+                </li>
+                <li class="alert-item">
+                    <div class="alert-guide">
+                        <span class="status-bubble success"></span>
+                        <div class="alert-copy">
+                            <h4>Meta mensual</h4>
+                            <p>Estás al 82% de tu objetivo de ingresos</p>
+                        </div>
+                    </div>
+                    <span class="badge-soft success">OK</span>
+                </li>
+            </ul>
         </div>
     </div>
 
-    <!-- Buscador -->
-    <div class="card shadow-sm mb-4">
-        <div class="card-body">
-            <form class="row g-2 align-items-center" role="search" aria-label="Buscar socios o planes">
-                <div class="col-12 col-md">
-                    <input type="search" class="form-control" placeholder="Buscar socios, DNI, plan..." aria-label="Buscar" />
-                </div>
-                <div class="col-12 col-md-auto">
-                    <button type="submit" class="btn btn-outline-primary">Buscar</button>
-                </div>
-            </form>
+    <div class="dashboard-grid" style="margin-top: 20px;">
+        <div class="panel-card">
+            <div class="panel-head">
+                <h3>Próximos vencimientos</h3>
+                <a class="muted-link" href="#">Agenda</a>
+            </div>
+
+            <ul class="list-rows">
+                <li class="list-row">
+                    <div class="list-copy">
+                        <h4>María López</h4>
+                        <p>Plan mensual • vence en 2 días</p>
+                    </div>
+                    <span class="list-value warning">Recordar</span>
+                </li>
+                <li class="list-row">
+                    <div class="list-copy">
+                        <h4>Diego Torres</h4>
+                        <p>Plan trimestral • vence en 4 días</p>
+                    </div>
+                    <span class="list-value warning">Pendiente</span>
+                </li>
+                <li class="list-row">
+                    <div class="list-copy">
+                        <h4>Lucía Gómez</h4>
+                        <p>Plan anual • vence en 7 días</p>
+                    </div>
+                    <span class="list-value success">Activo</span>
+                </li>
+            </ul>
+        </div>
+
+        <div class="panel-card">
+            <div class="panel-head">
+                <h3>Últimos pagos</h3>
+                <a class="muted-link" href="#">Ver historial</a>
+            </div>
+
+            <ul class="payments-list">
+                <li class="payment-row">
+                    <div class="payment-copy">
+                        <h4>Carla Ruiz</h4>
+                        <p>Transferencia • 12 jul</p>
+                    </div>
+                    <span class="amount">$12.500</span>
+                </li>
+                <li class="payment-row">
+                    <div class="payment-copy">
+                        <h4>Agustín Díaz</h4>
+                        <p>Tarjeta • 12 jul</p>
+                    </div>
+                    <span class="amount">$15.000</span>
+                </li>
+                <li class="payment-row">
+                    <div class="payment-copy">
+                        <h4>Paula Silva</h4>
+                        <p>Efectivo • 11 jul</p>
+                    </div>
+                    <span class="amount">$8.300</span>
+                </li>
+            </ul>
         </div>
     </div>
 
-    <!-- Módulos -->
-    <h2 class="h5 mb-3">Módulos</h2>
-    <div class="row g-3">
-        <!-- Socios -->
-        <div class="col-12 col-sm-6 col-lg-4">
-            <div class="card module-card h-100 shadow-sm">
-                <div class="card-body d-flex flex-column">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="module-icon bg-primary-subtle text-primary">👤</span>
-                            <h3 class="h6 mb-0">Socios</h3>
-                        </div>
-                        <span class="badge text-bg-light">Gestión</span>
-                    </div>
-                    <p class="text-muted small mb-3">Altas, bajas, edición de datos y estado de suscripción.</p>
-                    <div class="mt-auto d-flex gap-2">
-                        <a class="btn btn-sm btn-primary" asp-page="/Socios/Socios">Abrir</a>
-                        <a class="btn btn-sm btn-outline-secondary" href="#">Nuevo</a>
-                    </div>
-                </div>
-            </div>
+    <div class="module-section" style="margin-top: 24px;">
+        <div class="section-heading">
+            <h2>Módulos principales</h2>
+            <a class="muted-link" href="#">Todos los módulos</a>
         </div>
-        <!-- Planes -->
-        <div class="col-12 col-sm-6 col-lg-4">
-            <div class="card module-card h-100 shadow-sm">
-                <div class="card-body d-flex flex-column">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="module-icon bg-success-subtle text-success">📦</span>
-                            <h3 class="h6 mb-0">Planes</h3>
-                        </div>
-                        <span class="badge text-bg-light">Catálogo</span>
+
+        <div class="module-grid">
+            <article class="module-card">
+                <div class="module-head">
+                    <div class="module-title">
+                        <span class="module-icon primary"><i class="bi bi-people"></i></span>
+                        <h3>Socios</h3>
                     </div>
-                    <p class="text-muted small mb-3">Definición de planes, precios y periodicidad.</p>
-                    <div class="mt-auto d-flex gap-2">
-                        <a class="btn btn-sm btn-outline-primary" asp-page="/Planes/Planes">Ver planes</a>
-                        <a class="btn btn-sm btn-outline-secondary" asp-page="/Planes/Create">Nuevo plan</a>
-                    </div>
+                    <span class="badge-light">Gestión</span>
                 </div>
-            </div>
-        </div>
-        <!-- Suscripciones -->
-        <div class="col-12 col-sm-6 col-lg-4">
-            <div class="card module-card h-100 shadow-sm">
-                <div class="card-body d-flex flex-column">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="module-icon bg-warning-subtle text-warning">🪪</span>
-                            <h3 class="h6 mb-0">Suscripciones</h3>
-                        </div>
-                        <span class="badge text-bg-light">Operación</span>
-                    </div>
-                    <p class="text-muted small mb-3">Alta de suscripción, renovaciones y cambios de plan.</p>
-                    <div class="mt-auto d-flex gap-2">
-                        <a class="btn btn-sm btn-outline-primary" asp-page="/Suscripciones/Nueva">Nueva suscripción</a>
-                        <a class="btn btn-sm btn-outline-secondary" asp-page="/Socios/Socios">Renovar</a>
-                    </div>
+                <p>Altas, fichas, seguimiento de membresías y estado de suscripciones.</p>
+                <div class="module-actions">
+                    <a class="btn btn-primary btn-sm" asp-page="/Socios/Socios">Abrir</a>
+                    <a class="btn btn-outline-secondary btn-sm" href="#">Nuevo</a>
                 </div>
-            </div>
-        </div>
-        <!-- Pagos -->
-        <div class="col-12 col-sm-6 col-lg-4">
-            <div class="card module-card h-100 shadow-sm">
-                <div class="card-body d-flex flex-column">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="module-icon bg-danger-subtle text-danger">💳</span>
-                            <h3 class="h6 mb-0">Pagos</h3>
-                        </div>
-                        <span class="badge text-bg-light">Caja</span>
+            </article>
+
+            <article class="module-card">
+                <div class="module-head">
+                    <div class="module-title">
+                        <span class="module-icon success"><i class="bi bi-box-seam"></i></span>
+                        <h3>Planes</h3>
                     </div>
-                    <p class="text-muted small mb-3">Registro de pagos, medios de pago y comprobantes.</p>
-                    <div class="mt-auto d-flex gap-2">
-                        <a class="btn btn-sm btn-outline-primary" asp-page="/Pagos/Nuevo">Registrar</a>
-                        <a class="btn btn-sm btn-outline-secondary" asp-page="/Pagos/Index">Historial</a>
-                    </div>
+                    <span class="badge-light">Catálogo</span>
                 </div>
-            </div>
-        </div>
-        <!-- Asistencias -->
-        <div class="col-12 col-sm-6 col-lg-4">
-            <div class="card module-card h-100 shadow-sm">
-                <div class="card-body d-flex flex-column">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="module-icon bg-info-subtle text-info">📍</span>
-                            <h3 class="h6 mb-0">Asistencias</h3>
-                        </div>
-                        <span class="badge text-bg-light">Control</span>
-                    </div>
-                    <p class="text-muted small mb-3">Marcación de ingreso, historial por socio y reportes diarios.</p>
-                    <div class="mt-auto d-flex gap-2">
-                        <a class="btn btn-sm btn-outline-primary" asp-page="/Asistencias/Ingreso">Registrar</a>
-                        <a class="btn btn-sm btn-outline-secondary" asp-page="/Asistencias/Semanal">Ver semanal</a>
-                    </div>
+                <p>Definición de planes, cuotas, beneficios y condiciones por membresía.</p>
+                <div class="module-actions">
+                    <a class="btn btn-outline-primary btn-sm" asp-page="/Planes/Planes">Ver</a>
+                    <a class="btn btn-outline-secondary btn-sm" href="#">Crear</a>
                 </div>
-            </div>
-        </div>
-        <!-- Clases -->
-        <div class="col-12 col-sm-6 col-lg-4">
-            <div class="card module-card h-100 shadow-sm">
-                <div class="card-body d-flex flex-column">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="module-icon bg-secondary-subtle text-secondary">📅</span>
-                            <h3 class="h6 mb-0">Clases</h3>
-                        </div>
-                        <span class="badge text-bg-light">Agenda</span>
+            </article>
+
+            <article class="module-card">
+                <div class="module-head">
+                    <div class="module-title">
+                        <span class="module-icon warning"><i class="bi bi-credit-card"></i></span>
+                        <h3>Pagos</h3>
                     </div>
-                    <p class="text-muted small mb-3">Calendario de clases, cupos y reservas.</p>
-                    <div class="mt-auto d-flex gap-2">
-                        <a class="btn btn-sm btn-outline-primary" href="#">Calendario</a>
-                        <a class="btn btn-sm btn-outline-secondary" href="#">Nueva clase</a>
-                    </div>
+                    <span class="badge-light">Caja</span>
                 </div>
-            </div>
-        </div>
-        <!-- Entrenadores -->
-        <div class="col-12 col-sm-6 col-lg-4">
-            <div class="card module-card h-100 shadow-sm">
-                <div class="card-body d-flex flex-column">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="module-icon bg-primary-subtle text-primary">🧑‍🏫</span>
-                            <h3 class="h6 mb-0">Entrenadores</h3>
-                        </div>
-                        <span class="badge text-bg-light">Staff</span>
-                    </div>
-                    <p class="text-muted small mb-3">Gestión del equipo, horarios y asignaciones.</p>
-                    <div class="mt-auto d-flex gap-2">
-                        <a class="btn btn-sm btn-outline-primary" href="#">Listado</a>
-                        <a class="btn btn-sm btn-outline-secondary" href="#">Nuevo</a>
-                    </div>
+                <p>Control de pagos, cuotas pendientes, historial y métodos de cobro.</p>
+                <div class="module-actions">
+                    <a class="btn btn-outline-primary btn-sm" asp-page="/Pagos/Index">Historial</a>
+                    <a class="btn btn-outline-secondary btn-sm" href="#">Cobrar</a>
                 </div>
-            </div>
-        </div>
-        <!-- Reportes -->
-        <div class="col-12 col-sm-6 col-lg-4">
-            <div class="card module-card h-100 shadow-sm">
-                <div class="card-body d-flex flex-column">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="module-icon bg-success-subtle text-success">📊</span>
-                            <h3 class="h6 mb-0">Reportes</h3>
-                        </div>
-                        <span class="badge text-bg-light">Análisis</span>
+            </article>
+
+            <article class="module-card">
+                <div class="module-head">
+                    <div class="module-title">
+                        <span class="module-icon info"><i class="bi bi-door-open"></i></span>
+                        <h3>Asistencias</h3>
                     </div>
-                    <p class="text-muted small mb-3">Indicadores de socios, facturación y retención.</p>
-                    <div class="mt-auto d-flex gap-2">
-                        <a class="btn btn-sm btn-outline-primary" href="#">Ver reportes</a>
-                    </div>
+                    <span class="badge-light">Control</span>
                 </div>
-            </div>
-        </div>
-        <!-- Caja -->
-        <div class="col-12 col-sm-6 col-lg-4">
-            <div class="card module-card h-100 shadow-sm">
-                <div class="card-body d-flex flex-column">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="module-icon bg-danger-subtle text-danger">🧾</span>
-                            <h3 class="h6 mb-0">Caja</h3>
-                        </div>
-                        <span class="badge text-bg-light">Finanzas</span>
-                    </div>
-                    <p class="text-muted small mb-3">Movimientos, cierres y arqueos de caja.</p>
-                    <div class="mt-auto d-flex gap-2">
-                        <a class="btn btn-sm btn-outline-primary" href="#">Abrir caja</a>
-                        <a class="btn btn-sm btn-outline-secondary" href="#">Movimientos</a>
-                    </div>
+                <p>Acceso, registro de entradas y seguimiento de hábitos de cada socio.</p>
+                <div class="module-actions">
+                    <a class="btn btn-outline-primary btn-sm" asp-page="/Asistencias/Ingreso">Ingresar</a>
+                    <a class="btn btn-outline-secondary btn-sm" href="#">Reporte</a>
                 </div>
-            </div>
-        </div>
-        <!-- Configuración -->
-        <div class="col-12 col-sm-6 col-lg-4">
-            <div class="card module-card h-100 shadow-sm">
-                <div class="card-body d-flex flex-column">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="module-icon bg-secondary-subtle text-secondary">⚙️</span>
-                            <h3 class="h6 mb-0">Configuración</h3>
-                        </div>
-                        <span class="badge text-bg-light">Sistema</span>
+            </article>
+
+            <article class="module-card">
+                <div class="module-head">
+                    <div class="module-title">
+                        <span class="module-icon muted"><i class="bi bi-person-badge"></i></span>
+                        <h3>Entrenadores</h3>
                     </div>
-                    <p class="text-muted small mb-3">Datos del gimnasio, usuarios y parámetros generales.</p>
-                    <div class="mt-auto d-flex gap-2">
-                        <a class="btn btn-sm btn-outline-primary" href="#">Ajustes</a>
-                    </div>
+                    <span class="badge-light">Staff</span>
                 </div>
-            </div>
+                <p>Horarios, asignaciones y gestión del cuerpo técnico del club.</p>
+                <div class="module-actions">
+                    <a class="btn btn-outline-primary btn-sm" href="#">Listar</a>
+                    <a class="btn btn-outline-secondary btn-sm" href="#">Nuevo</a>
+                </div>
+            </article>
+
+            <article class="module-card">
+                <div class="module-head">
+                    <div class="module-title">
+                        <span class="module-icon primary"><i class="bi bi-bar-chart"></i></span>
+                        <h3>Reportes</h3>
+                    </div>
+                    <span class="badge-light">Análisis</span>
+                </div>
+                <p>Indicadores de finanzas, socios, asistencias y morosidad del negocio.</p>
+                <div class="module-actions">
+                    <a class="btn btn-outline-primary btn-sm" href="#">Ver</a>
+                    <a class="btn btn-outline-secondary btn-sm" href="#">Exportar</a>
+                </div>
+            </article>
+
+            <article class="module-card">
+                <div class="module-head">
+                    <div class="module-title">
+                        <span class="module-icon danger"><i class="bi bi-box2-heart"></i></span>
+                        <h3>Insumos</h3>
+                    </div>
+                    <span class="badge-light">Stock</span>
+                </div>
+                <p>Inventario de materiales, compras, stock mínimo y control de productos.</p>
+                <div class="module-actions">
+                    <a class="btn btn-outline-primary btn-sm" href="#">Inventario</a>
+                    <a class="btn btn-outline-secondary btn-sm" href="#">Compras</a>
+                </div>
+            </article>
+
+            <article class="module-card">
+                <div class="module-head">
+                    <div class="module-title">
+                        <span class="module-icon muted"><i class="bi bi-sliders"></i></span>
+                        <h3>Configuración</h3>
+                    </div>
+                    <span class="badge-light">Sistema</span>
+                </div>
+                <p>Usuarios, permisos, parámetros generales y perfil del gimnasio.</p>
+                <div class="module-actions">
+                    <a class="btn btn-outline-primary btn-sm" href="#">Ajustes</a>
+                </div>
+            </article>
         </div>
     </div>
 </section>
