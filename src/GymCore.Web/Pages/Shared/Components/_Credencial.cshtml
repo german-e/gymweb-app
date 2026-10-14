@@ -1,0 +1,39 @@
+@model GymCore.Web.Componentes.CredencialVm
+@inject Microsoft.Extensions.Configuration.IConfiguration Config
+@{
+    var gimnasio = Config["Gimnasio:Nombre"] ?? "GymCore";
+}
+@* El código de barras se dibuja en el cliente (components.js → JsBarcode, CODE128) con el código del sistema. *@
+<article class="credencial @Model.Variante @(Model.Mini ? "credencial-mini" : "")" id="@Model.Id" aria-label="Credencial de @Model.NombreCompleto">
+    <div class="credencial__top">
+        <span class="credencial__brand"><i class="bi bi-lightning-charge-fill"></i> @gimnasio</span>
+        <span class="credencial__estado">@Model.EstadoTexto</span>
+    </div>
+    <div class="credencial__body">
+        <span class="credencial__foto">
+            @if (!string.IsNullOrEmpty(Model.FotoUrl))
+            {
+                <img src="@Url.Content("~/" + Model.FotoUrl)" alt="" />
+            }
+            else
+            {
+                @Model.Iniciales
+            }
+        </span>
+        <div class="credencial__datos">
+            <span class="credencial__nombre">@Model.NombreCompleto</span>
+            <dl class="credencial__meta">
+                <dt>Socio N°</dt><dd>@Model.NumeroSocio</dd>
+                <dt>DNI</dt><dd>@Model.Dni</dd>
+                @if (!Model.Mini)
+                {
+                    <dt>Plan</dt><dd>@(Model.Plan ?? "Sin plan")</dd>
+                }
+                <dt>Vence</dt><dd>@(Model.Vencimiento?.ToString("dd/MM/yyyy") ?? "—")</dd>
+            </dl>
+        </div>
+    </div>
+    <div class="credencial__codigo">
+        <svg data-barcode="@Model.Codigo" role="img" aria-label="Código de barras @Model.Codigo"></svg>
+    </div>
+</article>

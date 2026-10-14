@@ -1,0 +1,271 @@
+@using GymCore.Dominio.Enums
+@using GymCore.Web.Pages.Entrenadores
+@model GymCore.Web.Pages.Entrenadores.EntrenadorFormPageModel
+@{
+    var dias = Model.Input.Dias;
+}
+
+<form method="post" enctype="multipart/form-data" novalidate class="form-layout">
+    <nav class="section-nav" data-section-nav aria-label="Secciones del formulario">
+        <a href="#sec-personales" class="active"><i class="bi bi-person"></i> Datos personales</a>
+        <a href="#sec-profesional"><i class="bi bi-award"></i> Información profesional</a>
+        <a href="#sec-disponibilidad"><i class="bi bi-calendar-week"></i> Disponibilidad</a>
+        <a href="#sec-estado"><i class="bi bi-toggle-on"></i> Estado</a>
+    </nav>
+
+    <div class="form-stack">
+        <div asp-validation-summary="ModelOnly" class="flash danger mb-0"></div>
+
+        @* ============ DATOS PERSONALES ============ *@
+        <section class="form-section" id="sec-personales">
+            <header class="form-section__head">
+                <div class="module-icon primary"><i class="bi bi-person"></i></div>
+                <div>
+                    <h3>Datos personales</h3>
+                    <p>Identificación y datos de contacto.</p>
+                </div>
+            </header>
+            <div class="form-section__body">
+                <div class="photo-upload mb-4">
+                    <span class="avatar-circle" id="fotoPreview">
+                        @if (!string.IsNullOrEmpty(Model.FotoActualUrl))
+                        {
+                            <img src="@Url.Content("~/" + Model.FotoActualUrl)" alt="Foto actual" />
+                        }
+                        else
+                        {
+                            <i class="bi bi-camera"></i>
+                        }
+                    </span>
+                    <div class="photo-upload__actions">
+                        <label class="secondary-btn mb-0" role="button">
+                            <i class="bi bi-upload"></i> @(string.IsNullOrEmpty(Model.FotoActualUrl) ? "Subir fotografía" : "Cambiar fotografía")
+                            <input asp-for="Input.Foto" type="file" accept="image/jpeg,image/png,image/webp" class="d-none" data-photo-input="#fotoPreview" />
+                        </label>
+                        @if (!string.IsNullOrEmpty(Model.FotoActualUrl))
+                        {
+                            <div class="form-check small">
+                                <input asp-for="Input.QuitarFoto" class="form-check-input" data-photo-remove />
+                                <label asp-for="Input.QuitarFoto" class="form-check-label">Quitar foto actual</label>
+                            </div>
+                        }
+                        <small>JPG, PNG o WEBP · máx. 2 MB · cuadrada recomendada</small>
+                        <span asp-validation-for="Input.Foto" class="text-danger small"></span>
+                    </div>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label asp-for="Input.Nombre" class="form-label"></label><span class="req text-danger">*</span>
+                        <input asp-for="Input.Nombre" class="form-control" autocomplete="given-name" autofocus />
+                        <span asp-validation-for="Input.Nombre" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Input.Apellido" class="form-label"></label><span class="req text-danger">*</span>
+                        <input asp-for="Input.Apellido" class="form-control" autocomplete="family-name" />
+                        <span asp-validation-for="Input.Apellido" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Input.Dni" class="form-label"></label><span class="req text-danger">*</span>
+                        <input asp-for="Input.Dni" class="form-control" inputmode="numeric" />
+                        <span asp-validation-for="Input.Dni" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Input.FechaNacimiento" class="form-label"></label>
+                        <input asp-for="Input.FechaNacimiento" class="form-control" />
+                        <span asp-validation-for="Input.FechaNacimiento" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Input.Sexo" class="form-label"></label>
+                        <select asp-for="Input.Sexo" class="form-select">
+                            @foreach (var s in Enum.GetValues<Sexo>())
+                            {
+                                <option value="@s">@s.Texto()</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Input.Telefono" class="form-label"></label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-telephone"></i></span>
+                            <input asp-for="Input.Telefono" class="form-control" type="tel" autocomplete="tel" />
+                        </div>
+                        <span asp-validation-for="Input.Telefono" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Input.Celular" class="form-label"></label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-phone"></i></span>
+                            <input asp-for="Input.Celular" class="form-control" type="tel" autocomplete="tel" />
+                        </div>
+                        <span asp-validation-for="Input.Celular" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Input.Email" class="form-label"></label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                            <input asp-for="Input.Email" class="form-control" type="email" autocomplete="email" />
+                        </div>
+                        <span asp-validation-for="Input.Email" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Input.Direccion" class="form-label"></label>
+                        <input asp-for="Input.Direccion" class="form-control" autocomplete="street-address" />
+                        <span asp-validation-for="Input.Direccion" class="text-danger"></span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        @* ============ INFORMACIÓN PROFESIONAL ============ *@
+        <section class="form-section" id="sec-profesional">
+            <header class="form-section__head">
+                <div class="module-icon info"><i class="bi bi-award"></i></div>
+                <div>
+                    <h3>Información profesional</h3>
+                    <p>Formación y perfil que verán los socios en el futuro.</p>
+                </div>
+            </header>
+            <div class="form-section__body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label asp-for="Input.Especialidad" class="form-label"></label>
+                        <input asp-for="Input.Especialidad" class="form-control" list="especialidades" placeholder="Elegí o escribí una" />
+                        <datalist id="especialidades">
+                            @foreach (var esp in EntrenadorPresentacion.EspecialidadesSugeridas)
+                            {
+                                <option value="@esp"></option>
+                            }
+                        </datalist>
+                        <span asp-validation-for="Input.Especialidad" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Input.AniosExperiencia" class="form-label"></label>
+                        <input asp-for="Input.AniosExperiencia" class="form-control" type="number" min="0" max="60" />
+                        <span asp-validation-for="Input.AniosExperiencia" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Input.InstitucionFormadora" class="form-label"></label>
+                        <input asp-for="Input.InstitucionFormadora" class="form-control" />
+                        <span asp-validation-for="Input.InstitucionFormadora" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Input.Certificaciones" class="form-label"></label>
+                        <textarea asp-for="Input.Certificaciones" class="form-control" rows="3" placeholder="Una por línea&#10;Ej.: Instructor de musculación – ENEF 2021"></textarea>
+                        <div class="form-text">Una certificación por línea. Se muestran como etiquetas en la ficha.</div>
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="Input.DescripcionProfesional" class="form-label"></label>
+                        <textarea asp-for="Input.DescripcionProfesional" class="form-control" rows="3" placeholder="Enfoque de trabajo, logros, público con el que trabaja…"></textarea>
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="Input.Observaciones" class="form-label"></label>
+                        <textarea asp-for="Input.Observaciones" class="form-control" rows="2" placeholder="Notas internas (no visibles para socios)"></textarea>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        @* ============ DISPONIBILIDAD ============ *@
+        <section class="form-section" id="sec-disponibilidad">
+            <header class="form-section__head">
+                <div class="module-icon warning"><i class="bi bi-calendar-week"></i></div>
+                <div>
+                    <h3>Disponibilidad</h3>
+                    <p>Base para la futura agenda del entrenador y clases grupales.</p>
+                </div>
+            </header>
+            <div class="form-section__body">
+                <label class="form-label d-block">Días de trabajo</label>
+                <div class="day-picker mb-4" role="group" aria-label="Días de trabajo">
+                    @foreach (var d in EntrenadorPresentacion.Dias)
+                    {
+                        var idDia = $"dia-{d.Dia}";
+                        <input type="checkbox" id="@idDia" name="Input.Dias" value="@d.Dia" checked="@dias.Contains(d.Dia)" />
+                        <label for="@idDia" title="@d.Largo">@d.Corto</label>
+                    }
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label asp-for="Input.HorarioDesde" class="form-label"></label>
+                        <input asp-for="Input.HorarioDesde" asp-format="{0:HH:mm}" type="time" class="form-control" />
+                        <span asp-validation-for="Input.HorarioDesde" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Input.HorarioHasta" class="form-label"></label>
+                        <input asp-for="Input.HorarioHasta" asp-format="{0:HH:mm}" type="time" class="form-control" />
+                        <span asp-validation-for="Input.HorarioHasta" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Input.Turno" class="form-label"></label>
+                        <select asp-for="Input.Turno" class="form-select">
+                            <option value="">Sin definir</option>
+                            @foreach (var t in Enum.GetValues<Turno>())
+                            {
+                                <option value="@t">@(((Turno?)t).Texto())</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        @* ============ ESTADO ============ *@
+        <section class="form-section" id="sec-estado">
+            <header class="form-section__head">
+                <div class="module-icon success"><i class="bi bi-toggle-on"></i></div>
+                <div>
+                    <h3>Estado</h3>
+                    <p>Un entrenador inactivo no puede recibir nuevas asignaciones.</p>
+                </div>
+            </header>
+            <div class="form-section__body">
+                <div class="state-toggle mb-3">
+                    <div>
+                        <strong>Entrenador activo</strong>
+                        <small>Desactivalo en lugar de eliminarlo para conservar su historial.</small>
+                    </div>
+                    <div class="form-check form-switch m-0">
+                        <input asp-for="Input.Activo" class="form-check-input" role="switch" data-toggle-baja />
+                    </div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label asp-for="Input.FechaAlta" class="form-label"></label>
+                        <input asp-for="Input.FechaAlta" class="form-control" />
+                        <span asp-validation-for="Input.FechaAlta" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-6" data-fecha-baja hidden="@Model.Input.Activo">
+                        <label asp-for="Input.FechaBaja" class="form-label"></label>
+                        <input asp-for="Input.FechaBaja" class="form-control" />
+                        <div class="form-text">Si la dejás vacía se usa la fecha de hoy.</div>
+                        <span asp-validation-for="Input.FechaBaja" class="text-danger"></span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="form-actions-bar">
+            <span class="hint d-none d-md-inline"><i class="bi bi-info-circle"></i> Podés completar el resto de los datos más tarde.</span>
+            @if (Model.EsEdicion)
+            {
+                <a class="secondary-btn" asp-page="Detalle" asp-route-id="@Model.RouteData.Values["id"]">Cancelar</a>
+            }
+            else
+            {
+                <a class="secondary-btn" asp-page="Index">Cancelar</a>
+            }
+            <button type="submit" class="primary-btn border-0">
+                <i class="bi bi-check2"></i> @(Model.EsEdicion ? "Guardar cambios" : "Crear entrenador")
+            </button>
+        </div>
+    </div>
+</form>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const sw = document.querySelector('[data-toggle-baja]');
+        const baja = document.querySelector('[data-fecha-baja]');
+        if (sw && baja) sw.addEventListener('change', () => { baja.hidden = sw.checked; });
+    });
+</script>

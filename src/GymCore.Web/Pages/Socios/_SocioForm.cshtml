@@ -1,0 +1,230 @@
+@using GymCore.Dominio.Enums
+@using GymCore.Web.Pages.Entrenadores
+@using GymCore.Web.Pages.Socios
+@model GymCore.Web.Pages.Socios.SocioFormPageModel
+
+<form method="post" enctype="multipart/form-data" novalidate class="form-layout">
+    <nav class="section-nav" data-section-nav aria-label="Secciones del formulario">
+        <a href="#sec-personales" class="active"><i class="bi bi-person"></i> Datos personales</a>
+        <a href="#sec-gimnasio"><i class="bi bi-building"></i> Información del gimnasio</a>
+    </nav>
+
+    <div class="form-stack">
+        <div asp-validation-summary="ModelOnly" class="flash danger mb-0"></div>
+
+        @* ============ DATOS PERSONALES ============ *@
+        <section class="form-section" id="sec-personales">
+            <header class="form-section__head">
+                <div class="module-icon primary"><i class="bi bi-person"></i></div>
+                <div>
+                    <h3>Datos personales</h3>
+                    <p>Identificación, contacto y a quién avisar ante una emergencia.</p>
+                </div>
+            </header>
+            <div class="form-section__body">
+                <div class="photo-upload mb-4">
+                    <span class="avatar-circle" id="fotoPreview">
+                        @if (!string.IsNullOrEmpty(Model.FotoActualUrl))
+                        {
+                            <img src="@Url.Content("~/" + Model.FotoActualUrl)" alt="Foto actual" />
+                        }
+                        else
+                        {
+                            <i class="bi bi-camera"></i>
+                        }
+                    </span>
+                    <div class="photo-upload__actions">
+                        <label class="secondary-btn mb-0" role="button">
+                            <i class="bi bi-upload"></i> @(string.IsNullOrEmpty(Model.FotoActualUrl) ? "Subir fotografía" : "Cambiar fotografía")
+                            <input asp-for="Input.Foto" type="file" accept="@GymCore.Web.Componentes.FotoStorage.Accept" capture="user" class="d-none" data-photo-input="#fotoPreview" />
+                        </label>
+                        @if (!string.IsNullOrEmpty(Model.FotoActualUrl))
+                        {
+                            <div class="form-check small">
+                                <input asp-for="Input.QuitarFoto" class="form-check-input" data-photo-remove />
+                                <label asp-for="Input.QuitarFoto" class="form-check-label">Quitar foto actual</label>
+                            </div>
+                        }
+                        <small>Se muestra en la credencial · JPG, PNG o WEBP · máx. 2 MB</small>
+                        <span asp-validation-for="Input.Foto" class="text-danger small"></span>
+                    </div>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label asp-for="Input.Nombre" class="form-label"></label><span class="req text-danger">*</span>
+                        <input asp-for="Input.Nombre" class="form-control" autocomplete="given-name" autofocus />
+                        <span asp-validation-for="Input.Nombre" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Input.Apellido" class="form-label"></label><span class="req text-danger">*</span>
+                        <input asp-for="Input.Apellido" class="form-control" autocomplete="family-name" />
+                        <span asp-validation-for="Input.Apellido" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Input.Dni" class="form-label"></label><span class="req text-danger">*</span>
+                        <input asp-for="Input.Dni" class="form-control" inputmode="numeric" />
+                        @if (!Model.EsEdicion)
+                        {
+                            <div class="form-text">Se usa como código inicial de la credencial.</div>
+                        }
+                        <span asp-validation-for="Input.Dni" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Input.FechaNacimiento" class="form-label"></label>
+                        <input asp-for="Input.FechaNacimiento" class="form-control" />
+                        <span asp-validation-for="Input.FechaNacimiento" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Input.Sexo" class="form-label"></label>
+                        <select asp-for="Input.Sexo" class="form-select">
+                            <option value="">No informado</option>
+                            @foreach (var s in Enum.GetValues<Sexo>().Where(x => x != Sexo.NoInformado))
+                            {
+                                <option value="@s">@s.Texto()</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Input.Telefono" class="form-label"></label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-whatsapp"></i></span>
+                            <input asp-for="Input.Telefono" class="form-control" type="tel" autocomplete="tel" placeholder="11 5555-0000" />
+                        </div>
+                        <span asp-validation-for="Input.Telefono" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Input.Email" class="form-label"></label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                            <input asp-for="Input.Email" class="form-control" type="email" autocomplete="email" />
+                        </div>
+                        <span asp-validation-for="Input.Email" class="text-danger"></span>
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="Input.Direccion" class="form-label"></label>
+                        <input asp-for="Input.Direccion" class="form-control" autocomplete="street-address" />
+                        <span asp-validation-for="Input.Direccion" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Input.ContactoEmergenciaNombre" class="form-label"></label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-heart-pulse"></i></span>
+                            <input asp-for="Input.ContactoEmergenciaNombre" class="form-control" placeholder="Nombre y vínculo (ej.: Laura, madre)" />
+                        </div>
+                        <span asp-validation-for="Input.ContactoEmergenciaNombre" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Input.ContactoEmergenciaTelefono" class="form-label"></label>
+                        <input asp-for="Input.ContactoEmergenciaTelefono" class="form-control" type="tel" />
+                        <span asp-validation-for="Input.ContactoEmergenciaTelefono" class="text-danger"></span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        @* ============ INFORMACIÓN DEL GIMNASIO ============ *@
+        <section class="form-section" id="sec-gimnasio">
+            <header class="form-section__head">
+                <div class="module-icon success"><i class="bi bi-building"></i></div>
+                <div>
+                    <h3>Información del gimnasio</h3>
+                    <p>Membresía, entrenador y estado del socio.</p>
+                </div>
+            </header>
+            <div class="form-section__body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label asp-for="Input.NumeroSocio" class="form-label"></label><span class="req text-danger">*</span>
+                        <div class="input-group">
+                            <span class="input-group-text">N°</span>
+                            <input asp-for="Input.NumeroSocio" class="form-control" type="number" min="1" />
+                        </div>
+                        @if (!Model.EsEdicion)
+                        {
+                            <div class="form-text">Sugerido automáticamente; podés cambiarlo.</div>
+                        }
+                        <span asp-validation-for="Input.NumeroSocio" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Input.FechaAlta" class="form-label"></label>
+                        <input asp-for="Input.FechaAlta" class="form-control" />
+                        <span asp-validation-for="Input.FechaAlta" class="text-danger"></span>
+                    </div>
+
+                    @if (Model.EsEdicion)
+                    {
+                        <div class="col-md-6">
+                            <label class="form-label">Plan contratado</label>
+                            <div class="form-control bg-light d-flex justify-content-between align-items-center">
+                                <span>@(Model.PlanActual ?? "Sin plan")</span>
+                                <a class="small" asp-page="Detalle" asp-route-id="@Model.IdSocio" asp-fragment="tab-membresia">Gestionar</a>
+                            </div>
+                            <div class="form-text">Las renovaciones y cambios de plan se hacen desde la pestaña Membresía.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Entrenador asignado</label>
+                            <div class="form-control bg-light d-flex justify-content-between align-items-center">
+                                <span>@(Model.EntrenadorActual ?? "Sin asignar")</span>
+                                <a class="small" asp-page="Detalle" asp-route-id="@Model.IdSocio" asp-fragment="tab-entrenador">Cambiar</a>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="col-md-6">
+                            <label asp-for="Input.PlanId" class="form-label"></label>
+                            <select asp-for="Input.PlanId" class="form-select">
+                                <option value="">Sin plan por ahora</option>
+                                @foreach (var p in Model.Planes)
+                                {
+                                    <option value="@p.Id">@p.Nombre · @SocioPresentacion.Dinero(p.Precio, p.Moneda) · @p.DuracionDias días</option>
+                                }
+                            </select>
+                            <div class="form-text">Crea la suscripción desde la fecha de alta. El pago se registra aparte.</div>
+                            <span asp-validation-for="Input.PlanId" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="Input.EntrenadorId" class="form-label"></label>
+                            <select asp-for="Input.EntrenadorId" class="form-select">
+                                <option value="">Sin entrenador</option>
+                                @foreach (var e in Model.Entrenadores)
+                                {
+                                    <option value="@e.Id">@e.Apellido, @e.Nombre@(e.Especialidad is null ? "" : $" · {e.Especialidad}")</option>
+                                }
+                            </select>
+                            <span asp-validation-for="Input.EntrenadorId" class="text-danger"></span>
+                        </div>
+                    }
+
+                    <div class="col-12">
+                        <div class="state-toggle">
+                            <div>
+                                <strong>Socio activo</strong>
+                                <small>Una baja es reversible y conserva pagos, suscripciones y asistencias.</small>
+                            </div>
+                            <div class="form-check form-switch m-0">
+                                <input asp-for="Input.Activo" class="form-check-input" role="switch" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="form-actions-bar">
+            <span class="hint d-none d-md-inline"><i class="bi bi-info-circle"></i> Solo nombre, apellido, DNI y número son obligatorios.</span>
+            @if (Model.EsEdicion)
+            {
+                <a class="secondary-btn" asp-page="Detalle" asp-route-id="@Model.IdSocio">Cancelar</a>
+            }
+            else
+            {
+                <a class="secondary-btn" asp-page="Socios">Cancelar</a>
+            }
+            <button type="submit" class="primary-btn border-0">
+                <i class="bi bi-check2"></i> @(Model.EsEdicion ? "Guardar cambios" : "Crear socio")
+            </button>
+        </div>
+    </div>
+</form>

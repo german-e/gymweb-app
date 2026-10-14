@@ -23,9 +23,10 @@
                 <div class="row g-3">
                     <div class="col-md-6">
                         <label class="form-label">Socio (buscar por DNI o Nombre)</label>
-                        <input id="socio-search" class="form-control" list="socios-list" placeholder="Ej: 12345678 o Pérez" autocomplete="off" />
+                        <input id="socio-search" class="form-control" list="socios-list" placeholder="Ej: 12345678 o Pérez" autocomplete="off" value="@Model.Input.Dni" />
                         <datalist id="socios-list"></datalist>
-                        <small id="socio-elegido" class="text-muted d-block mt-1"></small>
+                        <small id="socio-elegido" class="text-muted d-block mt-1">@Model.SocioPreseleccionado</small>
+                        <input type="hidden" asp-for="VolverAFicha" />
                         <input type="hidden" asp-for="Input.SocioId" />
                         <input type="hidden" asp-for="Input.Dni" />
                         <span asp-validation-for="Input.Dni" class="text-danger"></span>
@@ -188,6 +189,8 @@
             });
 
             if ($search.value) buscar($search.value);
+            // Socio preseleccionado (llegando desde su ficha): mostrar saldo de entrada
+            if ($inputSocioId.value) cargarSaldo($inputSocioId.value);
 
             function actualizarAyuda() {
                 if (faltanteActual == null || !$importe) { $ayuda.style.display = 'none'; return; }

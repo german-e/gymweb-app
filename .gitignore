@@ -89,3 +89,5 @@ SonarQube.xml
 
 # Scaffolding
 ScaffoldingReadMe.txt
+# Archivos subidos por usuarios (fotos de entrenadores, etc.)
+src/**/wwwroot/uploads/

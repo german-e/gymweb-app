@@ -44,9 +44,21 @@ public class NuevoModel : PageModel
         public string? Observaciones { get; set; }
     }
 
-    public void OnGet()
+    // Preselección desde la ficha del socio (?socioId=)
+    public string? SocioPreseleccionado { get; set; }
+
+    [BindProperty]
+    public bool VolverAFicha { get; set; }
+
+    public async Task OnGetAsync(int? socioId)
     {
-        // Solo renderiza el formulario
+        if (socioId is null) return;
+        var s = await _db.Socios.AsNoTracking().FirstOrDefaultAsync(x => x.Id == socioId);
+        if (s is null) return;
+        Input.SocioId = s.Id;
+        Input.Dni = s.Dni;
+        SocioPreseleccionado = $"{s.Apellido}, {s.Nombre} · DNI {s.Dni}";
+        VolverAFicha = true;
     }
 
     public async Task<IActionResult> OnPostAsync()
@@ -106,6 +118,11 @@ public class NuevoModel : PageModel
         _db.Pagos.Add(pago);
         await _db.SaveChangesAsync();
 
+        if (VolverAFicha)
+        {
+            TempData["Flash"] = $"Pago de $ {pago.Importe:N0} registrado.";
+            return RedirectToPage("/Socios/Detalle", null, new { id = socio.Id }, "tab-pagos");
+        }
         TempData["PagoOk"] = $"Pago registrado para {socio.Apellido}, {socio.Nombre}.";
         return RedirectToPage("/Pagos/Index");
     }

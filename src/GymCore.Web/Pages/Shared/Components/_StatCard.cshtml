@@ -1,0 +1,19 @@
+@model GymCore.Web.Componentes.StatCardVm
+<article class="stat-card @Model.Variante">
+    <div class="stat-icon"><i class="bi @Model.Icono"></i></div>
+    <div class="stat-copy">
+        <p>@Model.Titulo</p>
+        <h3>@Model.Valor</h3>
+    </div>
+    @if (!string.IsNullOrEmpty(Model.Nota))
+    {
+        if (!string.IsNullOrEmpty(Model.Href))
+        {
+            <a class="badge-light text-decoration-none" href="@Model.Href">@Model.Nota</a>
+        }
+        else
+        {
+            <span class="badge-light">@Model.Nota</span>
+        }
+    }
+</article>

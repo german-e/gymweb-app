@@ -1,92 +1,190 @@
-﻿@page
+@page
+@using GymCore.Web.Pages.Socios
 @model GymCore.Web.Pages.Socios.SociosModel
 @{
 	ViewData["Title"] = "Socios";
+	var filtroInicial = (Model.F ?? "").ToLowerInvariant() is var f && new[] { "activo", "moroso", "porvencer", "conentrenador", "sinentrenador", "baja" }.Contains(f) ? f : "vigentes";
+	string Chip(string valor) => filtroInicial == valor ? "active" : "";
 }
 
-<section class="container py-4">
-	<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
+<section class="page-shell">
+	<div class="page-header">
 		<div>
-			<h1 class="h4 mb-1">Socios</h1>
-			<p class="text-muted mb-0">Listado de socios y acciones rápidas.</p>
+			<span class="eyebrow"><i class="bi bi-people"></i> Comunidad</span>
+			<h2>Socios</h2>
+			<p>Membresías, pagos, asistencia y entrenadores de cada socio en un solo lugar.</p>
 		</div>
-		<div>
-			<a class="btn btn-primary" asp-page="/Socios/Create">Nuevo socio</a>
+		<div class="header-actions">
+			<a class="secondary-btn" asp-page="/Pagos/Pendientes"><i class="bi bi-exclamation-diamond"></i> Ver deudas</a>
+			<a class="primary-btn" asp-page="/Socios/Create"><i class="bi bi-person-plus"></i> Nuevo socio</a>
 		</div>
 	</div>
 
-	<form method="get" class="row g-2 align-items-center mb-3">
-		<div class="col-12 col-md">
-			<input name="q" value="@Model.Q" class="form-control" placeholder="Buscar por DNI, apellido o nombre" />
-		</div>
-		<div class="col-12 col-md-auto">
-			<button class="btn btn-outline-primary" type="submit">Buscar</button>
-		</div>
-	</form>
+	@if (!string.IsNullOrEmpty(Model.Flash))
+	{
+		<div class="flash success" role="status"><i class="bi bi-check-circle-fill"></i> @Model.Flash</div>
+	}
 
-	<div class="card shadow-sm">
-		<div class="table-responsive">
-			<table class="table table-hover align-middle mb-0">
-				<thead class="table-light">
-					<tr>
-						<th style="width: 140px;">DNI</th>
-						<th>Apellido</th>
-						<th>Nombre</th>
-						<th>Suscripción</th>
-						<th style="width: 260px;" class="text-end">Acciones</th>
-					</tr>
-				</thead>
-				<tbody>
-				@if (Model.ListaSocios.Count == 0)
+	<div class="stats-grid cols-5">
+		<partial name="Components/_StatCard" model='new StatCardVm("Total de socios", Model.Total.ToString(), "bi-people", "primary", Model.Bajas > 0 ? $"{Model.Bajas} bajas" : null)' />
+		<partial name="Components/_StatCard" model='new StatCardVm("Socios activos", Model.Activos.ToString(), "bi-person-check", "success", Model.Total > 0 ? $"{Model.Activos * 100 / Model.Total}%" : null)' />
+		<partial name="Components/_StatCard" model='new StatCardVm("Socios morosos", Model.Morosos.ToString(), "bi-exclamation-diamond", "danger", Model.Morosos > 0 ? "Ver" : null, Model.Morosos > 0 ? "?f=moroso" : null)' />
+		<partial name="Components/_StatCard" model='new StatCardVm("Nuevos del mes", Model.NuevosMes.ToString(), "bi-stars", "primary")' />
+		<partial name="Components/_StatCard" model='new StatCardVm("Próximos vencimientos", Model.PorVencer.ToString(), "bi-hourglass-split", "warning", $"{SociosConsultas.DiasAvisoVencimiento} días")' />
+	</div>
+
+	<div class="data-card">
+		<div class="toolbar">
+			<label class="search-input" aria-label="Buscar socios">
+				<i class="bi bi-search"></i>
+				<input type="search" value="@Model.Q" placeholder="Nombre, DNI, N° de socio o teléfono…" data-table-filter="#tablaSocios" />
+				<kbd>/</kbd>
+			</label>
+			<div class="toolbar-group">
+				@if (Model.Planes.Count > 0)
 				{
-					<tr>
-						<td colspan="5" class="text-center text-muted py-4">No hay socios para mostrar</td>
-					</tr>
+					<select class="form-select" aria-label="Filtrar por plan" data-table-facet="#tablaSocios" data-facet="plan">
+						<option value="">Todos los planes</option>
+						@foreach (var p in Model.Planes)
+						{
+							<option value="@p">@p</option>
+						}
+					</select>
 				}
-				else
+			</div>
+		</div>
+		<div class="toolbar pt-0 border-0">
+			<div class="filter-chips flex-wrap" role="group" aria-label="Filtros rápidos" data-table-facet="#tablaSocios" data-facet="tags" data-facet-mode="tokens">
+				<button type="button" class="filter-chip @Chip("vigentes")" data-value="vigentes">Todos <span class="count">@Model.Total</span></button>
+				<button type="button" class="filter-chip @Chip("activo")" data-value="activo"><i class="bi bi-circle-fill text-success" style="font-size:.45rem"></i> Activos <span class="count">@Model.Activos</span></button>
+				<button type="button" class="filter-chip @Chip("moroso")" data-value="moroso"><i class="bi bi-circle-fill text-danger" style="font-size:.45rem"></i> Morosos <span class="count">@Model.Morosos</span></button>
+				<button type="button" class="filter-chip @Chip("porvencer")" data-value="porvencer"><i class="bi bi-circle-fill text-warning" style="font-size:.45rem"></i> Próximos a vencer <span class="count">@Model.PorVencer</span></button>
+				<button type="button" class="filter-chip @Chip("conentrenador")" data-value="conentrenador">Con entrenador <span class="count">@Model.ConEntrenador</span></button>
+				<button type="button" class="filter-chip @Chip("sinentrenador")" data-value="sinentrenador">Sin entrenador <span class="count">@(Model.Total - Model.ConEntrenador)</span></button>
+				@if (Model.Bajas > 0)
 				{
-					foreach (var s in Model.ListaSocios)
-					{
+					<button type="button" class="filter-chip @Chip("baja")" data-value="baja">Bajas <span class="count">@Model.Bajas</span></button>
+				}
+			</div>
+		</div>
+
+		@if (Model.Filas.Count == 0)
+		{
+			<partial name="Components/_EmptyState" model='new EmptyStateVm("bi-people", "Todavía no hay socios", "Registrá al primer socio para emitir su credencial y controlar su membresía.", "Nuevo socio", Url.Page("/Socios/Create"))' />
+		}
+		else
+		{
+			<div class="table-responsive">
+				<table class="data-table stack-sm" id="tablaSocios">
+					<thead>
 						<tr>
-							<td>@s.Dni</td>
-							<td>@s.Apellido</td>
-							<td>@s.Nombre</td>
-							<td>
-								@{
-									var info = Model.EstadoSuscripcionPorSocio.ContainsKey(s.Id) ? Model.EstadoSuscripcionPorSocio[s.Id] : (GymCore.Dominio.Enums.EstadoSuscripcion.Vencido, (DateTime?)null, (string?)null);
-									var estado = info.Item1;
-									var fecha = info.Item2;
-									var planNombre = info.Item3;
-									var badgeClass = estado == GymCore.Dominio.Enums.EstadoSuscripcion.Activo ? "success" : (planNombre == null ? "secondary" : "warning");
-								}
-								<span class="badge text-bg-@badgeClass">
-									@(
-										planNombre == null
-											? "Sin suscripción"
-											: (estado == GymCore.Dominio.Enums.EstadoSuscripcion.Activo ? "Activa" : "Vencida")
-									)
-								</span>
-								@if (planNombre != null)
-								{
-									<div class="small text-muted mt-1">
-										@planNombre
-										@if (fecha.HasValue)
-										{
-											<span> · hasta @fecha.Value.ToString("dd/MM/yyyy")</span>
-										}
+							<th>Socio</th>
+							<th>N°</th>
+							<th>DNI</th>
+							<th>Plan actual</th>
+							<th>Entrenador</th>
+							<th>Vencimiento</th>
+							<th>Estado</th>
+							<th>Última asistencia</th>
+							<th class="text-end"><span class="visually-hidden">Acciones</span></th>
+						</tr>
+					</thead>
+					<tbody>
+						@foreach (var r in Model.Filas)
+						{
+							var s = r.Socio;
+							var numero = SocioPresentacion.Numero(s.NumeroVisible);
+							var diasSinVenir = r.UltimaAsistencia.HasValue ? (DateTime.Today - r.UltimaAsistencia.Value.ToLocalTime().Date).Days : (int?)null;
+							<tr data-search="@($"{s.Nombre} {s.Apellido} {s.Dni} {numero} {s.NumeroVisible} {s.Telefono} {s.Email} {s.TarjetaCodigo}")"
+								data-tags="@SociosModel.Etiquetas(r)"
+								data-plan="@r.PlanNombre">
+								<td class="cell-main" data-label="Socio">
+									<div class="person-cell">
+										<partial name="Components/_Avatar" model='new AvatarVm(s.FotoUrl, s.Iniciales, "", s.NombreCompleto)' />
+										<div class="person-cell__copy">
+											<a asp-page="/Socios/Detalle" asp-route-id="@s.Id">@s.Apellido, @s.Nombre</a>
+											<small>@(s.Telefono ?? s.Email ?? $"Alta {s.FechaAlta.ToLocalTime():dd/MM/yyyy}")</small>
+										</div>
 									</div>
-								}
-							</td>
-							<td class="text-end">
-								<a class="btn btn-sm btn-outline-primary" asp-page="/Socios/Edit" asp-route-id="@s.Id">Editar</a>
-								<a class="btn btn-sm btn-outline-danger" asp-page="/Socios/Delete" asp-route-id="@s.Id">Eliminar</a>
-								<a class="btn btn-sm btn-outline-secondary" asp-page="/Socios/Tarjeta" asp-route-id="@s.Id">Tarjeta</a>
+								</td>
+								<td data-label="N°" class="num-socio">@numero</td>
+								<td data-label="DNI" class="num text-soft hide-sm">@s.Dni</td>
+								<td data-label="Plan">
+									@(r.PlanNombre ?? "—")
+									@if (r.Moroso)
+									{
+										<div class="small text-danger fw-semibold mt-1"><i class="bi bi-exclamation-diamond"></i> Debe @SocioPresentacion.Dinero(r.Saldo)</div>
+									}
+								</td>
+								<td data-label="Entrenador">
+									@if (r.Entrenador is not null)
+									{
+										<a class="d-inline-flex align-items-center gap-2 text-reset text-decoration-none" asp-page="/Entrenadores/Detalle" asp-route-id="@r.Entrenador.Id">
+											<partial name="Components/_Avatar" model='new AvatarVm(r.Entrenador.FotoUrl, r.Entrenador.Iniciales, "sm")' />
+											<span class="small">@r.Entrenador.NombreCompleto</span>
+										</a>
+									}
+									else
+									{
+										<span class="text-soft small">Sin asignar</span>
+									}
+								</td>
+								<td data-label="Vencimiento" class="num">
+									@if (r.Vencimiento.HasValue)
+									{
+										<span>@r.Vencimiento.Value.ToString("dd/MM/yyyy")</span>
+										<div class="small @(r.Estado == EstadoMembresia.PorVencer ? "text-warning fw-semibold" : r.Estado == EstadoMembresia.Vencida ? "text-danger" : "text-soft")">@SocioPresentacion.Vencimiento(r.Vencimiento)</div>
+									}
+									else { <span class="text-soft">—</span> }
+								</td>
+								<td data-label="Estado"><span class="status-pill @r.Estado.Variante()">@r.Estado.Texto()</span></td>
+								<td data-label="Última asistencia" class="num hide-sm @(diasSinVenir > 14 && r.Vigente is not null ? "text-warning" : "text-soft")">
+									@SocioPresentacion.Relativo(r.UltimaAsistencia)
+								</td>
+								<td class="cell-actions text-end">
+									<div class="row-actions">
+										<a class="icon-btn d-none d-md-inline-grid" asp-page="/Socios/Detalle" asp-route-id="@s.Id" title="Ver ficha"><i class="bi bi-eye"></i></a>
+										<a class="icon-btn d-none d-md-inline-grid" asp-page="/Pagos/Nuevo" asp-route-socioId="@s.Id" title="Registrar pago"><i class="bi bi-cash-coin"></i></a>
+										<div class="dropdown">
+											<button class="icon-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Más acciones"><i class="bi bi-three-dots-vertical"></i></button>
+											<ul class="dropdown-menu dropdown-menu-end">
+												<li><a class="dropdown-item" asp-page="/Socios/Detalle" asp-route-id="@s.Id"><i class="bi bi-eye"></i> Ver detalle</a></li>
+												<li><a class="dropdown-item" asp-page="/Socios/Edit" asp-route-id="@s.Id"><i class="bi bi-pencil"></i> Editar</a></li>
+												<li><a class="dropdown-item" asp-page="/Pagos/Nuevo" asp-route-socioId="@s.Id"><i class="bi bi-cash-coin"></i> Registrar pago</a></li>
+												<li><a class="dropdown-item" asp-page="/Socios/Detalle" asp-route-id="@s.Id" asp-fragment="tab-actividad"><i class="bi bi-clock-history"></i> Ver historial</a></li>
+												<li><a class="dropdown-item" asp-page="/Socios/Detalle" asp-route-id="@s.Id" asp-fragment="tab-entrenador"><i class="bi bi-person-badge"></i> Asignar entrenador</a></li>
+												<li><a class="dropdown-item" asp-page="/Socios/Tarjeta" asp-route-id="@s.Id"><i class="bi bi-person-vcard"></i> Credencial</a></li>
+												<li><hr class="dropdown-divider" /></li>
+												<li>
+													<button type="button" class="dropdown-item @(s.DadoDeBaja ? "" : "text-danger")"
+															data-confirm-action="@Url.Page("/Socios/Socios", "ToggleBaja", new { id = s.Id })"
+															data-confirm-title="@(s.DadoDeBaja ? "¿Reactivar a " : "¿Dar de baja a ")@s.NombreCompleto?"
+															data-confirm-text="@(s.DadoDeBaja ? "Volverá a figurar entre los socios activos." : "Se conservan sus pagos, suscripciones y asistencias. Podés reactivarlo cuando quieras.")"
+															data-confirm-label="@(s.DadoDeBaja ? "Reactivar" : "Dar de baja")"
+															data-confirm-variant="@(s.DadoDeBaja ? "success" : "danger")">
+														<i class="bi @(s.DadoDeBaja ? "bi-arrow-counterclockwise" : "bi-person-x")"></i> @(s.DadoDeBaja ? "Reactivar" : "Dar de baja")
+													</button>
+												</li>
+											</ul>
+										</div>
+									</div>
+								</td>
+							</tr>
+						}
+						<tr data-filter-empty hidden>
+							<td colspan="9">
+								<partial name="Components/_EmptyState" model='new EmptyStateVm("bi-search", "Sin resultados", "Probá con otro término o quitá los filtros activos.")' />
 							</td>
 						</tr>
-					}
-				}
-				</tbody>
-			</table>
-		</div>
+					</tbody>
+				</table>
+			</div>
+			<div class="data-card__foot">
+				<span>Mostrando <strong data-filter-count="#tablaSocios">@Model.Filas.Count</strong> de @Model.Filas.Count</span>
+				<span class="d-none d-md-inline">Tip: presioná <kbd>/</kbd> para buscar</span>
+			</div>
+		}
 	</div>
 </section>
+
+<partial name="Components/_ConfirmModal" />

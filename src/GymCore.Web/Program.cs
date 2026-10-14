@@ -89,6 +89,9 @@ using (var scope = app.Services.CreateScope())
     }
     catch { /* best-effort */ }
 
+    // Alinea una base existente con el modelo: columnas nuevas (nullable) y tablas nuevas
+    try { await EsquemaSqlite.ActualizarAsync(db); } catch { /* best-effort */ }
+
     // Seed mínimo para pruebas de check-in
     if (!db.Planes.Any())
     {

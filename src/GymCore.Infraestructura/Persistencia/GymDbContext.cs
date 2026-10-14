@@ -12,6 +12,10 @@ public class GymDbContext : DbContext
     public DbSet<Pago> Pagos => Set<Pago>();
     public DbSet<SocioPlan> SocioPlanes => Set<SocioPlan>();
     public DbSet<Asistencia> Asistencias => Set<Asistencia>();
+    public DbSet<Entrenador> Entrenadores => Set<Entrenador>();
+    public DbSet<EntrenadorSocio> EntrenadorSocios => Set<EntrenadorSocio>();
+    public DbSet<EntrenadorEvento> EntrenadorEventos => Set<EntrenadorEvento>();
+    public DbSet<MedicionFisica> MedicionesFisicas => Set<MedicionFisica>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

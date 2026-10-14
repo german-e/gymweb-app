@@ -1,0 +1,770 @@
+@page "{id:int}"
+@using GymCore.Web.Pages.Socios
+@using GymCore.Web.Pages.Entrenadores
+@using GymCore.Dominio.Enums
+@using System.Text.Json
+@model GymCore.Web.Pages.Socios.DetalleModel
+@inject Microsoft.Extensions.Configuration.IConfiguration Config
+@{
+    var s = Model.Socio;
+    var r = Model.R;
+    ViewData["Title"] = s.NombreCompleto;
+    var gimnasio = Config["Gimnasio:Nombre"] ?? "GymCore";
+    var numero = SocioPresentacion.Numero(s.NumeroVisible);
+    var edad = EntrenadorPresentacion.Edad(s.FechaNacimiento);
+    var ent = r.Entrenador;
+    var asignacionActual = Model.HistorialEntrenadores.FirstOrDefault(a => a.Activa);
+    var archivo = $"credencial-{numero}";
+    var waTel = SocioPresentacion.WhatsApp(s.Telefono);
+    var textoCredencial = $"¡Hola {s.Nombre}! Esta es tu credencial de {gimnasio}.\nSocio N° {numero}\nCódigo de acceso: {s.CodigoCredencial}" +
+                          (r.Vencimiento.HasValue ? $"\nMembresía vigente hasta: {r.Vencimiento:dd/MM/yyyy}" : "");
+    var vigente = r.Vigente;
+    var hoy = DateTime.Today;
+
+    // Serie de evolución física: una por métrica (small multiples)
+    string Serie(Func<GymCore.Dominio.Entidades.MedicionFisica, decimal?> sel) =>
+        JsonSerializer.Serialize(Model.Mediciones.Where(m => sel(m).HasValue)
+            .Select(m => new { d = m.Fecha.ToLocalTime().ToString("yyyy-MM-dd"), v = (double)sel(m)!.Value }));
+    var metricas = new[]
+    {
+        (Titulo: "Peso", Unidad: "kg", Sel: (Func<GymCore.Dominio.Entidades.MedicionFisica, decimal?>)(m => m.PesoKg), Dec: 1, MenorEsMejor: true),
+        (Titulo: "IMC", Unidad: "", Sel: (Func<GymCore.Dominio.Entidades.MedicionFisica, decimal?>)(m => m.Imc), Dec: 1, MenorEsMejor: true),
+        (Titulo: "Masa muscular", Unidad: "kg", Sel: (Func<GymCore.Dominio.Entidades.MedicionFisica, decimal?>)(m => m.MasaMuscularKg), Dec: 1, MenorEsMejor: false),
+        (Titulo: "Porcentaje graso", Unidad: "%", Sel: (Func<GymCore.Dominio.Entidades.MedicionFisica, decimal?>)(m => m.PorcentajeGraso), Dec: 1, MenorEsMejor: true),
+    };
+}
+
+<section class="page-shell">
+    <a class="text-decoration-none small fw-semibold" asp-page="Socios"><i class="bi bi-arrow-left"></i> Socios</a>
+
+    @if (!string.IsNullOrEmpty(Model.Flash))
+    {
+        <div class="flash success" role="status"><i class="bi bi-check-circle-fill"></i> @Model.Flash</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.FlashError))
+    {
+        <div class="flash danger" role="alert"><i class="bi bi-exclamation-triangle-fill"></i> @Model.FlashError</div>
+    }
+    @if (r.Moroso)
+    {
+        <div class="flash danger" role="alert">
+            <i class="bi bi-exclamation-diamond-fill"></i>
+            Saldo pendiente de @SocioPresentacion.Dinero(r.Saldo) en el plan @r.PlanNombre.
+            <a class="ms-auto fw-semibold text-reset" asp-page="/Pagos/Nuevo" asp-route-socioId="@s.Id">Registrar pago</a>
+        </div>
+    }
+
+    @* ============ CABECERA ============ *@
+    <header class="data-card">
+        <div class="member-hero">
+            <div class="member-hero__main">
+                <partial name="Components/_Avatar" model='new AvatarVm(s.FotoUrl, s.Iniciales, "xl", s.NombreCompleto)' />
+                <div class="member-hero__info">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <h2>@s.NombreCompleto</h2>
+                        <span class="status-pill @r.Estado.Variante()">@r.Estado.Texto()</span>
+                    </div>
+                    <div class="profile-hero__meta">
+                        <span><i class="bi bi-card-checklist"></i> @(r.PlanNombre ?? "Sin plan")</span>
+                        <span><i class="bi bi-person-badge"></i> @(ent?.NombreCompleto ?? "Sin entrenador")</span>
+                        <span><i class="bi bi-calendar-check"></i> Socio desde @s.FechaAlta.ToLocalTime().ToString("dd/MM/yyyy")</span>
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap mt-3 d-print-none">
+                        <a class="secondary-btn" asp-page="Edit" asp-route-id="@s.Id"><i class="bi bi-pencil"></i> Editar</a>
+                        <a class="primary-btn" asp-page="/Pagos/Nuevo" asp-route-socioId="@s.Id"><i class="bi bi-cash-coin"></i> Registrar pago</a>
+                        <div class="dropdown">
+                            <button class="secondary-btn px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Más acciones"><i class="bi bi-three-dots"></i></button>
+                            <ul class="dropdown-menu">
+                                <li><button type="button" class="dropdown-item" data-open-tab="#tab-credencial"><i class="bi bi-person-vcard"></i> Ver credencial</button></li>
+                                <li><button type="button" class="dropdown-item" data-open-tab="#tab-entrenador"><i class="bi bi-person-badge"></i> Asignar entrenador</button></li>
+                                <li><a class="dropdown-item" asp-page="/Suscripciones/Nueva" asp-route-socioId="@s.Id"><i class="bi bi-arrow-repeat"></i> Nueva suscripción</a></li>
+                                <li><hr class="dropdown-divider" /></li>
+                                <li>
+                                    <button type="button" class="dropdown-item @(s.DadoDeBaja ? "" : "text-danger")"
+                                            data-confirm-action="@Url.Page("Detalle", "ToggleBaja", new { id = s.Id })"
+                                            data-confirm-title="@(s.DadoDeBaja ? "¿Reactivar socio?" : "¿Dar de baja al socio?")"
+                                            data-confirm-text="@(s.DadoDeBaja ? "Volverá a figurar entre los socios activos." : "Se conservan pagos, suscripciones y asistencias. Podés reactivarlo cuando quieras.")"
+                                            data-confirm-label="@(s.DadoDeBaja ? "Reactivar" : "Dar de baja")"
+                                            data-confirm-variant="@(s.DadoDeBaja ? "success" : "danger")">
+                                        <i class="bi @(s.DadoDeBaja ? "bi-arrow-counterclockwise" : "bi-person-x")"></i> @(s.DadoDeBaja ? "Reactivar" : "Dar de baja")
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            @* Credencial destacada (arriba a la derecha) *@
+            <button type="button" class="border-0 bg-transparent p-0 text-start d-none d-md-block" data-open-tab="#tab-credencial" title="Ver credencial" style="width: 300px">
+                <partial name="Components/_Credencial" model="CredencialFactory.Desde(r, mini: true)" />
+            </button>
+        </div>
+        <dl class="member-strip m-0">
+            <div><dt>N° de socio</dt><dd class="num">@numero</dd></div>
+            <div><dt>Entrenador asignado</dt><dd>@(ent?.NombreCompleto ?? "—")</dd></div>
+            <div><dt>Contacto</dt><dd>@(s.Telefono ?? s.Email ?? "—")</dd></div>
+            <div><dt>Emergencia</dt><dd>@(s.ContactoEmergenciaNombre is null ? "—" : $"{s.ContactoEmergenciaNombre} {s.ContactoEmergenciaTelefono}")</dd></div>
+            <div>
+                <dt>Credencial activa</dt>
+                <dd>
+                    @if (r.CredencialActiva) { <span class="status-pill success">Habilitada</span> }
+                    else { <span class="status-pill danger">No habilitada</span> }
+                </dd>
+            </div>
+        </dl>
+    </header>
+
+    @* ============ KPIs ============ *@
+    <div class="summary-grid cols-5">
+        <div class="summary-card">
+            <div class="module-icon primary"><i class="bi bi-calendar-heart"></i></div>
+            <div><p>Días como socio</p><h4>@Model.DiasComoSocio.ToString("N0")</h4></div>
+        </div>
+        <div class="summary-card">
+            <div class="module-icon info"><i class="bi bi-door-open"></i></div>
+            <div><p>Última asistencia</p><h4 class="fs-6 mt-1">@SocioPresentacion.Relativo(r.UltimaAsistencia)</h4></div>
+        </div>
+        <div class="summary-card">
+            <div class="module-icon @r.Estado.Variante()"><i class="bi bi-hourglass-split"></i></div>
+            <div><p>Próximo vencimiento</p><h4 class="fs-6 mt-1">@(r.Vencimiento?.ToString("dd/MM/yyyy") ?? "—")</h4><small class="text-muted">@SocioPresentacion.Vencimiento(r.Vencimiento)</small></div>
+        </div>
+        <div class="summary-card">
+            <div class="module-icon success"><i class="bi bi-receipt"></i></div>
+            <div><p>Cuotas pagadas</p><h4>@Model.CuotasPagadas</h4></div>
+        </div>
+        <div class="summary-card">
+            <div class="module-icon warning"><i class="bi bi-graph-up"></i></div>
+            <div><p>Asistencias del mes</p><h4>@Model.AsistenciasMes</h4></div>
+        </div>
+    </div>
+
+    @* ============ PESTAÑAS ============ *@
+    <div class="data-card">
+        <nav class="tabs-underline px-3 d-print-none" role="tablist">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-datos" type="button" role="tab"><i class="bi bi-person-lines-fill"></i> Datos</button>
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-membresia" type="button" role="tab"><i class="bi bi-card-checklist"></i> Membresía</button>
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-pagos" type="button" role="tab"><i class="bi bi-cash-coin"></i> Pagos <span class="count">@Model.Pagos.Count</span></button>
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-asistencia" type="button" role="tab"><i class="bi bi-door-open"></i> Asistencia</button>
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-entrenador" type="button" role="tab"><i class="bi bi-person-badge"></i> Entrenador</button>
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-evolucion" type="button" role="tab"><i class="bi bi-activity"></i> Evolución física</button>
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-credencial" type="button" role="tab"><i class="bi bi-person-vcard"></i> Credencial</button>
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-actividad" type="button" role="tab"><i class="bi bi-clock-history"></i> Actividad</button>
+            @* Módulos futuros *@
+            <span class="nav-link disabled" aria-disabled="true"><i class="bi bi-journal-text"></i> Rutinas <span class="soon-badge">Pronto</span></span>
+            <span class="nav-link disabled" aria-disabled="true"><i class="bi bi-calendar3"></i> Clases <span class="soon-badge">Pronto</span></span>
+            <span class="nav-link disabled" aria-disabled="true"><i class="bi bi-egg-fried"></i> Nutrición <span class="soon-badge">Pronto</span></span>
+        </nav>
+
+        <div class="tab-content">
+            @* ---------- DATOS ---------- *@
+            <div class="tab-pane fade show active p-4" id="tab-datos" role="tabpanel">
+                <div class="row g-4">
+                    <div class="col-lg-7">
+                        <h6 class="fw-bold mb-3">Datos personales</h6>
+                        <dl class="info-list">
+                            <div><dt>Nombre completo</dt><dd>@s.Apellido, @s.Nombre</dd></div>
+                            <div><dt>DNI</dt><dd>@s.Dni</dd></div>
+                            <div><dt>Nacimiento</dt><dd>@(s.FechaNacimiento.HasValue ? $"{s.FechaNacimiento:dd/MM/yyyy} ({edad} años)" : "—")</dd></div>
+                            <div><dt>Sexo</dt><dd>@(s.Sexo?.Texto() ?? "No informado")</dd></div>
+                            <div class="full"><dt>Dirección</dt><dd>@(s.Direccion ?? "—")</dd></div>
+                        </dl>
+                        @if (s.Telefono is null && s.Email is null && s.FechaNacimiento is null)
+                        {
+                            <p class="small text-muted mt-3 mb-0"><i class="bi bi-info-circle"></i> Faltan datos de contacto. <a asp-page="Edit" asp-route-id="@s.Id">Completar ficha</a></p>
+                        }
+                    </div>
+                    <div class="col-lg-5">
+                        <div class="panel-card p-3 shadow-none bg-light-subtle">
+                            <h6 class="fw-bold mb-3">Contacto</h6>
+                            <dl class="info-list" style="grid-template-columns: 1fr">
+                                <div>
+                                    <dt>Teléfono / WhatsApp</dt>
+                                    <dd>
+                                        @if (s.Telefono is not null)
+                                        {
+                                            <a href="tel:@s.Telefono">@s.Telefono</a>
+                                            @if (waTel is not null) { <a class="ms-2 small text-success" href="https://wa.me/@waTel" target="_blank" rel="noopener"><i class="bi bi-whatsapp"></i> WhatsApp</a> }
+                                        }
+                                        else { <text>—</text> }
+                                    </dd>
+                                </div>
+                                <div><dt>Email</dt><dd>@if (s.Email is not null) { <a href="mailto:@s.Email">@s.Email</a> } else { <text>—</text> }</dd></div>
+                                <div>
+                                    <dt>Contacto de emergencia</dt>
+                                    <dd>
+                                        @(s.ContactoEmergenciaNombre ?? "—")
+                                        @if (s.ContactoEmergenciaTelefono is not null) { <a class="ms-1" href="tel:@s.ContactoEmergenciaTelefono">@s.ContactoEmergenciaTelefono</a> }
+                                    </dd>
+                                </div>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @* ---------- MEMBRESÍA ---------- *@
+            <div class="tab-pane fade p-4" id="tab-membresia" role="tabpanel">
+                <div class="row g-4">
+                    <div class="col-lg-6">
+                        @{
+                            var actual = vigente ?? r.Ultima;
+                        }
+                        @if (actual is null)
+                        {
+                            <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-card-checklist", "Sin membresía", "Este socio todavía no tiene un plan contratado.", "Nueva suscripción", Url.Page("/Suscripciones/Nueva", new { socioId = s.Id }))' />
+                        }
+                        else
+                        {
+                            var total = Math.Max(1, (actual.FechaFin - actual.FechaInicio).Days);
+                            var transcurridos = Math.Clamp((hoy - actual.FechaInicio.Date).Days, 0, total);
+                            var pct = transcurridos * 100 / total;
+                            var filaActual = Model.Suscripciones.FirstOrDefault(x => x.Suscripcion.Id == actual.Id);
+                            <div class="membership-card @r.Estado.Variante()">
+                                <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+                                    <div>
+                                        <small class="text-muted fw-semibold text-uppercase" style="font-size:.7rem; letter-spacing:.06em">Plan contratado</small>
+                                        <h4>@actual.Plan.Nombre</h4>
+                                        <small class="text-muted">@SocioPresentacion.Dinero(actual.Plan.Precio, actual.Plan.Moneda) · @actual.Plan.DuracionDias días@(actual.Plan.MaxDiasPorSemana is { } mx ? $" · {mx} días/semana" : "")</small>
+                                    </div>
+                                    <span class="status-pill @r.Estado.Variante()">@(vigente is null ? r.Estado.Texto() : r.Estado == EstadoMembresia.PorVencer ? "Próximo a vencer" : "Vigente")</span>
+                                </div>
+                                <dl class="info-list mb-3">
+                                    <div><dt>Inicio</dt><dd>@actual.FechaInicio.ToString("dd/MM/yyyy")</dd></div>
+                                    <div><dt>Vencimiento</dt><dd>@actual.FechaFin.ToString("dd/MM/yyyy") <small class="text-muted">· @SocioPresentacion.Vencimiento(actual.FechaFin)</small></dd></div>
+                                    <div><dt>Renovaciones</dt><dd>@Model.Renovaciones</dd></div>
+                                    <div>
+                                        <dt>Pagado del período</dt>
+                                        <dd>
+                                            @SocioPresentacion.Dinero(filaActual?.Pagado ?? 0) de @SocioPresentacion.Dinero(actual.Plan.Precio)
+                                            @if (filaActual is { Saldo: > 0 } && vigente is not null) { <span class="status-pill danger ms-1">Debe @SocioPresentacion.Dinero(filaActual.Saldo)</span> }
+                                        </dd>
+                                    </div>
+                                </dl>
+                                <div class="progress-track @r.Estado.Variante()" role="progressbar" aria-valuenow="@pct" aria-valuemin="0" aria-valuemax="100" aria-label="Período consumido">
+                                    <span style="width: @pct%"></span>
+                                </div>
+                                <div class="progress-labels"><span>@transcurridos de @total días</span><span>@pct%</span></div>
+                            </div>
+                            <div class="d-flex gap-2 flex-wrap mt-3">
+                                @if (vigente is null)
+                                {
+                                    <a class="primary-btn" asp-page="/Suscripciones/Nueva" asp-route-socioId="@s.Id"><i class="bi bi-arrow-repeat"></i> Renovar membresía</a>
+                                }
+                                else
+                                {
+                                    <span class="secondary-btn opacity-75" title="Se puede renovar cuando la suscripción actual venza"><i class="bi bi-arrow-repeat"></i> Renovar al vencer</span>
+                                }
+                                <a class="secondary-btn" asp-page="/Pagos/Nuevo" asp-route-socioId="@s.Id"><i class="bi bi-cash-coin"></i> Registrar pago</a>
+                            </div>
+                        }
+                    </div>
+                    <div class="col-lg-6">
+                        <h6 class="fw-bold mb-3">Historial de suscripciones</h6>
+                        @if (Model.Suscripciones.Count == 0)
+                        {
+                            <p class="text-muted small">Sin suscripciones registradas.</p>
+                        }
+                        else
+                        {
+                            <div class="table-responsive border rounded-4">
+                                <table class="data-table">
+                                    <thead><tr><th>Plan</th><th>Período</th><th>Pagado</th><th>Estado</th></tr></thead>
+                                    <tbody>
+                                        @foreach (var f in Model.Suscripciones)
+                                        {
+                                            var sp = f.Suscripcion;
+                                            var esVig = vigente?.Id == sp.Id;
+                                            var (txt, vr) = esVig ? (r.Estado == EstadoMembresia.PorVencer ? ("Por vencer", "warning") : ("Vigente", "success"))
+                                                : sp.Estado switch { EstadoSuscripcion.Pausado => ("Pausada", "info"), EstadoSuscripcion.Cancelado => ("Cancelada", "muted"), _ => sp.FechaFin < hoy ? ("Vencida", "danger") : ("Programada", "info") };
+                                            <tr>
+                                                <td>@sp.Plan.Nombre</td>
+                                                <td class="num text-soft small">@sp.FechaInicio.ToString("dd/MM/yy") → @sp.FechaFin.ToString("dd/MM/yy")</td>
+                                                <td class="num small">@SocioPresentacion.Dinero(f.Pagado)<span class="text-soft"> / @SocioPresentacion.Dinero(sp.Plan.Precio)</span></td>
+                                                <td><span class="status-pill @vr">@txt</span></td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            @* ---------- PAGOS ---------- *@
+            <div class="tab-pane fade" id="tab-pagos" role="tabpanel">
+                <div class="toolbar">
+                    <div class="d-flex gap-4 flex-wrap">
+                        <div><small class="text-muted d-block">Total pagado</small><strong class="fs-5">@SocioPresentacion.Dinero(Model.TotalPagado)</strong></div>
+                        <div><small class="text-muted d-block">Saldo pendiente</small><strong class="fs-5 @(r.Moroso ? "text-danger" : "text-success")">@SocioPresentacion.Dinero(r.Saldo)</strong></div>
+                    </div>
+                    <a class="primary-btn" asp-page="/Pagos/Nuevo" asp-route-socioId="@s.Id"><i class="bi bi-plus-lg"></i> Registrar pago</a>
+                </div>
+                @if (Model.Pagos.Count == 0)
+                {
+                    <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-cash-coin", "Sin pagos registrados", "Los pagos del socio aparecerán acá con su comprobante.")' />
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="data-table stack-sm">
+                            <thead><tr><th>Fecha</th><th>Concepto</th><th class="text-end">Importe</th><th>Método</th><th>Estado</th><th class="text-end"><span class="visually-hidden">Acciones</span></th></tr></thead>
+                            <tbody>
+                                @foreach (var p in Model.Pagos)
+                                {
+                                    <tr>
+                                        <td class="cell-main num" data-label="Fecha">@p.FechaPago.ToLocalTime().ToString("dd/MM/yyyy") <small class="text-soft">@p.FechaPago.ToLocalTime().ToString("HH:mm")</small></td>
+                                        <td data-label="Concepto">
+                                            @(p.SocioPlan?.Plan is { } pl ? $"Cuota {pl.Nombre}" : "Pago a cuenta")
+                                            @if (p.SocioPlan is { } spp) { <div class="small text-soft">Período @spp.FechaInicio.ToString("dd/MM") – @spp.FechaFin.ToString("dd/MM/yyyy")</div> }
+                                        </td>
+                                        <td data-label="Importe" class="text-end num fw-semibold">@SocioPresentacion.Dinero(p.Importe, p.Moneda)</td>
+                                        <td data-label="Método"><i class="bi @p.Medio.Icono() text-soft"></i> @p.Medio.Texto()</td>
+                                        <td data-label="Estado"><span class="status-pill success">Acreditado</span></td>
+                                        <td class="cell-actions text-end">
+                                            <div class="row-actions">
+                                                <a class="icon-btn" asp-page="/Pagos/Recibo" asp-route-id="@p.Id" title="Ver / descargar comprobante"><i class="bi bi-file-earmark-arrow-down"></i></a>
+                                                <a class="icon-btn" asp-page="/Pagos/Recibo" asp-route-id="@p.Id" asp-route-imprimir="true" target="_blank" title="Reimprimir recibo"><i class="bi bi-printer"></i></a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+
+            @* ---------- ASISTENCIA ---------- *@
+            <div class="tab-pane fade p-4" id="tab-asistencia" role="tabpanel">
+                <div class="summary-grid mb-4" style="grid-template-columns: repeat(3, minmax(0,1fr))">
+                    <div class="summary-card shadow-none"><div class="module-icon primary"><i class="bi bi-calendar-month"></i></div><div><p>Asistencias del mes</p><h4>@Model.AsistenciasMes</h4></div></div>
+                    <div class="summary-card shadow-none"><div class="module-icon success"><i class="bi bi-calendar3"></i></div><div><p>Asistencias del año</p><h4>@Model.AsistenciasAnio</h4></div></div>
+                    <div class="summary-card shadow-none"><div class="module-icon warning"><i class="bi bi-speedometer2"></i></div><div><p>Promedio semanal</p><h4>@Model.PromedioSemanal.ToString("0.#") <small>/ sem</small></h4></div></div>
+                </div>
+                <div class="row g-4">
+                    <div class="col-lg-5">
+                        <div class="att-calendar" data-att-calendar="@JsonSerializer.Serialize(Model.CalendarioAsistencia)"></div>
+                        <h6 class="fw-bold mt-4 mb-2 small text-muted text-uppercase">Últimas 12 semanas</h6>
+                        <div class="week-bars" role="img" aria-label="Asistencias por semana en las últimas 12 semanas">
+                            @{ var maxSem = Math.Max(1, Model.AsistenciasPorSemana.Max()); }
+                            @for (var i = 0; i < Model.AsistenciasPorSemana.Count; i++)
+                            {
+                                var n = Model.AsistenciasPorSemana[i];
+                                <span class="@(i == Model.AsistenciasPorSemana.Count - 1 ? "cur" : "")" style="height: @(Math.Max(3, n * 100 / maxSem))%" title="@n asistencias · semana @(i == Model.AsistenciasPorSemana.Count - 1 ? "actual" : $"-{Model.AsistenciasPorSemana.Count - 1 - i}")"></span>
+                            }
+                        </div>
+                    </div>
+                    <div class="col-lg-7">
+                        <h6 class="fw-bold mb-3">Historial de ingresos</h6>
+                        @if (Model.Asistencias.Count == 0)
+                        {
+                            <p class="text-muted small">Todavía no registró ingresos. Los ingresos se registran escaneando la credencial en <a asp-page="/Asistencias/Ingreso">Control de ingreso</a>.</p>
+                        }
+                        else
+                        {
+                            <div class="table-responsive border rounded-4" style="max-height: 420px; overflow-y: auto">
+                                <table class="data-table">
+                                    <thead><tr><th>Fecha</th><th>Día</th><th>Hora</th><th>Plan</th></tr></thead>
+                                    <tbody>
+                                        @foreach (var a in Model.Asistencias)
+                                        {
+                                            var l = a.FechaHoraIngreso.ToLocalTime();
+                                            <tr>
+                                                <td class="num">@l.ToString("dd/MM/yyyy")</td>
+                                                <td class="text-soft text-capitalize">@l.ToString("dddd", new System.Globalization.CultureInfo("es-AR"))</td>
+                                                <td class="num">@l.ToString("HH:mm")</td>
+                                                <td class="text-soft small">@(a.SocioPlan?.Plan?.Nombre ?? "—")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                            @if (Model.Asistencias.Count == 200) { <p class="small text-muted mt-2">Se muestran los últimos 200 ingresos.</p> }
+                        }
+                    </div>
+                </div>
+            </div>
+
+            @* ---------- ENTRENADOR ---------- *@
+            <div class="tab-pane fade p-4" id="tab-entrenador" role="tabpanel">
+                <div class="row g-4">
+                    <div class="col-lg-6">
+                        @if (ent is null)
+                        {
+                            <div class="empty-state border rounded-4">
+                                <div class="empty-state__icon"><i class="bi bi-person-badge"></i></div>
+                                <h4>Sin entrenador asignado</h4>
+                                <p>Asigná un entrenador para hacer seguimiento de objetivos, rutinas y evolución.</p>
+                                <button type="button" class="primary-btn border-0" data-bs-toggle="modal" data-bs-target="#entrenadorModal"><i class="bi bi-person-plus"></i> Asignar entrenador</button>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="membership-card">
+                                <div class="d-flex gap-3 align-items-center mb-3">
+                                    <partial name="Components/_Avatar" model='new AvatarVm(ent.FotoUrl, ent.Iniciales, "lg", ent.NombreCompleto)' />
+                                    <div class="flex-grow-1 min-w-0">
+                                        <small class="text-muted fw-semibold text-uppercase" style="font-size:.7rem; letter-spacing:.06em">Entrenador asignado</small>
+                                        <h4><a class="text-reset text-decoration-none" asp-page="/Entrenadores/Detalle" asp-route-id="@ent.Id">@ent.NombreCompleto</a></h4>
+                                        <small class="text-muted"><i class="bi bi-award"></i> @(ent.Especialidad ?? "Sin especialidad")</small>
+                                    </div>
+                                </div>
+                                <div class="week-strip mb-2">
+                                    @foreach (var d in EntrenadorPresentacion.Dias)
+                                    {
+                                        <span class="@(ent.DiasTrabajo.HasFlag(d.Dia) ? "on" : "")" title="@d.Largo">@d.Corto</span>
+                                    }
+                                </div>
+                                <p class="small text-muted mb-3"><i class="bi bi-clock"></i> @EntrenadorPresentacion.HorarioTexto(ent) · Turno @ent.Turno.Texto()</p>
+                                <dl class="info-list mb-3">
+                                    <div><dt>Objetivo</dt><dd>@(asignacionActual?.Objetivo ?? "—")</dd></div>
+                                    <div><dt>Asignado desde</dt><dd>@asignacionActual?.FechaAsignacion.ToLocalTime().ToString("dd/MM/yyyy")</dd></div>
+                                    <div><dt>Contacto</dt><dd>@(ent.Celular ?? ent.Telefono ?? ent.Email ?? "—")</dd></div>
+                                </dl>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <button type="button" class="primary-btn border-0" data-bs-toggle="modal" data-bs-target="#entrenadorModal"><i class="bi bi-arrow-left-right"></i> Cambiar entrenador</button>
+                                    @if (asignacionActual is not null)
+                                    {
+                                        <button type="button" class="secondary-btn"
+                                                data-confirm-action="@Url.Page("Detalle", "QuitarEntrenador", new { id = s.Id, asignacionId = asignacionActual.Id })"
+                                                data-confirm-title="¿Quitar a @ent.NombreCompleto?"
+                                                data-confirm-text="El socio quedará sin entrenador. El cambio queda registrado en el historial."
+                                                data-confirm-label="Quitar" data-confirm-variant="warning">
+                                            <i class="bi bi-person-dash"></i> Quitar
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    <div class="col-lg-6">
+                        <h6 class="fw-bold mb-3">Historial de entrenadores</h6>
+                        @if (Model.HistorialEntrenadores.Count == 0)
+                        {
+                            <p class="text-muted small">Sin asignaciones previas.</p>
+                        }
+                        else
+                        {
+                            <ol class="timeline">
+                                @foreach (var a in Model.HistorialEntrenadores)
+                                {
+                                    <li class="timeline-item">
+                                        <span class="timeline-dot @(a.Activa ? "success" : "muted")"><i class="bi @(a.Activa ? "bi-person-check" : "bi-person-dash")"></i></span>
+                                        <div class="timeline-body">
+                                            <h5>@a.Entrenador.NombreCompleto @if (a.Activa) { <span class="status-pill success ms-1">Actual</span> }</h5>
+                                            <time>@a.FechaAsignacion.ToLocalTime().ToString("dd/MM/yyyy") → @(a.FechaFin?.ToLocalTime().ToString("dd/MM/yyyy") ?? "hoy")</time>
+                                            @if (a.Objetivo is not null) { <p>Objetivo: @a.Objetivo</p> }
+                                        </div>
+                                    </li>
+                                }
+                            </ol>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            @* ---------- EVOLUCIÓN FÍSICA ---------- *@
+            <div class="tab-pane fade p-4" id="tab-evolucion" role="tabpanel">
+                <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
+                    <div>
+                        <h6 class="fw-bold mb-0">Evolución física</h6>
+                        <small class="text-muted">Base para evaluaciones físicas y seguimiento de objetivos.</small>
+                    </div>
+                    <button type="button" class="primary-btn border-0" data-bs-toggle="modal" data-bs-target="#medicionModal"><i class="bi bi-plus-lg"></i> Nueva medición</button>
+                </div>
+                @if (Model.Mediciones.Count == 0)
+                {
+                    <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-activity", "Sin mediciones todavía", "Registrá peso, altura, masa muscular y porcentaje graso para ver la evolución del socio en gráficos.")' />
+                }
+                else
+                {
+                    <div class="metric-grid mb-4">
+                        @foreach (var m in metricas)
+                        {
+                            var valores = Model.Mediciones.Select(x => m.Sel(x)).Where(v => v.HasValue).Select(v => v!.Value).ToList();
+                            if (valores.Count == 0) { continue; }
+                            var ultimo = valores[^1];
+                            var delta = valores.Count > 1 ? ultimo - valores[0] : (decimal?)null;
+                            <div class="metric-chart" data-metric-chart="@Serie(m.Sel)" data-unit="@m.Unidad" data-decimals="@m.Dec">
+                                <div class="metric-chart__head">
+                                    <h6>@m.Titulo</h6>
+                                    <div class="text-end">
+                                        <strong>@ultimo.ToString("0.#")</strong> <small>@m.Unidad</small>
+                                        @if (delta is { } dl && dl != 0)
+                                        {
+                                            <div class="metric-delta"><i class="bi @(dl < 0 ? "bi-arrow-down-right" : "bi-arrow-up-right")"></i> @(dl > 0 ? "+" : "")@dl.ToString("0.#") desde el inicio</div>
+                                        }
+                                    </div>
+                                </div>
+                                <svg role="img" aria-label="Evolución de @m.Titulo"></svg>
+                            </div>
+                        }
+                    </div>
+                    <div class="table-responsive border rounded-4">
+                        <table class="data-table">
+                            <thead><tr><th>Fecha</th><th class="text-end">Peso</th><th class="text-end">Altura</th><th class="text-end">IMC</th><th class="text-end">Masa muscular</th><th class="text-end">% graso</th><th>Observaciones</th><th></th></tr></thead>
+                            <tbody>
+                                @foreach (var m in Enumerable.Reverse(Model.Mediciones))
+                                {
+                                    <tr>
+                                        <td class="num">@m.Fecha.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                                        <td class="num text-end">@(m.PesoKg is { } p ? $"{p:0.#} kg" : "—")</td>
+                                        <td class="num text-end">@(m.AlturaCm is { } al ? $"{al:0} cm" : "—")</td>
+                                        <td class="num text-end">@(m.Imc?.ToString("0.0") ?? "—")</td>
+                                        <td class="num text-end">@(m.MasaMuscularKg is { } mm ? $"{mm:0.#} kg" : "—")</td>
+                                        <td class="num text-end">@(m.PorcentajeGraso is { } pg ? $"{pg:0.#}%" : "—")</td>
+                                        <td class="small text-soft">@m.Observaciones</td>
+                                        <td class="text-end">
+                                            <button type="button" class="icon-btn danger" title="Eliminar medición"
+                                                    data-confirm-action="@Url.Page("Detalle", "EliminarMedicion", new { id = s.Id, medicionId = m.Id })"
+                                                    data-confirm-title="¿Eliminar la medición del @m.Fecha.ToLocalTime().ToString("dd/MM/yyyy")?"
+                                                    data-confirm-text="Esta acción no se puede deshacer." data-confirm-label="Eliminar" data-confirm-variant="danger">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+
+            @* ---------- CREDENCIAL ---------- *@
+            <div class="tab-pane fade p-4" id="tab-credencial" role="tabpanel">
+                <div class="credencial-panel">
+                    <div>
+                        <partial name="Components/_Credencial" model='CredencialFactory.Desde(r, id: "credencialSocio")' />
+                        <p class="small text-muted mt-3 mb-0">
+                            <i class="bi bi-upc-scan"></i> Código <strong class="num">@s.CodigoCredencial</strong> · CODE128 · se escanea en
+                            <a asp-page="/Asistencias/Ingreso">Control de ingreso</a>.
+                        </p>
+                    </div>
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-3">
+                            <h6 class="fw-bold mb-0">Acciones rápidas</h6>
+                            @if (r.CredencialActiva) { <span class="status-pill success">Habilitada para ingresar</span> }
+                            else { <span class="status-pill danger">@(s.DadoDeBaja ? "Socio dado de baja" : "Membresía no vigente")</span> }
+                        </div>
+                        <div class="quick-actions">
+                            <a class="quick-action" asp-page="Tarjeta" asp-route-id="@s.Id"><i class="bi bi-arrows-fullscreen"></i><span>Ver credencial<small>Pantalla completa</small></span></a>
+                            <button type="button" class="quick-action" data-cred-action="print" data-print-url="@Url.Page("Tarjeta", new { id = s.Id, imprimir = true })"><i class="bi bi-printer"></i><span>Imprimir<small>Tamaño tarjeta CR80</small></span></button>
+                            <button type="button" class="quick-action" data-cred-action="pdf" data-cred-target="#credencialSocio" data-cred-file="@archivo"><i class="bi bi-file-earmark-pdf"></i><span>Descargar PDF<small>85,6 × 54 mm</small></span></button>
+                            <button type="button" class="quick-action success" data-cred-action="whatsapp" data-cred-target="#credencialSocio" data-cred-file="@archivo" data-wa-phone="@waTel" data-wa-text="@textoCredencial"><i class="bi bi-whatsapp"></i><span>Compartir por WhatsApp<small>@(waTel is null ? "Sin teléfono cargado" : s.Telefono)</small></span></button>
+                            <button type="button" class="quick-action" data-cred-action="email" data-cred-target="#credencialSocio" data-cred-file="@archivo" data-mail-to="@s.Email" data-mail-subject="Tu credencial de @gimnasio" data-mail-body="@(textoCredencial + "\n\nTe adjuntamos la credencial en PDF.")"><i class="bi bi-envelope"></i><span>Enviar por email<small>@(s.Email ?? "Descarga el PDF para adjuntar")</small></span></button>
+                            <button type="button" class="quick-action warning"
+                                    data-confirm-action="@Url.Page("Detalle", "RegenerarCredencial", new { id = s.Id })"
+                                    data-confirm-title="¿Regenerar la credencial?"
+                                    data-confirm-text="Se emitirá un código nuevo y la credencial actual dejará de funcionar en el ingreso (el DNI sigue habilitado). Usalo ante pérdida o robo."
+                                    data-confirm-label="Regenerar" data-confirm-variant="warning">
+                                <i class="bi bi-arrow-repeat"></i><span>Regenerar credencial<small>Pérdida o robo</small></span>
+                            </button>
+                        </div>
+                        <dl class="info-list mt-4">
+                            <div><dt>Titular</dt><dd>@s.NombreCompleto</dd></div>
+                            <div><dt>Estado de membresía</dt><dd><span class="status-pill @r.Estado.Variante()">@r.Estado.Texto()</span></dd></div>
+                            <div><dt>Plan vigente</dt><dd>@(vigente?.Plan.Nombre ?? "—")</dd></div>
+                            <div><dt>Vencimiento</dt><dd>@(r.Vencimiento?.ToString("dd/MM/yyyy") ?? "—")</dd></div>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+            @* ---------- ACTIVIDAD ---------- *@
+            <div class="tab-pane fade p-4" id="tab-actividad" role="tabpanel">
+                <ol class="timeline">
+                    @foreach (var grupo in Model.Actividad.GroupBy(e => new DateTime(e.FechaUtc.ToLocalTime().Year, e.FechaUtc.ToLocalTime().Month, 1)))
+                    {
+                        <li class="timeline-group">@grupo.Key.ToString("MMMM yyyy", new System.Globalization.CultureInfo("es-AR"))</li>
+                        @foreach (var ev in grupo)
+                        {
+                            <li class="timeline-item">
+                                <span class="timeline-dot @ev.Variante"><i class="bi @ev.Icono"></i></span>
+                                <div class="timeline-body">
+                                    <h5>@ev.Titulo</h5>
+                                    <time>@ev.FechaUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</time>
+                                    @if (!string.IsNullOrEmpty(ev.Detalle)) { <p>@ev.Detalle</p> }
+                                </div>
+                            </li>
+                        }
+                    }
+                </ol>
+                <p class="small text-muted mt-3 mb-0"><i class="bi bi-info-circle"></i> Los ingresos diarios se ven en la pestaña Asistencia.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+@* ============ MODAL: ASIGNAR ENTRENADOR ============ *@
+<div class="modal fade" id="entrenadorModal" tabindex="-1" aria-labelledby="entrenadorModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+        <form method="post" asp-page-handler="AsignarEntrenador" asp-route-id="@s.Id" class="modal-content">
+            <div class="modal-header px-4">
+                <div>
+                    <h5 class="modal-title" id="entrenadorModalTitle">@(ent is null ? "Asignar entrenador" : "Cambiar entrenador")</h5>
+                    <small class="text-muted">para @s.NombreCompleto</small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body px-4">
+                @if (Model.EntrenadoresDisponibles.Count == 0)
+                {
+                    <p class="text-muted text-center py-4 mb-0">No hay entrenadores activos. <a asp-page="/Entrenadores/Create">Crear entrenador</a></p>
+                }
+                else
+                {
+                    <div class="d-flex gap-2 flex-wrap mb-3">
+                        <label class="search-input flex-grow-1" aria-label="Buscar entrenador">
+                            <i class="bi bi-search"></i>
+                            <input type="search" placeholder="Buscar por nombre…" data-table-filter="#tablaEntrenadoresModal" />
+                        </label>
+                        @{
+                            var especialidades = Model.EntrenadoresDisponibles.Select(e => e.Especialidad).Where(e => e != null).Distinct().Order().ToList();
+                        }
+                        @if (especialidades.Count > 0)
+                        {
+                            <select class="form-select w-auto" aria-label="Filtrar por especialidad" data-table-facet="#tablaEntrenadoresModal" data-facet="especialidad">
+                                <option value="">Todas las especialidades</option>
+                                @foreach (var esp in especialidades) { <option value="@esp">@esp</option> }
+                            </select>
+                        }
+                        <select class="form-select w-auto" aria-label="Filtrar por turno" data-table-facet="#tablaEntrenadoresModal" data-facet="turno">
+                            <option value="">Todos los turnos</option>
+                            @foreach (var t in Enum.GetValues<Turno>()) { <option value="@t">@(((Turno?)t).Texto())</option> }
+                        </select>
+                    </div>
+                    <table class="w-100" id="tablaEntrenadoresModal">
+                        <tbody class="pick-list d-block">
+                            @foreach (var e in Model.EntrenadoresDisponibles)
+                            {
+                                var esActual = ent?.Id == e.Id;
+                                <tr class="d-block" data-search="@e.Nombre @e.Apellido @e.Especialidad" data-especialidad="@e.Especialidad" data-turno="@e.Turno">
+                                    <td class="d-block">
+                                        <label class="pick-item @(esActual ? "selected" : "")">
+                                            <input class="form-check-input" type="radio" name="entrenadorId" value="@e.Id" required checked="@esActual" />
+                                            <partial name="Components/_Avatar" model='new AvatarVm(e.FotoUrl, e.Iniciales, "sm")' />
+                                            <span class="pick-item__copy">
+                                                <strong>@e.Apellido, @e.Nombre</strong>
+                                                <small>@(e.Especialidad ?? "Sin especialidad") · @EntrenadorPresentacion.DiasTexto(e.DiasTrabajo) · @EntrenadorPresentacion.HorarioTexto(e)</small>
+                                            </span>
+                                            @if (esActual) { <span class="status-pill info">Actual</span> }
+                                        </label>
+                                    </td>
+                                </tr>
+                            }
+                            <tr data-filter-empty hidden class="d-block"><td class="d-block text-center text-muted small py-3">Ningún entrenador coincide.</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="row g-3 mt-1">
+                        <div class="col-md-7">
+                            <label for="objetivoEnt" class="form-label small fw-semibold">Objetivo principal</label>
+                            <input id="objetivoEnt" name="objetivo" class="form-control" maxlength="200" value="@asignacionActual?.Objetivo" list="objetivosSocio" placeholder="Ej.: Hipertrofia, bajar de peso…" />
+                            <datalist id="objetivosSocio">
+                                <option value="Bajar de peso"></option><option value="Hipertrofia"></option><option value="Tonificación"></option>
+                                <option value="Fuerza"></option><option value="Resistencia"></option><option value="Rehabilitación"></option><option value="Salud general"></option>
+                            </datalist>
+                        </div>
+                        @if (ent is not null)
+                        {
+                            <div class="col-md-5 d-flex align-items-end">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="reemplazar" value="true" id="reemplazar" checked />
+                                    <input type="hidden" name="reemplazar" value="false" />
+                                    <label class="form-check-label small" for="reemplazar">Reemplazar a @ent.Nombre (recomendado)</label>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+            <div class="modal-footer px-4">
+                <button type="button" class="secondary-btn" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="primary-btn border-0" @(Model.EntrenadoresDisponibles.Count == 0 ? "disabled" : "")><i class="bi bi-person-check"></i> Asignar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@* ============ MODAL: NUEVA MEDICIÓN ============ *@
+<div class="modal fade" id="medicionModal" tabindex="-1" aria-labelledby="medicionModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="post" asp-page-handler="AgregarMedicion" asp-route-id="@s.Id" class="modal-content">
+            <div class="modal-header px-4">
+                <h5 class="modal-title" id="medicionModalTitle">Nueva medición</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body px-4">
+                @{ var ultimaAltura = Model.Mediciones.LastOrDefault(m => m.AlturaCm.HasValue)?.AlturaCm; }
+                <div class="row g-3">
+                    <div class="col-6">
+                        <label class="form-label small fw-semibold" for="m-fecha">Fecha</label>
+                        <input class="form-control" type="date" id="m-fecha" name="medicion.Fecha" value="@hoy.ToString("yyyy-MM-dd")" max="@hoy.ToString("yyyy-MM-dd")" required />
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small fw-semibold" for="m-peso">Peso (kg)</label>
+                        <input class="form-control" type="number" step="0.1" min="20" max="350" id="m-peso" name="medicion.PesoKg" />
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small fw-semibold" for="m-altura">Altura (cm)</label>
+                        <input class="form-control" type="number" step="0.5" min="80" max="250" id="m-altura" name="medicion.AlturaCm" placeholder="@(ultimaAltura?.ToString("0") ?? "")" />
+                        @if (ultimaAltura.HasValue) { <div class="form-text">Vacío = última conocida (@ultimaAltura.Value.ToString("0") cm)</div> }
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small fw-semibold">IMC</label>
+                        <div class="form-control bg-light" id="m-imc">—</div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small fw-semibold" for="m-masa">Masa muscular (kg)</label>
+                        <input class="form-control" type="number" step="0.1" min="5" max="150" id="m-masa" name="medicion.MasaMuscularKg" />
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small fw-semibold" for="m-graso">% graso</label>
+                        <input class="form-control" type="number" step="0.1" min="2" max="70" id="m-graso" name="medicion.PorcentajeGraso" />
+                    </div>
+                    @if (Model.EntrenadoresDisponibles.Count > 0)
+                    {
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold" for="m-ent">Tomada por</label>
+                            <select class="form-select" id="m-ent" name="medicion.EntrenadorId">
+                                <option value="">—</option>
+                                @foreach (var e in Model.EntrenadoresDisponibles) { <option value="@e.Id" selected="@(ent?.Id == e.Id)">@e.NombreCompleto</option> }
+                            </select>
+                        </div>
+                    }
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold" for="m-obs">Observaciones</label>
+                        <textarea class="form-control" id="m-obs" name="medicion.Observaciones" rows="2" maxlength="1000"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer px-4">
+                <button type="button" class="secondary-btn" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="primary-btn border-0"><i class="bi bi-check2"></i> Guardar medición</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<partial name="Components/_ConfirmModal" />
+
+@section Scripts {
+    <script src="~/js/credencial.js" asp-append-version="true"></script>
+    <script>
+        // IMC en vivo en el modal de medición
+        (function () {
+            const peso = document.getElementById('m-peso'), alt = document.getElementById('m-altura'), out = document.getElementById('m-imc');
+            if (!peso) return;
+            const alturaPrevia = parseFloat(alt.placeholder) || null;
+            const calc = () => {
+                const p = parseFloat(peso.value), a = parseFloat(alt.value) || alturaPrevia;
+                out.textContent = p > 0 && a > 0 ? (p / Math.pow(a / 100, 2)).toFixed(1) : '—';
+            };
+            peso.addEventListener('input', calc); alt.addEventListener('input', calc);
+        })();
+        // Selección visual en el modal de entrenadores
+        document.querySelectorAll('#tablaEntrenadoresModal input[type=radio]').forEach((r) => r.addEventListener('change', () => {
+            document.querySelectorAll('#tablaEntrenadoresModal .pick-item').forEach((l) => l.classList.toggle('selected', l.contains(r) && r.checked));
+        }));
+    </script>
+}

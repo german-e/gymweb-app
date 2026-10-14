@@ -20,12 +20,15 @@ public class NuevaModel : PageModel
 
     public string? Mensaje { get; set; }
 
+    [BindProperty] public bool VolverAFicha { get; set; }
+
     public List<SelectListItem> Socios { get; set; } = new();
     public List<SelectListItem> Planes { get; set; } = new();
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(int? socioId)
     {
         await CargarCombos();
+        if (socioId is { } id) { SocioId = id; VolverAFicha = true; } // preselección desde la ficha del socio
     }
 
     public async Task<IActionResult> OnPostAsync()
@@ -63,6 +66,11 @@ public class NuevaModel : PageModel
         };
         _db.SocioPlanes.Add(sp);
         await _db.SaveChangesAsync();
+        if (VolverAFicha)
+        {
+            TempData["Flash"] = $"Suscripción {plan.Nombre} creada hasta el {fin:dd/MM/yyyy}.";
+            return RedirectToPage("/Socios/Detalle", null, new { id = SocioId }, "tab-membresia");
+        }
         return RedirectToPage("/Panel");
     }
 

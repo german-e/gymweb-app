@@ -1,0 +1,21 @@
+@page "{id:int}"
+@model GymCore.Web.Pages.Entrenadores.EditModel
+@{
+    ViewData["Title"] = "Editar entrenador";
+}
+
+<section class="page-shell">
+    <div class="page-header">
+        <div>
+            <a class="text-decoration-none small fw-semibold" asp-page="Detalle" asp-route-id="@Model.Id"><i class="bi bi-arrow-left"></i> Volver a la ficha</a>
+            <h2>Editar · @Model.Input.Nombre @Model.Input.Apellido</h2>
+            <p>Los cambios de horario, estado y datos quedan registrados en el historial.</p>
+        </div>
+    </div>
+
+    <partial name="_EntrenadorForm" model="Model" />
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

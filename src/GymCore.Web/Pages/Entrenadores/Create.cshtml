@@ -1,0 +1,21 @@
+@page
+@model GymCore.Web.Pages.Entrenadores.CreateModel
+@{
+    ViewData["Title"] = "Nuevo entrenador";
+}
+
+<section class="page-shell">
+    <div class="page-header">
+        <div>
+            <a class="text-decoration-none small fw-semibold" asp-page="Index"><i class="bi bi-arrow-left"></i> Entrenadores</a>
+            <h2>Nuevo entrenador</h2>
+            <p>Completá los datos del profesional. Solo los campos marcados con <span class="text-danger">*</span> son obligatorios.</p>
+        </div>
+    </div>
+
+    <partial name="_EntrenadorForm" model="Model" />
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

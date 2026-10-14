@@ -1,0 +1,169 @@
+@page
+@using GymCore.Web.Pages.Entrenadores
+@model GymCore.Web.Pages.Entrenadores.IndexModel
+@{
+    ViewData["Title"] = "Entrenadores";
+    var estadoInicial = (Model.Estado ?? "").ToLowerInvariant() switch { "activo" => "activo", "inactivo" => "inactivo", _ => "" };
+}
+
+<section class="page-shell">
+    <div class="page-header">
+        <div>
+            <span class="eyebrow"><i class="bi bi-person-badge"></i> Staff</span>
+            <h2>Entrenadores</h2>
+            <p>Gestioná el equipo profesional, su disponibilidad y los socios que acompaña.</p>
+        </div>
+        <div class="header-actions">
+            <a class="primary-btn" asp-page="Create"><i class="bi bi-plus-lg"></i> Nuevo entrenador</a>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.Flash))
+    {
+        <div class="flash success" role="status"><i class="bi bi-check-circle-fill"></i> @Model.Flash</div>
+    }
+
+    <div class="stats-grid">
+        <partial name="Components/_StatCard" model='new StatCardVm("Total entrenadores", Model.Total.ToString(), "bi-person-badge", "primary")' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Activos", Model.Activos.ToString(), "bi-person-check", "success", Model.Total > 0 ? $"{Model.Activos * 100 / Model.Total}%" : null)' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Inactivos", Model.Inactivos.ToString(), "bi-person-dash", "warning")' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Socios asignados", Model.SociosAsignados.ToString(), "bi-people", "danger")' />
+    </div>
+
+    <div class="data-card">
+        <div class="toolbar">
+            <div class="toolbar-group">
+                <label class="search-input" aria-label="Buscar entrenadores">
+                    <i class="bi bi-search"></i>
+                    <input type="search" value="@Model.Q" placeholder="Buscar por nombre, DNI, email…" data-table-filter="#tablaEntrenadores" />
+                    <kbd>/</kbd>
+                </label>
+            </div>
+            <div class="toolbar-group">
+                <div class="filter-chips" role="group" aria-label="Filtrar por estado" data-table-facet="#tablaEntrenadores" data-facet="estado">
+                    <button type="button" class="filter-chip @(estadoInicial == "" ? "active" : "")" data-value="">Todos <span class="count">@Model.Total</span></button>
+                    <button type="button" class="filter-chip @(estadoInicial == "activo" ? "active" : "")" data-value="activo">Activos <span class="count">@Model.Activos</span></button>
+                    <button type="button" class="filter-chip @(estadoInicial == "inactivo" ? "active" : "")" data-value="inactivo">Inactivos <span class="count">@Model.Inactivos</span></button>
+                </div>
+                @if (Model.Especialidades.Count > 0)
+                {
+                    <select class="form-select" aria-label="Filtrar por especialidad" data-table-facet="#tablaEntrenadores" data-facet="especialidad">
+                        <option value="">Todas las especialidades</option>
+                        @foreach (var esp in Model.Especialidades)
+                        {
+                            <option value="@esp">@esp</option>
+                        }
+                    </select>
+                }
+            </div>
+        </div>
+
+        @if (Model.Filas.Count == 0)
+        {
+            <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-person-badge", "Todavía no hay entrenadores", "Cargá al primer profesional del equipo para empezar a asignarle socios, rutinas y horarios.", "Nuevo entrenador", Url.Page("Create"))' />
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="data-table stack-sm" id="tablaEntrenadores">
+                    <thead>
+                        <tr>
+                            <th>Entrenador</th>
+                            <th>Especialidad</th>
+                            <th>Teléfono</th>
+                            <th>Email</th>
+                            <th class="text-center">Socios</th>
+                            <th>Estado</th>
+                            <th>Alta</th>
+                            <th class="text-end"><span class="visually-hidden">Acciones</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var f in Model.Filas)
+                        {
+                            var e = f.Entrenador;
+                            var telefono = e.Celular ?? e.Telefono;
+                            <tr data-search="@($"{e.Nombre} {e.Apellido} {e.Dni} {e.Email} {e.Especialidad} {telefono}")"
+                                data-estado="@(e.Activo ? "activo" : "inactivo")"
+                                data-especialidad="@e.Especialidad">
+                                <td class="cell-main" data-label="Entrenador">
+                                    <div class="person-cell">
+                                        <partial name="Components/_Avatar" model='new AvatarVm(e.FotoUrl, e.Iniciales, "", e.NombreCompleto)' />
+                                        <div class="person-cell__copy">
+                                            <a asp-page="Detalle" asp-route-id="@e.Id">@e.Apellido, @e.Nombre</a>
+                                            <small>DNI @e.Dni</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td data-label="Especialidad">@(e.Especialidad ?? "—")</td>
+                                <td data-label="Teléfono" class="text-soft num hide-sm">
+                                    @if (telefono is not null) { <a class="text-reset text-decoration-none" href="tel:@telefono">@telefono</a> } else { <text>—</text> }
+                                </td>
+                                <td data-label="Email" class="text-soft hide-sm">
+                                    @if (e.Email is not null) { <a class="text-reset text-decoration-none" href="mailto:@e.Email">@e.Email</a> } else { <text>—</text> }
+                                </td>
+                                <td data-label="Socios" class="text-center num">
+                                    <a class="count-badge" asp-page="Detalle" asp-route-id="@e.Id" asp-fragment="tab-socios" title="Ver socios asignados">
+                                        <i class="bi bi-people"></i> @f.SociosAsignados
+                                    </a>
+                                </td>
+                                <td data-label="Estado">
+                                    <span class="status-pill @(e.Activo ? "success" : "muted")">@(e.Activo ? "Activo" : "Inactivo")</span>
+                                </td>
+                                <td data-label="Alta" class="text-soft num">@e.FechaAlta.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                                <td class="cell-actions text-end">
+                                    <div class="row-actions">
+                                        <a class="icon-btn d-none d-md-inline-grid" asp-page="Detalle" asp-route-id="@e.Id" title="Ver detalle"><i class="bi bi-eye"></i></a>
+                                        <a class="icon-btn d-none d-md-inline-grid" asp-page="Edit" asp-route-id="@e.Id" title="Editar"><i class="bi bi-pencil"></i></a>
+                                        <div class="dropdown">
+                                            <button class="icon-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Más acciones">
+                                                <i class="bi bi-three-dots-vertical"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li><a class="dropdown-item" asp-page="Detalle" asp-route-id="@e.Id"><i class="bi bi-eye"></i> Ver detalle</a></li>
+                                                <li><a class="dropdown-item" asp-page="Edit" asp-route-id="@e.Id"><i class="bi bi-pencil"></i> Editar</a></li>
+                                                <li><a class="dropdown-item" asp-page="Detalle" asp-route-id="@e.Id" asp-fragment="tab-socios"><i class="bi bi-people"></i> Ver socios asignados</a></li>
+                                                <li><hr class="dropdown-divider" /></li>
+                                                <li>
+                                                    <button type="button" class="dropdown-item"
+                                                            data-confirm-action="@Url.Page("Index", "ToggleEstado", new { id = e.Id })"
+                                                            data-confirm-title="@(e.Activo ? "¿Desactivar a " : "¿Reactivar a ")@e.NombreCompleto?"
+                                                            data-confirm-text="@(e.Activo ? "No podrá recibir nuevas asignaciones. Su historial y socios actuales se conservan." : "Volverá a estar disponible para asignaciones.")"
+                                                            data-confirm-label="@(e.Activo ? "Desactivar" : "Reactivar")"
+                                                            data-confirm-variant="@(e.Activo ? "warning" : "success")">
+                                                        <i class="bi @(e.Activo ? "bi-toggle-off" : "bi-toggle-on")"></i> @(e.Activo ? "Desactivar" : "Reactivar")
+                                                    </button>
+                                                </li>
+                                                <li>
+                                                    <button type="button" class="dropdown-item text-danger"
+                                                            data-confirm-action="@Url.Page("Index", "Eliminar", new { id = e.Id })"
+                                                            data-confirm-title="¿Eliminar a @e.NombreCompleto?"
+                                                            data-confirm-text="Se borrarán sus asignaciones e historial de forma permanente. Si solo dejó de trabajar, preferí desactivarlo."
+                                                            data-confirm-label="Eliminar definitivamente"
+                                                            data-confirm-variant="danger">
+                                                        <i class="bi bi-trash"></i> Eliminar
+                                                    </button>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        <tr data-filter-empty hidden>
+                            <td colspan="8">
+                                <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-search", "Sin resultados", "Probá con otro término o quitá los filtros activos.")' />
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="data-card__foot">
+                <span>Mostrando <strong data-filter-count="#tablaEntrenadores">@Model.Filas.Count</strong> de @Model.Filas.Count</span>
+                <span class="d-none d-md-inline">Tip: presioná <kbd>/</kbd> para buscar</span>
+            </div>
+        }
+    </div>
+</section>
+
+<partial name="Components/_ConfirmModal" />

@@ -1,0 +1,93 @@
+@page "{id:int}"
+@using GymCore.Web.Pages.Socios
+@model GymCore.Web.Pages.Pagos.ReciboModel
+@inject Microsoft.Extensions.Configuration.IConfiguration Config
+@{
+    var p = Model.Pago;
+    var s = p.Socio;
+    var numero = $"R-{p.Id:D6}";
+    ViewData["Title"] = $"Recibo {numero}";
+    var gimnasio = Config["Gimnasio:Nombre"] ?? "GymCore";
+    var plan = p.SocioPlan?.Plan;
+}
+
+<section class="page-shell">
+    <div class="page-header d-print-none">
+        <div>
+            <a class="text-decoration-none small fw-semibold" asp-page="/Socios/Detalle" asp-route-id="@s.Id" asp-fragment="tab-pagos"><i class="bi bi-arrow-left"></i> Pagos de @s.NombreCompleto</a>
+            <h2>Comprobante de pago</h2>
+            <p>Recibo @numero · @p.FechaPago.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</p>
+        </div>
+        <div class="header-actions">
+            <button type="button" class="secondary-btn" id="btnPdf"><i class="bi bi-file-earmark-arrow-down"></i> Descargar PDF</button>
+            <button type="button" class="primary-btn border-0" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir</button>
+        </div>
+    </div>
+
+    <article class="receipt" id="recibo">
+        <header class="receipt__head">
+            <div class="d-flex gap-3 align-items-center">
+                <div class="brand-mark"><i class="bi bi-lightning-charge-fill"></i></div>
+                <div>
+                    <strong class="fs-5">@gimnasio</strong>
+                    <div class="small text-muted">Comprobante de pago · no válido como factura</div>
+                </div>
+            </div>
+            <div class="text-end">
+                <div class="small text-muted">Recibo</div>
+                <strong class="num">@numero</strong>
+                <div class="small text-muted">@p.FechaPago.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+            </div>
+        </header>
+        <div class="receipt__body">
+            <dl class="info-list">
+                <div><dt>Socio</dt><dd>@s.Apellido, @s.Nombre</dd></div>
+                <div><dt>DNI · N° socio</dt><dd>@s.Dni · @SocioPresentacion.Numero(s.NumeroVisible)</dd></div>
+                <div class="full">
+                    <dt>Concepto</dt>
+                    <dd>
+                        @(plan is null ? "Pago a cuenta" : $"Cuota {plan.Nombre}")
+                        @if (p.SocioPlan is { } sp) { <span class="text-muted">· período @sp.FechaInicio.ToString("dd/MM/yyyy") al @sp.FechaFin.ToString("dd/MM/yyyy")</span> }
+                    </dd>
+                </div>
+                <div><dt>Medio de pago</dt><dd><i class="bi @p.Medio.Icono()"></i> @p.Medio.Texto()</dd></div>
+                <div><dt>Referencia</dt><dd>@(p.ReferenciaExterna ?? "—")</dd></div>
+                @if (plan is not null && Model.PagadoPeriodo is { } pagado)
+                {
+                    <div><dt>Pagado del período</dt><dd>@SocioPresentacion.Dinero(pagado) de @SocioPresentacion.Dinero(plan.Precio)</dd></div>
+                    <div><dt>Saldo</dt><dd class="@(pagado < plan.Precio ? "text-danger" : "text-success") fw-semibold">@SocioPresentacion.Dinero(Math.Max(0, plan.Precio - pagado))</dd></div>
+                }
+                @if (!string.IsNullOrEmpty(p.Observaciones))
+                {
+                    <div class="full"><dt>Observaciones</dt><dd>@p.Observaciones</dd></div>
+                }
+            </dl>
+        </div>
+        <footer class="receipt__total">
+            <span class="text-muted fw-semibold">Total abonado</span>
+            <strong class="num">@SocioPresentacion.Dinero(p.Importe, p.Moneda)</strong>
+        </footer>
+    </article>
+</section>
+
+@section Scripts {
+    <script>
+        document.getElementById('btnPdf').addEventListener('click', async (e) => {
+            const btn = e.currentTarget; btn.disabled = true;
+            try {
+                await GymUi.cargarScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+                await GymUi.cargarScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+                const canvas = await html2canvas(document.getElementById('recibo'), { scale: 2, backgroundColor: '#ffffff' });
+                const doc = new jspdf.jsPDF({ unit: 'mm', format: 'a5' });
+                const w = 128, h = canvas.height * w / canvas.width;
+                doc.addImage(canvas.toDataURL('image/png'), 'PNG', 10, 10, w, h);
+                doc.save('@(numero).pdf');
+            } catch { alert('No se pudo generar el PDF. Probá con Imprimir → Guardar como PDF.'); }
+            finally { btn.disabled = false; }
+        });
+    </script>
+    @if (Model.Imprimir)
+    {
+        <script>window.addEventListener('load', () => setTimeout(() => window.print(), 300));</script>
+    }
+}

@@ -1,0 +1,10 @@
+@model GymCore.Web.Componentes.EmptyStateVm
+<div class="empty-state">
+    <div class="empty-state__icon"><i class="bi @Model.Icono"></i></div>
+    <h4>@Model.Titulo</h4>
+    <p>@Model.Texto</p>
+    @if (!string.IsNullOrEmpty(Model.AccionTexto) && !string.IsNullOrEmpty(Model.AccionHref))
+    {
+        <a class="primary-btn" href="@Model.AccionHref"><i class="bi bi-plus-lg"></i> @Model.AccionTexto</a>
+    }
+</div>

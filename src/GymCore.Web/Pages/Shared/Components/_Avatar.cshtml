@@ -1,0 +1,11 @@
+@model GymCore.Web.Componentes.AvatarVm
+<span class="avatar-circle @Model.Tamano" aria-hidden="@(string.IsNullOrEmpty(Model.FotoUrl) ? "true" : "false")">
+    @if (!string.IsNullOrEmpty(Model.FotoUrl))
+    {
+        <img src="@Url.Content("~/" + Model.FotoUrl)" alt="@(Model.Alt ?? Model.Iniciales)" loading="lazy" />
+    }
+    else
+    {
+        @Model.Iniciales
+    }
+</span>

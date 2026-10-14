@@ -1,0 +1,25 @@
+@*
+    Modal de confirmación genérico. Un solo modal por página; lo disparan botones con:
+      data-confirm-title, data-confirm-text, data-confirm-action (URL del POST),
+      data-confirm-label (texto del botón), data-confirm-variant (danger | warning | primary)
+    El form tag helper agrega el token antiforgery.
+*@
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="post" class="modal-content" data-confirm-form>
+            <div class="modal-body p-4">
+                <div class="d-flex gap-3">
+                    <div class="module-icon danger" data-confirm-icon><i class="bi bi-exclamation-triangle"></i></div>
+                    <div>
+                        <h5 class="mb-1" id="confirmModalTitle" data-confirm-title-target>¿Confirmar?</h5>
+                        <p class="text-muted mb-0 small" data-confirm-text-target></p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="secondary-btn" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-danger px-3" data-confirm-submit>Confirmar</button>
+            </div>
+        </form>
+    </div>
+</div>
