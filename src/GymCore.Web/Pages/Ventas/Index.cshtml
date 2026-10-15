@@ -1,0 +1,139 @@
+@page
+@using GymCore.Dominio.Enums
+@using GymCore.Web.Pages.Socios
+@model GymCore.Web.Pages.Ventas.IndexModel
+@inject IUsuarioActual Usuario
+@{
+    ViewData["Title"] = "Ventas";
+    var anuladas = Model.Filas.Count(f => f.Anulada);
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+}
+
+<section class="page-shell">
+    <div class="page-header">
+        <div>
+            <span class="eyebrow"><i class="bi bi-cart3"></i> Ventas e inventario</span>
+            <h2>Ventas</h2>
+            <p>Todos los tickets del Punto de Venta, con su cliente, medio de pago y cajero. Las anuladas se conservan.</p>
+        </div>
+        <div class="header-actions">
+            @if (Usuario.Puede(Permisos.ReportesComercialesVer))
+            {
+                <a class="secondary-btn" asp-page="Reportes"><i class="bi bi-graph-up-arrow"></i> Reportes comerciales</a>
+            }
+            @if (Usuario.Puede(Permisos.VentasCrear))
+            {
+                <a class="primary-btn" asp-page="Pos"><i class="bi bi-cart-plus"></i> Nueva venta</a>
+            }
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <partial name="Components/_StatCard" model='new StatCardVm("Ventas de hoy", SocioPresentacion.Dinero(Model.VentasHoy), "bi-cart-check", "primary", $"{Model.TicketsHoy} {(Model.TicketsHoy == 1 ? "ticket" : "tickets")}")' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Total del período", SocioPresentacion.Dinero(Model.TotalCobrado), "bi-cash-stack", "success", $"{Model.Cobradas.Count()} tickets")' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Ticket promedio", SocioPresentacion.Dinero(Model.TicketPromedio), "bi-receipt", "warning")' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Anuladas", anuladas.ToString(), "bi-x-octagon", "danger", Model.Filas.Count > 0 ? $"{anuladas * 100 / Model.Filas.Count}% del período" : null)' />
+    </div>
+    <p class="kpi-footnote"><i class="bi bi-info-circle"></i> Ventas de hoy: solo productos. Los totales del período incluyen la cuota cobrada dentro del ticket.</p>
+
+    <div class="data-card">
+        <form method="get" class="audit-filters" role="search">
+            <div class="audit-filters__row">
+                <div>
+                    <label class="form-label" for="f-desde">Desde</label>
+                    <input id="f-desde" type="date" name="Desde" value="@Model.Desde?.ToString("yyyy-MM-dd")" class="form-control" />
+                </div>
+                <div>
+                    <label class="form-label" for="f-hasta">Hasta</label>
+                    <input id="f-hasta" type="date" name="Hasta" value="@Model.Hasta?.ToString("yyyy-MM-dd")" class="form-control" />
+                </div>
+                <div>
+                    <label class="form-label" for="f-medio">Medio de pago</label>
+                    <select id="f-medio" name="Medio" class="form-select">
+                        <option value="">Todos</option>
+                        @foreach (var m in Enum.GetValues<MedioPago>())
+                        {
+                            <option value="@m" selected="@(Model.Medio == m)">@m.Texto()</option>
+                        }
+                    </select>
+                </div>
+                <div class="audit-filters__actions">
+                    <button type="submit" class="primary-btn border-0"><i class="bi bi-funnel"></i> Filtrar</button>
+                </div>
+            </div>
+        </form>
+        <div class="toolbar">
+            <div class="toolbar-group">
+                <label class="search-input" aria-label="Buscar ventas">
+                    <i class="bi bi-search"></i>
+                    <input type="search" placeholder="N° de ticket, cliente, producto o cajero…" data-table-filter="#tablaVentas" />
+                    <kbd>/</kbd>
+                </label>
+            </div>
+            <div class="toolbar-group">
+                <div class="filter-chips" role="group" aria-label="Filtrar por estado" data-table-facet="#tablaVentas" data-facet="estado">
+                    <button type="button" class="filter-chip active" data-value="">Todas <span class="count">@Model.Filas.Count</span></button>
+                    <button type="button" class="filter-chip" data-value="cobrada"><i class="bi bi-circle-fill text-success" style="font-size:.45rem"></i> Cobradas <span class="count">@(Model.Filas.Count - anuladas)</span></button>
+                    <button type="button" class="filter-chip" data-value="anulada"><i class="bi bi-circle-fill text-danger" style="font-size:.45rem"></i> Anuladas <span class="count">@anuladas</span></button>
+                </div>
+            </div>
+        </div>
+
+        @if (Model.Filas.Count == 0)
+        {
+            <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-receipt", "Sin ventas en el período", "Las ventas del Punto de Venta aparecerán acá.", Usuario.Puede(Permisos.VentasCrear) ? "Nueva venta" : null, Url.Page("Pos"))' />
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="data-table stack-sm" id="tablaVentas" data-sortable>
+                    <thead>
+                        <tr>
+                            <th data-sort="num">Ticket</th>
+                            <th data-sort="num">Fecha</th>
+                            <th data-sort="text">Cliente</th>
+                            <th>Detalle</th>
+                            <th data-sort="text">Medio</th>
+                            <th data-sort="num" class="text-end">Total</th>
+                            <th data-sort="text" class="d-none d-xl-table-cell">Cajero</th>
+                            <th class="text-end"><span class="visually-hidden">Acciones</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var f in Model.Filas)
+                        {
+                            var local = f.Fecha.ToLocalTime();
+                            <tr data-search="@($"{f.Numero} {f.Cliente} {f.Detalle} {f.Usuario}{(f.ConCuota ? " cuota" : "")}")" data-estado="@(f.Anulada ? "anulada" : "cobrada")" class="@(f.Anulada ? "row-inactive" : "")">
+                                <td data-label="Ticket" class="num fw-semibold" data-sort-value="@f.Id">
+                                    <a asp-page="Ticket" asp-route-id="@f.Id">@f.Numero</a>
+                                    @if (f.Anulada) { <span class="status-pill void ms-1">ANULADA</span> }
+                                </td>
+                                <td data-label="Fecha" class="num text-soft" data-sort-value="@f.Fecha.Ticks">@local.ToString("dd/MM HH:mm")</td>
+                                <td data-label="Cliente" data-sort-value="@f.Cliente">
+                                    @if (f.SocioId is { } sid) { <a asp-page="/Socios/Detalle" asp-route-id="@sid">@f.Cliente</a> }
+                                    else { <span class="text-soft">@f.Cliente</span> }
+                                </td>
+                                <td data-label="Detalle" class="text-soft small venta-detalle" title="@f.Detalle">
+                                    @if (f.ConCuota) { <span class="badge-light me-1"><i class="bi bi-card-checklist"></i> Cuota</span> }
+                                    @f.Detalle
+                                </td>
+                                <td data-label="Medio" data-sort-value="@f.Medio.Texto()"><i class="bi @f.Medio.Icono() text-soft"></i> @f.Medio.Texto()</td>
+                                <td data-label="Total" class="text-end num fw-semibold" data-sort-value="@f.Total.ToString(inv)">@InventarioPresentacion.Precio(f.Total)</td>
+                                <td data-label="Cajero" class="d-none d-xl-table-cell text-soft">@(f.Usuario ?? "—")</td>
+                                <td class="cell-actions text-end">
+                                    <a class="icon-btn" asp-page="Ticket" asp-route-id="@f.Id" data-bs-toggle="tooltip" title="Ver ticket"><i class="bi bi-receipt"></i></a>
+                                </td>
+                            </tr>
+                        }
+                        <tr data-filter-empty hidden>
+                            <td colspan="8"><partial name="Components/_EmptyState" model='new EmptyStateVm("bi-search", "Sin resultados", "Probá con otro término o quitá los filtros activos.")' /></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="data-card__foot">
+                <span>Mostrando <strong data-filter-count="#tablaVentas">@Model.Filas.Count</strong> de @Model.TotalEnRango ventas del @Model.Desde?.ToString("dd/MM/yyyy") al @Model.Hasta?.ToString("dd/MM/yyyy")</span>
+            </div>
+        }
+    </div>
+</section>

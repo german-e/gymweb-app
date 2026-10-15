@@ -1,0 +1,213 @@
+@page
+@using GymCore.Dominio.Entidades
+@using GymCore.Web.Pages.Socios
+@model GymCore.Web.Pages.Ventas.Productos.IndexModel
+@inject IUsuarioActual Usuario
+@{
+    ViewData["Title"] = "Productos";
+    var filtro = (Model.F ?? "").ToLowerInvariant() is "activo" or "bajo" or "sinstock" or "inactivo" ? Model.F!.ToLowerInvariant() : "";
+    string Chip(string v) => filtro == v ? "active" : "";
+    var puedeEditar = Usuario.Puede(Permisos.ProductosEditar);
+    var puedeAjustar = Usuario.Puede(Permisos.InventarioAdministrar);
+    var inactivos = Model.Filas.Count(f => !f.Producto.Activo);
+}
+
+<section class="page-shell">
+    <div class="page-header">
+        <div>
+            <span class="eyebrow"><i class="bi bi-cart3"></i> Ventas e inventario</span>
+            <h2>Productos</h2>
+            <p>Catálogo de lo que vende el gimnasio: precios, margen y stock de cada producto.</p>
+        </div>
+        <div class="header-actions">
+            @if (Usuario.Puede(Permisos.VentasCrear))
+            {
+                <a class="secondary-btn" asp-page="/Ventas/Pos"><i class="bi bi-cart3"></i> Punto de Venta</a>
+            }
+            @if (Usuario.Puede(Permisos.ProductosCrear))
+            {
+                <a class="primary-btn" asp-page="Editar"><i class="bi bi-plus-lg"></i> Nuevo producto</a>
+            }
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.Flash))
+    {
+        <div class="flash success" role="status"><i class="bi bi-check-circle-fill"></i> @Model.Flash</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.FlashError))
+    {
+        <div class="flash danger" role="alert"><i class="bi bi-exclamation-triangle-fill"></i> @Model.FlashError</div>
+    }
+
+    <div class="stats-grid">
+        <partial name="Components/_StatCard" model='new StatCardVm("Productos activos", Model.Activos.ToString(), "bi-box2", "primary", inactivos > 0 ? $"{inactivos} inactivos" : null)' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Stock bajo", Model.StockBajo.ToString(), "bi-exclamation-triangle", "warning", null, null, Model.StockBajo > 0 ? "Ver productos" : null, Model.StockBajo > 0 ? Url.Page("Index", new { f = "bajo" }) : null)' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Sin stock", Model.SinStock.ToString(), "bi-x-octagon", "danger", null, null, Model.SinStock > 0 ? "Reponer" : null, Model.SinStock > 0 ? Url.Page("/Ventas/Inventario", new { f = "sinstock" }) : null)' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Ventas del día", SocioPresentacion.Dinero(Model.VentasHoy), "bi-cart-check", "success", $"{Model.TicketsHoy} {(Model.TicketsHoy == 1 ? "ticket" : "tickets")}", Usuario.Puede(Permisos.VentasVer) ? Url.Page("/Ventas/Index") : null)' />
+    </div>
+    <p class="kpi-footnote">
+        <i class="bi bi-info-circle"></i>
+        El stock solo cambia con movimientos (ventas, compras, ajustes y correcciones), así cada unidad queda trazada. Stock bajo = en el mínimo o hasta un 50% por encima.
+    </p>
+
+    <div class="data-card">
+        <div class="toolbar">
+            <div class="toolbar-group">
+                <label class="search-input" aria-label="Buscar productos">
+                    <i class="bi bi-search"></i>
+                    <input type="search" placeholder="Nombre, código, código de barras o marca…" data-table-filter="#tablaProductos" />
+                    <kbd>/</kbd>
+                </label>
+            </div>
+            <div class="toolbar-group">
+                <div class="filter-chips" role="group" aria-label="Filtrar por estado" data-table-facet="#tablaProductos" data-facet="tags" data-facet-mode="tokens">
+                    <button type="button" class="filter-chip @Chip("")" data-value="">Todos <span class="count">@Model.Filas.Count</span></button>
+                    <button type="button" class="filter-chip @Chip("activo")" data-value="activo"><i class="bi bi-circle-fill text-success" style="font-size:.45rem"></i> Activos <span class="count">@Model.Activos</span></button>
+                    <button type="button" class="filter-chip @Chip("bajo")" data-value="bajo"><span class="stock-dot critico" aria-hidden="true"></span> Stock bajo <span class="count">@Model.StockBajo</span></button>
+                    <button type="button" class="filter-chip @Chip("sinstock")" data-value="sinstock"><span class="stock-dot sin" aria-hidden="true"></span> Sin stock <span class="count">@Model.SinStock</span></button>
+                    @if (inactivos > 0)
+                    {
+                        <button type="button" class="filter-chip @Chip("inactivo")" data-value="inactivo"><i class="bi bi-circle-fill text-secondary" style="font-size:.45rem"></i> Inactivos <span class="count">@inactivos</span></button>
+                    }
+                </div>
+                <select class="form-select" aria-label="Filtrar por categoría" data-table-facet="#tablaProductos" data-facet="categoria">
+                    <option value="">Todas las categorías</option>
+                    @foreach (var c in Model.Categorias)
+                    {
+                        <option value="@c.Id" selected="@(Model.Categoria == c.Id)">@c.Nombre</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        @if (Model.Filas.Count == 0)
+        {
+            <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-box2", "Todavía no hay productos", "Cargá el primer producto con su precio y stock inicial para empezar a vender desde el Punto de Venta.", Usuario.Puede(Permisos.ProductosCrear) ? "Nuevo producto" : null, Url.Page("Editar"))' />
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="data-table stack-sm" id="tablaProductos" data-sortable>
+                    <thead>
+                        <tr>
+                            <th data-sort="text">Producto</th>
+                            <th data-sort="text">Categoría</th>
+                            <th data-sort="num" class="text-end">Stock</th>
+                            <th data-sort="num" class="text-end">Precio</th>
+                            <th data-sort="num" class="text-end d-none d-xl-table-cell">Margen</th>
+                            <th>Estado</th>
+                            <th class="text-end"><span class="visually-hidden">Acciones</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var f in Model.Filas)
+                        {
+                            var p = f.Producto;
+                            var (estadoTexto, estadoIcono, estadoVariante) = p.Estado.Estilo();
+                            var tags = new List<string> { p.Activo ? "activo" : "inactivo" };
+                            if (p.Activo && p.Estado is EstadoStock.Critico or EstadoStock.ProximoAlMinimo) tags.Add("bajo");
+                            if (p.Activo && p.Estado == EstadoStock.SinStock) tags.Add("sinstock");
+                            <tr data-search="@($"{p.Nombre} {p.Codigo} {p.CodigoBarras} {p.Marca} {p.Categoria.Nombre}")"
+                                class="@(p.Activo ? "" : "row-inactive")"
+                                data-tags="@string.Join(' ', tags)" data-categoria="@p.CategoriaId">
+                                <td class="cell-main" data-label="Producto" data-sort-value="@p.Nombre">
+                                    <div class="person-cell">
+                                        <div class="module-icon sm primary"><i class="bi @p.Categoria.Icono"></i></div>
+                                        <div class="person-cell__copy">
+                                            <a asp-page="Detalle" asp-route-id="@p.Id">@p.Nombre @if (p.Destacado) { <i class="bi bi-star-fill text-warning small" title="Acceso rápido en el Punto de Venta"></i> }</a>
+                                            <small><span class="num">@p.Codigo</span>@(string.IsNullOrEmpty(p.Marca) ? "" : $" · {p.Marca}")</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td data-label="Categoría" class="text-soft" data-sort-value="@p.Categoria.Nombre">@p.Categoria.Nombre</td>
+                                <td data-label="Stock" class="text-end num" data-sort-value="@p.StockActual">
+                                    <span class="stock-cell">
+                                        <span class="@p.Estado.Punto()" aria-hidden="true"></span>
+                                        <strong>@p.StockActual</strong>
+                                        <small class="text-soft">/ mín. @p.StockMinimo</small>
+                                    </span>
+                                </td>
+                                <td data-label="Precio" class="text-end num fw-semibold" data-sort-value="@p.PrecioVenta.ToString(System.Globalization.CultureInfo.InvariantCulture)">@SocioPresentacion.Dinero(p.PrecioVenta)</td>
+                                <td data-label="Margen" class="text-end num text-soft d-none d-xl-table-cell" data-sort-value="@((p.MargenPorcentaje ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture))">@(p.MargenPorcentaje is { } mp ? $"{mp:0.#}%" : "—")</td>
+                                <td data-label="Estado">
+                                    @if (!p.Activo)
+                                    {
+                                        <span class="status-pill muted">Inactivo</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-pill @estadoVariante"><i class="bi @estadoIcono"></i> @estadoTexto</span>
+                                    }
+                                </td>
+                                <td class="cell-actions text-end">
+                                    <div class="row-actions">
+                                        <a class="icon-btn d-none d-md-inline-grid" asp-page="Detalle" asp-route-id="@p.Id" data-bs-toggle="tooltip" title="Ver detalle"><i class="bi bi-eye"></i></a>
+                                        @if (puedeEditar)
+                                        {
+                                            <a class="icon-btn d-none d-md-inline-grid" asp-page="Editar" asp-route-id="@p.Id" data-bs-toggle="tooltip" title="Editar"><i class="bi bi-pencil"></i></a>
+                                        }
+                                        <div class="dropdown">
+                                            <button class="icon-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Más acciones">
+                                                <i class="bi bi-three-dots-vertical"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li><a class="dropdown-item" asp-page="Detalle" asp-route-id="@p.Id"><i class="bi bi-eye"></i> Ver detalle</a></li>
+                                                @if (puedeEditar)
+                                                {
+                                                    <li><a class="dropdown-item" asp-page="Editar" asp-route-id="@p.Id"><i class="bi bi-pencil"></i> Editar</a></li>
+                                                }
+                                                @if (puedeAjustar)
+                                                {
+                                                    <li>
+                                                        <button type="button" class="dropdown-item" data-ajuste-stock="@p.Id" data-nombre="@p.Nombre" data-stock="@p.StockActual"
+                                                                data-costo="@p.PrecioCompra.ToString(System.Globalization.CultureInfo.InvariantCulture)">
+                                                            <i class="bi bi-arrow-left-right"></i> Ajustar stock
+                                                        </button>
+                                                    </li>
+                                                }
+                                                @if (puedeEditar)
+                                                {
+                                                    <li><hr class="dropdown-divider" /></li>
+                                                    <li>
+                                                        <button type="button" class="dropdown-item"
+                                                                data-confirm-action="@Url.Page("Index", "ToggleEstado", new { id = p.Id })"
+                                                                data-confirm-title="@(p.Activo ? "¿Desactivar " : "¿Activar ")@p.Nombre?"
+                                                                data-confirm-text="@(p.Activo ? "Dejará de aparecer en el Punto de Venta. Su historial de ventas y movimientos se conserva y podés reactivarlo cuando quieras." : "Volverá a estar disponible para la venta.")"
+                                                                data-confirm-label="@(p.Activo ? "Desactivar producto" : "Activar producto")"
+                                                                data-confirm-variant="@(p.Activo ? "warning" : "success")">
+                                                            <i class="bi @(p.Activo ? "bi-toggle-off" : "bi-toggle-on")"></i> @(p.Activo ? "Desactivar" : "Activar")
+                                                        </button>
+                                                    </li>
+                                                }
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        <tr data-filter-empty hidden>
+                            <td colspan="7">
+                                <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-search", "Sin resultados", "Probá con otro término o quitá los filtros activos.")' />
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="data-card__foot">
+                <span>Mostrando <strong data-filter-count="#tablaProductos">@Model.Filas.Count</strong> de @Model.Filas.Count</span>
+                <span class="d-none d-md-inline">Tip: podés buscar escaneando el código de barras · <kbd>/</kbd> para buscar</span>
+            </div>
+        }
+    </div>
+</section>
+
+<partial name="Components/_ConfirmModal" />
+@if (puedeAjustar)
+{
+    <partial name="_AjusteStock" model='Url.Page("Index")' />
+}
+
+@section Scripts {
+    <script src="~/js/ventas.js" asp-append-version="true"></script>
+}

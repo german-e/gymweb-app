@@ -1,0 +1,91 @@
+@page
+@model GymCore.Web.Pages.Cuenta.PerfilModel
+@{
+    ViewData["Title"] = "Mi perfil";
+    var u = Model.Usuario;
+}
+
+<section class="page-shell">
+    <div class="page-header">
+        <div>
+            <span class="eyebrow"><i class="bi bi-person-circle"></i> Mi cuenta</span>
+            <h2>Mi perfil</h2>
+            <p>Tus datos, lo que podés hacer en el sistema y tus últimos accesos.</p>
+        </div>
+        <div class="header-actions">
+            <a class="secondary-btn" asp-page="CambiarPassword"><i class="bi bi-key"></i> Cambiar contraseña</a>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.Flash))
+    {
+        <div class="flash success" role="status"><i class="bi bi-check-circle-fill"></i> @Model.Flash</div>
+    }
+
+    <header class="data-card">
+        <div class="member-hero">
+            <div class="member-hero__main">
+                <span class="avatar-circle xl">@UsuarioActual.InicialesDe(u.NombreCompleto)</span>
+                <div class="member-hero__info">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <h2>@u.NombreCompleto</h2>
+                        <span class="status-pill info">@u.Rol.Nombre</span>
+                    </div>
+                    <div class="profile-hero__meta">
+                        <span><i class="bi bi-at"></i> @u.NombreUsuario</span>
+                        @if (u.Email is not null) { <span><i class="bi bi-envelope"></i> @u.Email</span> }
+                        @if (u.Entrenador is not null) { <span><i class="bi bi-person-badge"></i> Vinculado a @u.Entrenador.NombreCompleto</span> }
+                    </div>
+                </div>
+            </div>
+        </div>
+        <dl class="member-strip m-0">
+            <div><dt>Último acceso</dt><dd>@(u.AccesoAnterior is { } a ? a.ToLocalTime().ToString("dd/MM/yyyy HH:mm") : "Primer ingreso")</dd></div>
+            <div><dt>Sesión actual desde</dt><dd>@(u.UltimoAcceso?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</dd></div>
+            <div><dt>Usuario desde</dt><dd>@u.FechaAlta.ToLocalTime().ToString("dd/MM/yyyy")</dd></div>
+            <div><dt>Rol</dt><dd>@u.Rol.Nombre</dd></div>
+            <div><dt>Estado</dt><dd><span class="status-pill success">Activo</span></dd></div>
+        </dl>
+    </header>
+
+    <div class="row g-4">
+        <div class="col-lg-5">
+            <div class="panel-card mb-4">
+                <div class="panel-head mb-3"><h3>Mis datos</h3></div>
+                <form method="post" novalidate data-submit-loading>
+                    <div class="mb-3">
+                        <label asp-for="NombreCompleto" class="form-label fw-semibold small"></label>
+                        <input asp-for="NombreCompleto" class="form-control" />
+                        <span asp-validation-for="NombreCompleto" class="text-danger small"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="Email" class="form-label fw-semibold small"></label>
+                        <input asp-for="Email" class="form-control" type="email" />
+                        <span asp-validation-for="Email" class="text-danger small"></span>
+                    </div>
+                    <p class="small text-muted"><i class="bi bi-info-circle"></i> El usuario y el rol los administra un administrador.</p>
+                    <button type="submit" class="primary-btn border-0" data-loading-text="Guardando…"><i class="bi bi-check2"></i> Guardar</button>
+                </form>
+            </div>
+
+            <div class="panel-card">
+                <div class="panel-head mb-3"><h3><i class="bi bi-shield-check text-success"></i> Accesos recientes</h3></div>
+                <partial name="Components/_EventosTimeline" model='new EventosTimelineVm(Model.Accesos, MostrarEntidad: false, Compacto: true, TextoVacio: "Todavía no hay accesos registrados.")' />
+            </div>
+        </div>
+        <div class="col-lg-7">
+            <div class="panel-card mb-4">
+                <div class="panel-head mb-3"><h3>Lo que podés hacer</h3><span class="badge-light">@u.Rol.Nombre</span></div>
+                <partial name="Components/_PermisosEfectivos" model="u.Rol" />
+            </div>
+            <div class="panel-card">
+                <div class="panel-head mb-3"><h3>Mi actividad</h3></div>
+                <partial name="Components/_EventosTimeline" model='new EventosTimelineVm(Model.Actividad, Compacto: true, TextoVacio: "Las acciones que realices (cobros, altas, cambios) aparecerán acá.")' />
+            </div>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

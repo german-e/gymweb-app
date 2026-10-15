@@ -1,0 +1,75 @@
+@page
+@using GymCore.Web.Reportes
+@model GymCore.Web.Pages.Reportes.ImprimirModel
+@inject IUsuarioActual Usuario
+@inject Microsoft.Extensions.Configuration.IConfiguration Config
+@{
+    Layout = null;
+    var t = Model.Tabla;
+    var gimnasio = Config["Gimnasio:Nombre"] ?? "GymCore";
+}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@t.Titulo - @gimnasio</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="~/css/reporte-impresion.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="acciones no-print">
+        <button type="button" onclick="window.print()"><i class="bi bi-file-earmark-pdf"></i> Guardar como PDF / Imprimir</button>
+        <span>En el diálogo, elegí <strong>Guardar como PDF</strong> como destino.</span>
+    </div>
+    <header class="cabecera">
+        <div class="marca"><span class="marca__icono"><i class="bi bi-lightning-charge-fill"></i></span><div><strong>@gimnasio</strong><small>Inteligencia de negocio</small></div></div>
+        <div class="meta">
+            <h1>@t.Titulo</h1>
+            <p>@t.Subtitulo</p>
+        </div>
+    </header>
+    <table>
+        <thead>
+            <tr>
+                @foreach (var c in t.Columnas)
+                {
+                    <th class="@(c.Tipo is TipoColumna.Texto ? "" : "num")">@c.Nombre</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @if (t.Filas.Count == 0)
+            {
+                <tr><td colspan="@t.Columnas.Count" class="vacio">Sin datos para el período seleccionado.</td></tr>
+            }
+            @foreach (var f in t.Filas)
+            {
+                <tr>
+                    @for (var i = 0; i < t.Columnas.Count; i++)
+                    {
+                        <td class="@(t.Columnas[i].Tipo is TipoColumna.Texto ? "" : "num")">@Exportador.Formatear(f[i], t.Columnas[i].Tipo)</td>
+                    }
+                </tr>
+            }
+        </tbody>
+        @if (t.Columnas.Any(c => c.Total) && t.Filas.Count > 0)
+        {
+            <tfoot>
+                <tr>
+                    @for (var i = 0; i < t.Columnas.Count; i++)
+                    {
+                        <td class="num">@(i == 0 ? "Total" : t.TotalDe(i) is { } tot ? Exportador.Formatear(tot, t.Columnas[i].Tipo) : "")</td>
+                    }
+                </tr>
+            </tfoot>
+        }
+    </table>
+    <footer class="pie">
+        <span>@t.Filas.Count registros · Generado por @Usuario.Nombre el @DateTime.Now.ToString("dd/MM/yyyy HH:mm")</span>
+        <span>Documento con datos personales · uso interno</span>
+    </footer>
+    <script>window.addEventListener('load', () => setTimeout(() => window.print(), 400));</script>
+</body>
+</html>

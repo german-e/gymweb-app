@@ -1,9 +1,11 @@
+using GymCore.Web.Seguridad;
 using GymCore.Aplicacion.Abstractiones;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace GymCore.Web.Pages.Socios;
 
+[RequierePermiso(Permisos.SociosEliminar)]
 public class DeleteModel : PageModel
 {
     private readonly ISocioRepository _repo;

@@ -1,71 +1,133 @@
 @page
+@using GymCore.Web.Pages.Pagos
+@using GymCore.Web.Pages.Socios
 @model GymCore.Web.Pages.Pagos.PendientesModel
+@inject IUsuarioActual Usuario
 @{
     ViewData["Title"] = "Deudas";
+    var hoy = DateTime.Today;
+    var total = Model.Items.Sum(i => i.Faltante);
+    var porVencer = Model.Items.Count(i => i.Hasta.Date <= hoy.AddDays(SociosConsultas.DiasAvisoVencimiento));
+    var parciales = Model.Items.Count(i => i.Pagado > 0);
 }
 
-<section class="container py-4">
-    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
+<section class="page-shell">
+    <div class="page-header">
         <div>
-            <h1 class="h4 mb-1">Deudas</h1>
-            <p class="text-muted mb-0">Socios con suscripción activa y saldo faltante.</p>
+            <a class="text-decoration-none small fw-semibold" asp-page="Index"><i class="bi bi-arrow-left"></i> Pagos</a>
+            <h2>Deudas</h2>
+            <p>Socios con suscripción vigente y saldo pendiente del período.</p>
         </div>
-        <div>
-            <a asp-page="/Pagos/Index" class="btn btn-outline-secondary">Ver pagos</a>
+        <div class="header-actions">
+            @if (Usuario.Puede(Permisos.PagosCrear))
+            {
+            <a class="primary-btn" asp-page="Nuevo"><i class="bi bi-plus-lg"></i> Registrar pago</a>
+            }
         </div>
     </div>
 
-    <form method="get" class="row g-2 align-items-center mb-3">
-        <div class="col-12 col-md">
-            <input name="q" value="@Model.Q" class="form-control" placeholder="Buscar por DNI, apellido o nombre" />
-        </div>
-        <div class="col-12 col-md-auto">
-            <button class="btn btn-outline-primary" type="submit">Buscar</button>
-        </div>
-    </form>
+    <div class="stats-grid">
+        <partial name="Components/_StatCard" model='new StatCardVm("Socios con deuda", Model.Items.Count.ToString(), "bi-people", "warning")' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Total adeudado", SocioPresentacion.Dinero(total), "bi-cash-stack", "danger")' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Con pago parcial", parciales.ToString(), "bi-pie-chart", "primary")' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Vencen pronto", porVencer.ToString(), "bi-alarm", "warning", $"{SociosConsultas.DiasAvisoVencimiento} días")' />
+    </div>
 
-    <div class="card shadow-sm">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>DNI</th>
-                        <th>Socio</th>
-                        <th>Plan</th>
-                        <th>Periodo</th>
-                        <th class="text-end">Precio</th>
-                        <th class="text-end">Pagado</th>
-                        <th class="text-end">Faltante</th>
-                        <th class="text-end" style="width: 160px;">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                @if (Model.Items.Count == 0)
+    <div class="data-card">
+        <form method="get" class="toolbar" role="search">
+            <div class="toolbar-group flex-grow-1">
+                <label class="search-input flex-grow-1" aria-label="Buscar deudas">
+                    <i class="bi bi-search"></i>
+                    <input name="q" type="search" value="@Model.Q" placeholder="Buscar por DNI, apellido o nombre…" data-table-filter="#tablaDeudas" />
+                    <kbd>/</kbd>
+                </label>
+            </div>
+            <div class="toolbar-group">
+                @if (!string.IsNullOrEmpty(Model.Q))
                 {
-                    <tr>
-                        <td colspan="8" class="text-center text-muted py-4">No hay deudas para mostrar</td>
-                    </tr>
+                    <a class="secondary-btn py-2" asp-page="Pendientes"><i class="bi bi-x-lg"></i> Limpiar</a>
                 }
-                else
-                {
-                    foreach (var it in Model.Items)
-                    {
+                <button class="secondary-btn py-2" type="submit"><i class="bi bi-search"></i> Buscar</button>
+            </div>
+        </form>
+
+        @if (Model.Items.Count == 0)
+        {
+            @if (string.IsNullOrEmpty(Model.Q))
+            {
+                <div class="empty-state">
+                    <div class="empty-state__icon success"><i class="bi bi-patch-check"></i></div>
+                    <h4>¡Todo al día!</h4>
+                    <p>Ningún socio con membresía vigente tiene saldo pendiente.</p>
+                </div>
+            }
+            else
+            {
+                <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-search", "Sin resultados", $"No hay deudas que coincidan con “{Model.Q}”.")' />
+            }
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="data-table stack-sm" id="tablaDeudas" data-sortable>
+                    <thead>
                         <tr>
-                            <td>@it.Dni</td>
-                            <td>@it.Nombre</td>
-                            <td>@it.Plan</td>
-                            <td>@it.Desde.ToString("dd/MM/yyyy") - @it.Hasta.ToString("dd/MM/yyyy")</td>
-                            <td class="text-end">$ @it.Precio @it.Moneda</td>
-                            <td class="text-end">$ @it.Pagado @it.Moneda</td>
-                            <td class="text-end fw-semibold text-danger">$ @it.Faltante @it.Moneda</td>
-                            <td class="text-end">
-                                <a asp-page="/Pagos/Nuevo" asp-route-dni="@it.Dni" class="btn btn-sm btn-primary">Registrar pago</a>
+                            <th data-sort="text">Socio</th>
+                            <th data-sort="text">Plan</th>
+                            <th data-sort="num">Período</th>
+                            <th style="min-width: 180px">Pagado</th>
+                            <th data-sort="num" class="text-end">Faltante</th>
+                            <th>Estado</th>
+                            <th class="text-end"><span class="visually-hidden">Acciones</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var it in Model.Items)
+                        {
+                            var pct = it.Precio > 0 ? (int)Math.Round(it.Pagado * 100 / it.Precio) : 0;
+                            var pronto = it.Hasta.Date <= hoy.AddDays(SociosConsultas.DiasAvisoVencimiento);
+                            <tr data-search="@($"{it.Nombre} {it.Dni} {it.Plan}")">
+                                <td class="cell-main" data-label="Socio" data-sort-value="@it.Nombre">
+                                    <div class="person-cell__copy">
+                                        <a asp-page="/Socios/Detalle" asp-route-id="@it.SocioId" asp-fragment="tab-pagos">@it.Nombre</a>
+                                        <small>DNI @it.Dni</small>
+                                    </div>
+                                </td>
+                                <td data-label="Plan">@it.Plan</td>
+                                <td data-label="Período" class="num text-soft" data-sort-value="@it.Hasta.Ticks">
+                                    @it.Desde.ToString("dd/MM") – @it.Hasta.ToString("dd/MM/yyyy")
+                                    <small class="d-block">@SocioPresentacion.Vencimiento(it.Hasta)</small>
+                                </td>
+                                <td data-label="Pagado">
+                                    <div class="progress-track @(pct == 0 ? "danger" : "warning")" role="progressbar" aria-valuenow="@pct" aria-valuemin="0" aria-valuemax="100"><span style="width: @pct%"></span></div>
+                                    <div class="progress-labels"><span>@SocioPresentacion.Dinero(it.Pagado, it.Moneda)</span><span>de @SocioPresentacion.Dinero(it.Precio, it.Moneda)</span></div>
+                                </td>
+                                <td data-label="Faltante" class="text-end num fw-semibold text-danger" data-sort-value="@it.Faltante.ToString(System.Globalization.CultureInfo.InvariantCulture)">@SocioPresentacion.Dinero(it.Faltante, it.Moneda)</td>
+                                <td data-label="Estado">
+                                    <span class="status-pill @(pronto ? EstadoCobro.Vencido.Variante() : EstadoCobro.Pendiente.Variante())">@(pronto ? "Vence pronto" : EstadoCobro.Pendiente.Texto())</span>
+                                </td>
+                                <td class="cell-actions text-end">
+                                    <div class="row-actions">
+                                        @if (Usuario.Puede(Permisos.PagosCrear))
+                                        {
+                                        <a class="secondary-btn btn-compact" asp-page="Nuevo" asp-route-socioId="@it.SocioId"><i class="bi bi-cash-coin"></i> <span class="d-none d-md-inline">Cobrar</span></a>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        <tr data-filter-empty hidden>
+                            <td colspan="7">
+                                <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-search", "Sin resultados", "Probá con otro término.")' />
                             </td>
                         </tr>
-                    }
-                }
-                </tbody>
-            </table>
-        </div>
+                    </tbody>
+                </table>
+            </div>
+            <div class="data-card__foot">
+                <span>Mostrando <strong data-filter-count="#tablaDeudas">@Model.Items.Count</strong> de @Model.Items.Count</span>
+                <span>Total adeudado: <strong class="text-danger">@SocioPresentacion.Dinero(total)</strong></span>
+            </div>
+        }
     </div>
 </section>

@@ -300,7 +300,156 @@
     });
   }
 
+  // ---------- Ordenamiento de tablas ----------
+  // <table data-sortable> con <th data-sort="text|num">. La celda puede fijar su clave con data-sort-value.
+  // Respeta los filtros activos (solo reordena) y deja la fila [data-filter-empty] al final.
+  function initTableSort() {
+    document.querySelectorAll('table[data-sortable]').forEach((table) => {
+      const tbody = table.tBodies[0];
+      const headers = Array.from(table.querySelectorAll('thead th[data-sort]'));
+      headers.forEach((th) => {
+        const idx = Array.from(th.parentNode.children).indexOf(th);
+        th.classList.add('sortable');
+        th.tabIndex = 0;
+        th.insertAdjacentHTML('beforeend', '<i class="bi bi-arrow-down-up sort-ic" aria-hidden="true"></i>');
+        const ordenar = () => {
+          const dir = th.dataset.dir === 'asc' ? 'desc' : 'asc';
+          headers.forEach((o) => {
+            delete o.dataset.dir;
+            o.removeAttribute('aria-sort');
+            o.querySelector('.sort-ic').className = 'bi bi-arrow-down-up sort-ic';
+          });
+          th.dataset.dir = dir;
+          th.setAttribute('aria-sort', dir === 'asc' ? 'ascending' : 'descending');
+          th.querySelector('.sort-ic').className = 'bi sort-ic ' + (dir === 'asc' ? 'bi-sort-up' : 'bi-sort-down');
+          const num = th.dataset.sort === 'num';
+          const clave = (tr) => {
+            const td = tr.children[idx];
+            const v = td ? (td.dataset.sortValue ?? td.textContent) : '';
+            return num ? (Number(v) || 0) : normalizar(v);
+          };
+          const filas = Array.from(tbody.rows).filter((tr) => !tr.hasAttribute('data-filter-empty'));
+          filas.sort((a, b) => {
+            const x = clave(a), y = clave(b);
+            const c = num ? x - y : x.localeCompare(y, 'es');
+            return dir === 'asc' ? c : -c;
+          });
+          filas.forEach((tr) => tbody.appendChild(tr));
+          const vacia = tbody.querySelector('[data-filter-empty]');
+          if (vacia) tbody.appendChild(vacia);
+        };
+        th.addEventListener('click', ordenar);
+        th.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ordenar(); } });
+      });
+    });
+  }
+
+  // ---------- Tooltips (Bootstrap) ----------
+  // <el data-bs-toggle="tooltip" title="...">
+  function initTooltips() {
+    if (!window.bootstrap) return;
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((el) => bootstrap.Tooltip.getOrCreateInstance(el, { container: 'body' }));
+  }
+
+  // ---------- Estado de carga al enviar ----------
+  // <form data-submit-loading> deshabilita el botón de envío y muestra un spinner (texto: data-loading-text).
+  // Solo actúa si la validación del cliente dejó pasar el envío (jquery.validate corta la propagación si falla).
+  function initSubmitLoading() {
+    document.addEventListener('submit', (e) => {
+      const form = e.target;
+      if (e.defaultPrevented || !form.matches('[data-submit-loading]')) return;
+      const btn = e.submitter || form.querySelector('[type="submit"]');
+      if (!btn) return;
+      btn.dataset.originalHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> ' + (btn.dataset.loadingText || 'Procesando…');
+    });
+    // Volver con el botón "atrás" restaura los botones (bfcache)
+    window.addEventListener('pageshow', () => {
+      document.querySelectorAll('[data-original-html]').forEach((b) => { b.innerHTML = b.dataset.originalHtml; b.disabled = false; delete b.dataset.originalHtml; });
+    });
+  }
+
+  // ---------- Toasts de confirmación ----------
+  // GymUi.toast('Mensaje', 'success' | 'danger' | 'info')
+  function toast(mensaje, variante = 'success') {
+    let host = document.querySelector('.toast-host');
+    if (!host) {
+      host = document.createElement('div');
+      host.className = 'toast-host';
+      host.setAttribute('aria-live', 'polite');
+      document.body.appendChild(host);
+    }
+    const iconos = { success: 'bi-check-circle-fill', danger: 'bi-exclamation-triangle-fill', info: 'bi-info-circle-fill' };
+    const t = document.createElement('div');
+    t.className = 'app-toast ' + variante;
+    t.setAttribute('role', variante === 'danger' ? 'alert' : 'status');
+    t.innerHTML = '<i class="bi ' + (iconos[variante] || iconos.info) + '"></i><span></span>';
+    t.querySelector('span').textContent = mensaje;
+    host.appendChild(t);
+    requestAnimationFrame(() => t.classList.add('show'));
+    setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 3200);
+  }
+
+  // ---------- Copiar al portapapeles ----------
+  // <button data-copy="texto">
+  function initCopy() {
+    document.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-copy]');
+      if (!b) return;
+      try { await navigator.clipboard.writeText(b.dataset.copy); toast('Copiado al portapapeles.'); }
+      catch { toast('No se pudo copiar el texto.', 'danger'); }
+    });
+  }
+
+  // ---------- Política de contraseñas (checklist en vivo) ----------
+  // <input data-password-policy="#lista" data-password-user="#campoUsuario">; la validación real es del servidor
+  function initPasswordPolicy() {
+    document.querySelectorAll('[data-password-policy]').forEach((input) => {
+      const lista = document.querySelector(input.dataset.passwordPolicy);
+      if (!lista) return;
+      const usuario = () => (document.querySelector(input.dataset.passwordUser)?.value || '').trim().toLowerCase();
+      const reglas = {
+        largo: (v) => v.length >= 8,
+        letra: (v) => /\p{L}/u.test(v),
+        numero: (v) => /\d/.test(v),
+        usuario: (v) => v.length > 0 && (!usuario() || !v.toLowerCase().includes(usuario()))
+      };
+      const evaluar = () => {
+        const v = input.value;
+        lista.querySelectorAll('[data-regla]').forEach((li) => {
+          const ok = reglas[li.dataset.regla](v);
+          li.classList.toggle('ok', ok);
+          li.querySelector('i').className = 'bi ' + (ok ? 'bi-check-circle-fill' : 'bi-circle');
+        });
+      };
+      input.addEventListener('input', evaluar);
+      document.querySelector(input.dataset.passwordUser)?.addEventListener('input', evaluar);
+      evaluar();
+    });
+  }
+
+  // ---------- Filtro de período (reportes): "Personalizado" muestra el rango de fechas ----------
+  function initFiltroPeriodo() {
+    document.querySelectorAll('[data-filtro-periodo]').forEach((form) => {
+      const btn = form.querySelector('[data-periodo-custom]');
+      const rango = form.querySelector('[data-periodo-rango]');
+      if (!btn || !rango) return;
+      btn.addEventListener('click', () => {
+        rango.hidden = !rango.hidden;
+        btn.setAttribute('aria-expanded', String(!rango.hidden));
+        if (!rango.hidden) rango.querySelector('input')?.focus();
+      });
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
+    initFiltroPeriodo();
+    initPasswordPolicy();
+    initTableSort();
+    initTooltips();
+    initSubmitLoading();
+    initCopy();
     initAttendanceCalendar();
     initMetricCharts();
     initBarcodes();
@@ -311,5 +460,5 @@
     initHashTabs();
   });
 
-  window.GymUi = { normalizar, cargarScript };
+  window.GymUi = { normalizar, cargarScript, toast };
 })();

@@ -1,0 +1,27 @@
+@model GymCore.Web.Componentes.AlertCardVm
+<article class="alert-card @Model.Variante">
+    <header class="alert-card__head">
+        <div class="module-icon @Model.Variante"><i class="bi @Model.Icono"></i></div>
+        <div class="min-w-0">
+            <p>@Model.Titulo</p>
+            <h3 class="num">@Model.Cantidad</h3>
+        </div>
+    </header>
+    <p class="alert-card__text">@Model.Texto</p>
+    @if (Model.Items.Count > 0)
+    {
+        <ul class="alert-card__list">
+            @foreach (var it in Model.Items)
+            {
+                <li>
+                    @if (it.Href is not null) { <a href="@it.Href">@it.Titulo</a> } else { <span>@it.Titulo</span> }
+                    <small>@it.Detalle</small>
+                </li>
+            }
+        </ul>
+    }
+    @if (!string.IsNullOrEmpty(Model.AccionTexto) && !string.IsNullOrEmpty(Model.AccionHref))
+    {
+        <a class="alert-card__link" href="@Model.AccionHref">@Model.AccionTexto <i class="bi bi-arrow-right"></i></a>
+    }
+</article>

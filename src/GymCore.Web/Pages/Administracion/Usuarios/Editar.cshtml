@@ -1,0 +1,120 @@
+@page "{id:int?}"
+@model GymCore.Web.Pages.Administracion.Usuarios.EditarModel
+@{
+    ViewData["Title"] = Model.EsEdicion ? "Editar usuario" : "Nuevo usuario";
+}
+
+<section class="page-shell">
+    <div class="page-header">
+        <div>
+            <a class="text-decoration-none small fw-semibold" asp-page="Index"><i class="bi bi-arrow-left"></i> Usuarios</a>
+            <h2>@ViewData["Title"]</h2>
+            <p>@(Model.EsEdicion ? "Los cambios de rol se aplican de inmediato y quedan en la auditoría." : "Se genera una contraseña temporal que el usuario deberá cambiar en su primer ingreso.")</p>
+        </div>
+    </div>
+
+    <form method="post" novalidate class="form-layout" data-submit-loading>
+        <nav class="section-nav" data-section-nav aria-label="Secciones del formulario">
+            <a href="#sec-datos" class="active"><i class="bi bi-person"></i> Datos</a>
+            <a href="#sec-rol"><i class="bi bi-shield-lock"></i> Rol y permisos</a>
+            <a href="#sec-vinculo"><i class="bi bi-person-badge"></i> Vínculo</a>
+        </nav>
+
+        <div class="form-stack">
+            <div asp-validation-summary="ModelOnly" class="flash danger mb-0"></div>
+
+            <section class="form-section" id="sec-datos">
+                <header class="form-section__head">
+                    <div class="module-icon primary"><i class="bi bi-person"></i></div>
+                    <div><h3>Datos de acceso</h3><p>Cómo se identifica la persona en el sistema.</p></div>
+                </header>
+                <div class="form-section__body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="NombreCompleto" class="form-label"></label><span class="req text-danger">*</span>
+                            <input asp-for="NombreCompleto" class="form-control" autofocus />
+                            <span asp-validation-for="NombreCompleto" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="NombreUsuario" class="form-label"></label>@if (!Model.EsEdicion) { <span class="req text-danger">*</span> }
+                            @if (Model.EsEdicion)
+                            {
+                                <div class="form-control bg-light">@@@Model.NombreUsuario</div>
+                                <div class="form-text">El nombre de usuario no se puede cambiar (identifica a la persona en la auditoría).</div>
+                            }
+                            else
+                            {
+                                <div class="input-group">
+                                    <span class="input-group-text">@@</span>
+                                    <input asp-for="NombreUsuario" class="form-control" autocapitalize="none" spellcheck="false" placeholder="ej. recepcion.maria" />
+                                </div>
+                                <div class="form-text">Se guarda en minúsculas. Es lo que se escribe para iniciar sesión.</div>
+                                <span asp-validation-for="NombreUsuario" class="text-danger"></span>
+                            }
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="Email" class="form-label"></label>
+                            <input asp-for="Email" class="form-control" type="email" />
+                            <span asp-validation-for="Email" class="text-danger"></span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="form-section" id="sec-rol">
+                <header class="form-section__head">
+                    <div class="module-icon warning"><i class="bi bi-shield-lock"></i></div>
+                    <div><h3>Rol</h3><p>Define qué puede ver y hacer. Los permisos de cada rol se editan en <a asp-page="/Administracion/Roles/Index">Roles y permisos</a>.</p></div>
+                </header>
+                <div class="form-section__body">
+                    <div class="role-picker" role="radiogroup" aria-label="Rol">
+                        @foreach (var r in Model.Roles)
+                        {
+                            var permisos = r.AccesoTotal ? Permisos.Catalogo.Count : r.Permisos.Count;
+                            <input type="radio" id="rol-@r.Id" name="RolId" value="@r.Id" checked="@(Model.RolId == r.Id)" />
+                            <label for="rol-@r.Id">
+                                <span class="d-flex align-items-center justify-content-between gap-2">
+                                    <strong>@r.Nombre</strong>
+                                    <span class="badge-light">@(r.AccesoTotal ? "Acceso total" : $"{permisos} permisos")</span>
+                                </span>
+                                <small>@r.Descripcion</small>
+                                <small class="text-soft"><i class="bi bi-people"></i> @r.Usuarios.Count @(r.Usuarios.Count == 1 ? "usuario" : "usuarios")</small>
+                            </label>
+                        }
+                    </div>
+                    <span asp-validation-for="RolId" class="text-danger small"></span>
+                </div>
+            </section>
+
+            <section class="form-section" id="sec-vinculo">
+                <header class="form-section__head">
+                    <div class="module-icon info"><i class="bi bi-person-badge"></i></div>
+                    <div><h3>Vínculo con entrenador</h3><p>Opcional. Necesario para el permiso “Ver socios asignados”: el usuario verá solo los socios de esa ficha.</p></div>
+                </header>
+                <div class="form-section__body">
+                    <label asp-for="EntrenadorId" class="form-label"></label>
+                    <select asp-for="EntrenadorId" class="form-select">
+                        <option value="">Sin vínculo</option>
+                        @foreach (var e in Model.Entrenadores)
+                        {
+                            <option value="@e.Id">@e.Apellido, @e.Nombre@(e.Activo ? "" : " (inactivo)")</option>
+                        }
+                    </select>
+                    <span asp-validation-for="EntrenadorId" class="text-danger"></span>
+                </div>
+            </section>
+
+            <div class="form-actions-bar">
+                <span class="hint d-none d-md-inline"><i class="bi bi-shield-check"></i> La acción queda registrada a tu nombre.</span>
+                <a class="secondary-btn" asp-page="@(Model.EsEdicion ? "Detalle" : "Index")" asp-route-id="@Model.Id">Cancelar</a>
+                <button type="submit" class="primary-btn border-0" data-loading-text="Guardando…">
+                    <i class="bi bi-check2"></i> @(Model.EsEdicion ? "Guardar cambios" : "Crear usuario")
+                </button>
+            </div>
+        </div>
+    </form>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

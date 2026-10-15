@@ -1,0 +1,230 @@
+@page "{id:int}"
+@using GymCore.Dominio.Entidades
+@using GymCore.Web.Pages.Socios
+@model GymCore.Web.Pages.Ventas.Productos.DetalleModel
+@inject IUsuarioActual Usuario
+@{
+    var p = Model.Producto;
+    ViewData["Title"] = p.Nombre;
+    var (estadoTexto, estadoIcono, estadoVariante) = p.Estado.Estilo();
+    var puedeEditar = Usuario.Puede(Permisos.ProductosEditar);
+    var puedeAjustar = Usuario.Puede(Permisos.InventarioAdministrar);
+    var verVentas = Usuario.Puede(Permisos.VentasVer);
+    var verRentabilidad = Usuario.Puede(Permisos.ReportesComercialesVer);
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+}
+
+<section class="page-shell">
+    <a class="text-decoration-none small fw-semibold" asp-page="Index"><i class="bi bi-arrow-left"></i> Productos</a>
+
+    @if (!string.IsNullOrEmpty(Model.Flash))
+    {
+        <div class="flash success" role="status"><i class="bi bi-check-circle-fill"></i> @Model.Flash</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.FlashError))
+    {
+        <div class="flash danger" role="alert"><i class="bi bi-exclamation-triangle-fill"></i> @Model.FlashError</div>
+    }
+
+    @if (!p.Activo)
+    {
+        <div class="flash muted-flash" role="status">
+            <i class="bi bi-pause-circle-fill"></i>
+            Producto inactivo: no aparece en el Punto de Venta. Su historial se conserva.
+            @if (puedeEditar)
+            {
+                <button type="button" class="ms-auto fw-semibold text-reset bg-transparent border-0 p-0 text-decoration-underline"
+                        data-confirm-action="@Url.Page("Index", "ToggleEstado", new { id = p.Id, volver = "detalle" })"
+                        data-confirm-title="¿Activar @p.Nombre?" data-confirm-text="Volverá a estar disponible para la venta."
+                        data-confirm-label="Activar producto" data-confirm-variant="success">Activar</button>
+            }
+        </div>
+    }
+    else if (p.Estado != EstadoStock.Normal)
+    {
+        <div class="flash @(p.Estado == EstadoStock.SinStock ? "danger" : "warning")" role="status">
+            <i class="bi @estadoIcono"></i>
+            @(p.Estado switch
+            {
+                EstadoStock.SinStock => "Sin stock: no se puede vender hasta registrar una compra.",
+                EstadoStock.Critico => $"Stock crítico: quedan {p.StockActual} y el mínimo es {p.StockMinimo}.",
+                _ => $"Próximo al mínimo: quedan {p.StockActual} (mínimo {p.StockMinimo})."
+            })
+            @if (Model.DiasCobertura is { } dc)
+            {
+                <span>Al ritmo actual alcanza para ~@dc días.</span>
+            }
+            @if (puedeAjustar)
+            {
+                <button type="button" class="ms-auto fw-semibold text-reset bg-transparent border-0 p-0 text-decoration-underline"
+                        data-ajuste-stock="@p.Id" data-nombre="@p.Nombre" data-stock="@p.StockActual" data-tipo="Compra"
+                        data-costo="@p.PrecioCompra.ToString(inv)">Registrar compra</button>
+            }
+        </div>
+    }
+
+    <header class="data-card">
+        <div class="member-hero">
+            <div class="member-hero__main">
+                <div class="module-icon xl primary"><i class="bi @p.Categoria.Icono"></i></div>
+                <div class="member-hero__info">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <h2>@p.Nombre</h2>
+                        @if (p.Activo)
+                        {
+                            <span class="status-pill @estadoVariante"><i class="bi @estadoIcono"></i> @estadoTexto</span>
+                        }
+                        else
+                        {
+                            <span class="status-pill muted">Inactivo</span>
+                        }
+                        @if (p.Destacado)
+                        {
+                            <span class="badge-light"><i class="bi bi-star-fill text-warning"></i> Acceso rápido</span>
+                        }
+                    </div>
+                    <div class="profile-hero__meta">
+                        <span><i class="bi bi-tag"></i> @p.Categoria.Nombre</span>
+                        <span class="num"><i class="bi bi-hash"></i> @p.Codigo</span>
+                        @if (!string.IsNullOrEmpty(p.CodigoBarras))
+                        {
+                            <span class="num"><i class="bi bi-upc"></i> @p.CodigoBarras</span>
+                        }
+                        @if (!string.IsNullOrEmpty(p.Marca))
+                        {
+                            <span><i class="bi bi-award"></i> @p.Marca</span>
+                        }
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap mt-3">
+                        @if (puedeAjustar)
+                        {
+                            <button type="button" class="primary-btn border-0" data-ajuste-stock="@p.Id" data-nombre="@p.Nombre" data-stock="@p.StockActual"
+                                    data-costo="@p.PrecioCompra.ToString(inv)"><i class="bi bi-arrow-left-right"></i> Ajustar stock</button>
+                        }
+                        @if (puedeEditar)
+                        {
+                            <a class="secondary-btn" asp-page="Editar" asp-route-id="@p.Id"><i class="bi bi-pencil"></i> Editar</a>
+                            <button type="button" class="secondary-btn"
+                                    data-confirm-action="@Url.Page("Index", "ToggleEstado", new { id = p.Id, volver = "detalle" })"
+                                    data-confirm-title="@(p.Activo ? "¿Desactivar " : "¿Activar ")@p.Nombre?"
+                                    data-confirm-text="@(p.Activo ? "Dejará de aparecer en el Punto de Venta. Su historial se conserva." : "Volverá a estar disponible para la venta.")"
+                                    data-confirm-label="@(p.Activo ? "Desactivar producto" : "Activar producto")"
+                                    data-confirm-variant="@(p.Activo ? "warning" : "success")">
+                                <i class="bi @(p.Activo ? "bi-toggle-off" : "bi-toggle-on")"></i> @(p.Activo ? "Desactivar" : "Activar")
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+            <div class="price-block">
+                <small>Precio de venta</small>
+                <strong class="num">@SocioPresentacion.Dinero(p.PrecioVenta)</strong>
+                <span>costo @SocioPresentacion.Dinero(p.PrecioCompra)</span>
+            </div>
+        </div>
+        <dl class="member-strip m-0">
+            <div><dt>Stock actual</dt><dd class="num"><span class="@p.Estado.Punto()" aria-hidden="true"></span> @InventarioPresentacion.Unidades(p.StockActual)</dd></div>
+            <div><dt>Stock mínimo</dt><dd class="num">@(p.StockMinimo > 0 ? p.StockMinimo.ToString() : "Sin mínimo")</dd></div>
+            <div><dt>Margen por unidad</dt><dd class="num">@SocioPresentacion.Dinero(p.MargenUnitario) @(p.MargenPorcentaje is { } mp ? $"({mp:0.#}%)" : "")</dd></div>
+            <div><dt>Valor del stock</dt><dd class="num" title="Stock × precio de compra">@SocioPresentacion.Dinero(p.StockActual * p.PrecioCompra)</dd></div>
+            <div><dt>Alta</dt><dd class="num">@p.FechaAlta.ToLocalTime().ToString("dd/MM/yyyy")</dd></div>
+        </dl>
+    </header>
+
+    <div class="summary-grid">
+        <div class="summary-card">
+            <div class="module-icon primary"><i class="bi bi-cart-check"></i></div>
+            <div><p>Vendidas (30 días)</p><h4>@Model.Unidades30 <small>unidades</small></h4></div>
+        </div>
+        <div class="summary-card">
+            <div class="module-icon success"><i class="bi bi-cash-stack"></i></div>
+            <div><p>Facturado (30 días)</p><h4>@SocioPresentacion.Dinero(Model.Importe30)</h4></div>
+        </div>
+        @if (verRentabilidad)
+        {
+            <div class="summary-card" data-bs-toggle="tooltip" title="Precio cobrado menos costo registrado en cada venta">
+                <div class="module-icon warning"><i class="bi bi-piggy-bank"></i></div>
+                <div><p>Margen (30 días)</p><h4>@SocioPresentacion.Dinero(Model.Margen30)</h4></div>
+            </div>
+        }
+        <div class="summary-card" data-bs-toggle="tooltip" title="Stock actual ÷ promedio de unidades vendidas por día en los últimos 30 días">
+            <div class="module-icon info"><i class="bi bi-hourglass-split"></i></div>
+            <div><p>Cobertura estimada</p><h4>@(Model.DiasCobertura is { } d ? $"{d:0} días" : "—")</h4></div>
+        </div>
+    </div>
+
+    <div class="data-card">
+        <nav class="tabs-underline px-3" role="tablist">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-movimientos" type="button" role="tab"><i class="bi bi-arrow-left-right"></i> Movimientos <span class="count">@Model.Movimientos.Count</span></button>
+            @if (verVentas)
+            {
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-ventas" type="button" role="tab"><i class="bi bi-receipt"></i> Ventas <span class="count">@Model.Ventas.Count</span></button>
+            }
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-info" type="button" role="tab"><i class="bi bi-card-text"></i> Información</button>
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-historial" type="button" role="tab"><i class="bi bi-clock-history"></i> Historial <span class="count">@Model.Eventos.Count</span></button>
+        </nav>
+        <div class="tab-content">
+            <div class="tab-pane fade show active p-4" id="tab-movimientos" role="tabpanel">
+                <partial name="_Movimientos" model='new MovimientosVm(Model.Movimientos, false, "El producto todavía no tuvo movimientos de stock.")' />
+                @if (Model.Movimientos.Count == DetalleModel.MaxMovimientos && Usuario.Puede(Permisos.InventarioAdministrar))
+                {
+                    <a class="secondary-btn mt-3" asp-page="/Ventas/Movimientos" asp-route-producto="@p.Id">Ver todos los movimientos <i class="bi bi-arrow-right"></i></a>
+                }
+            </div>
+            @if (verVentas)
+            {
+                <div class="tab-pane fade" id="tab-ventas" role="tabpanel">
+                    @if (Model.Ventas.Count == 0)
+                    {
+                        <div class="p-4"><partial name="Components/_EmptyState" model='new EmptyStateVm("bi-receipt", "Sin ventas", "Cuando se venda este producto, cada ticket aparecerá acá.")' /></div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="data-table stack-sm">
+                                <thead><tr><th>Ticket</th><th>Fecha</th><th>Cliente</th><th class="text-end">Cantidad</th><th class="text-end">Importe</th></tr></thead>
+                                <tbody>
+                                    @foreach (var v in Model.Ventas)
+                                    {
+                                        <tr class="@(v.Anulada ? "row-inactive" : "")">
+                                            <td data-label="Ticket" class="num"><a asp-page="/Ventas/Ticket" asp-route-id="@v.VentaId">V-@v.VentaId.ToString("D6")</a> @if (v.Anulada) { <span class="status-pill void">ANULADA</span> }</td>
+                                            <td data-label="Fecha" class="num text-soft">@v.Fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                            <td data-label="Cliente">
+                                                @if (v.SocioId is { } sid) { <a asp-page="/Socios/Detalle" asp-route-id="@sid">@v.Cliente</a> } else { <span class="text-soft">@v.Cliente</span> }
+                                            </td>
+                                            <td data-label="Cantidad" class="text-end num">@v.Cantidad</td>
+                                            <td data-label="Importe" class="text-end num fw-semibold">@SocioPresentacion.Dinero(v.Importe)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            }
+            <div class="tab-pane fade p-4" id="tab-info" role="tabpanel">
+                <dl class="info-list">
+                    <div><dt>Descripción</dt><dd>@(p.Descripcion ?? "Sin descripción")</dd></div>
+                    <div><dt>Categoría</dt><dd>@p.Categoria.Nombre</dd></div>
+                    <div><dt>Código interno</dt><dd class="num">@p.Codigo</dd></div>
+                    <div><dt>Código de barras</dt><dd class="num">@(p.CodigoBarras ?? "—")</dd></div>
+                    <div><dt>Marca</dt><dd>@(p.Marca ?? "—")</dd></div>
+                    <div><dt>Precio de compra</dt><dd class="num">@SocioPresentacion.Dinero(p.PrecioCompra)</dd></div>
+                </dl>
+            </div>
+            <div class="tab-pane fade p-4" id="tab-historial" role="tabpanel">
+                <partial name="Components/_EventosTimeline" model='new EventosTimelineVm(Model.Eventos, MostrarEntidad: false, TextoVacio: "Los cambios de precio, datos y estado quedarán registrados acá.")' />
+            </div>
+        </div>
+    </div>
+</section>
+
+<partial name="Components/_ConfirmModal" />
+@if (puedeAjustar)
+{
+    <partial name="_AjusteStock" model='Url.Page("Detalle", new { id = p.Id })' />
+}
+
+@section Scripts {
+    <script src="~/js/ventas.js" asp-append-version="true"></script>
+}

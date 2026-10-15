@@ -1,0 +1,209 @@
+@using GymCore.Dominio.Enums
+@using GymCore.Web.Pages.Planes
+@model GymCore.Web.Pages.Planes.PlanFormPageModel
+
+<form method="post" novalidate class="form-layout" data-submit-loading>
+    <aside class="form-aside">
+        <nav class="section-nav" data-section-nav aria-label="Secciones del formulario">
+            <a href="#sec-general" class="active"><i class="bi bi-card-text"></i> Información general</a>
+            <a href="#sec-precio"><i class="bi bi-currency-dollar"></i> Precio y duración</a>
+            <a href="#sec-acceso"><i class="bi bi-door-open"></i> Reglas de acceso</a>
+        </nav>
+
+        @* Vista previa en vivo (se actualiza desde el script de abajo) *@
+        <div class="plan-preview d-none d-lg-block" aria-hidden="true">
+            <span class="plan-preview__label">Vista previa</span>
+            <div class="module-icon @Model.Tipo.Variante()" data-pv-icon><i class="bi @Model.Tipo.Icono()"></i></div>
+            <strong class="plan-preview__name" data-pv-nombre>@(string.IsNullOrWhiteSpace(Model.Nombre) ? "Nuevo plan" : Model.Nombre)</strong>
+            <span class="plan-preview__type" data-pv-tipo>@Model.Tipo.Texto()</span>
+            <div class="plan-preview__price"><span data-pv-precio>$ @Model.Precio.ToString("N0", new System.Globalization.CultureInfo("es-AR"))</span><small data-pv-duracion>/ @PlanPresentacion.Duracion(Model.DuracionDias)</small></div>
+            <ul class="benefit-list compact" data-pv-beneficios></ul>
+        </div>
+    </aside>
+
+    <div class="form-stack">
+        <div asp-validation-summary="ModelOnly" class="flash danger mb-0"></div>
+        @if (Model.EsEdicion)
+        {
+            <input type="hidden" name="Id" value="@Model.PlanId" />
+        }
+        else if (Model.DuplicadoDeId is { } origenId)
+        {
+            <input type="hidden" name="DuplicadoDeId" value="@origenId" />
+        }
+
+        @* ============ INFORMACIÓN GENERAL ============ *@
+        <section class="form-section" id="sec-general">
+            <header class="form-section__head">
+                <div class="module-icon primary"><i class="bi bi-card-text"></i></div>
+                <div>
+                    <h3>Información general</h3>
+                    <p>Cómo se llama el plan y qué tipo de acceso ofrece.</p>
+                </div>
+            </header>
+            <div class="form-section__body">
+                <div class="row g-3">
+                    <div class="col-md-7">
+                        <label asp-for="Nombre" class="form-label"></label><span class="req text-danger">*</span>
+                        <input asp-for="Nombre" class="form-control" placeholder="Ej.: Musculación 3x semana" autofocus data-pv="nombre" />
+                        <span asp-validation-for="Nombre" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-5">
+                        <label asp-for="Tipo" class="form-label"></label><span class="req text-danger">*</span>
+                        <select asp-for="Tipo" class="form-select" asp-items="Model.Tipos" data-pv="tipo"></select>
+                        <span asp-validation-for="Tipo" class="text-danger"></span>
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="Descripcion" class="form-label"></label>
+                        <textarea asp-for="Descripcion" class="form-control" rows="3" placeholder="Qué incluye, a quién está dirigido, horarios sugeridos…"></textarea>
+                        <div class="form-text">Visible en la ficha del plan. Opcional.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        @* ============ PRECIO Y DURACIÓN ============ *@
+        <section class="form-section" id="sec-precio">
+            <header class="form-section__head">
+                <div class="module-icon success"><i class="bi bi-currency-dollar"></i></div>
+                <div>
+                    <h3>Precio y duración</h3>
+                    <p>Lo que paga el socio por cada ciclo del plan.</p>
+                </div>
+            </header>
+            <div class="form-section__body">
+                <div class="row g-3">
+                    <div class="col-md-5">
+                        <label asp-for="Precio" class="form-label"></label><span class="req text-danger">*</span>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input asp-for="Precio" class="form-control" inputmode="decimal" data-pv="precio" />
+                        </div>
+                        <span asp-validation-for="Precio" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-3">
+                        <label asp-for="Moneda" class="form-label"></label><span class="req text-danger">*</span>
+                        <input asp-for="Moneda" class="form-control text-uppercase" maxlength="10" />
+                        <span asp-validation-for="Moneda" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="DuracionDias" class="form-label"></label><span class="req text-danger">*</span>
+                        <input asp-for="DuracionDias" class="form-control" type="number" min="1" max="365" data-pv="duracion" />
+                        <span asp-validation-for="DuracionDias" class="text-danger"></span>
+                    </div>
+                    <div class="col-12">
+                        <div class="quick-picks" role="group" aria-label="Duraciones frecuentes">
+                            <span class="small text-muted me-1">Atajos:</span>
+                            <button type="button" class="filter-chip" data-duracion="1">1 día</button>
+                            <button type="button" class="filter-chip" data-duracion="7">1 semana</button>
+                            <button type="button" class="filter-chip" data-duracion="30">Mensual</button>
+                            <button type="button" class="filter-chip" data-duracion="90">Trimestral</button>
+                            <button type="button" class="filter-chip" data-duracion="180">Semestral</button>
+                            <button type="button" class="filter-chip" data-duracion="365">Anual</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        @* ============ REGLAS DE ACCESO ============ *@
+        <section class="form-section" id="sec-acceso">
+            <header class="form-section__head">
+                <div class="module-icon warning"><i class="bi bi-door-open"></i></div>
+                <div>
+                    <h3>Reglas de acceso</h3>
+                    <p>Se aplican en el control de ingreso del socio.</p>
+                </div>
+            </header>
+            <div class="form-section__body">
+                <div class="row g-3 mb-3" data-dias-semana>
+                    <div class="col-md-5">
+                        <label asp-for="MaxDiasPorSemana" class="form-label"></label>
+                        <input asp-for="MaxDiasPorSemana" class="form-control" type="number" placeholder="Sin límite" data-pv="dias" />
+                        <div class="form-text" data-dias-hint>Aplica a planes de tipo “Mensual por días”.</div>
+                    </div>
+                </div>
+                <div class="d-flex flex-column gap-2">
+                    <div class="state-toggle">
+                        <div>
+                            <strong>Acceso los sábados</strong>
+                            <small>El socio puede ingresar los sábados.</small>
+                        </div>
+                        <div class="form-check form-switch m-0">
+                            <input asp-for="PermiteAccesoSabado" class="form-check-input" role="switch" data-pv="sabado" />
+                        </div>
+                    </div>
+                    <div class="state-toggle">
+                        <div>
+                            <strong>Acceso los domingos</strong>
+                            <small>El socio puede ingresar los domingos.</small>
+                        </div>
+                        <div class="form-check form-switch m-0">
+                            <input asp-for="PermiteAccesoDomingo" class="form-check-input" role="switch" data-pv="domingo" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="form-actions-bar">
+            <span class="hint d-none d-md-inline"><i class="bi bi-info-circle"></i> Los cambios de precio aplican a las próximas suscripciones.</span>
+            @if (Model.EsEdicion)
+            {
+                <a class="secondary-btn" asp-page="Detalle" asp-route-id="@Model.PlanId">Cancelar</a>
+            }
+            else
+            {
+                <a class="secondary-btn" asp-page="Planes">Cancelar</a>
+            }
+            <button type="submit" class="primary-btn border-0" data-loading-text="Guardando…">
+                <i class="bi bi-check2"></i> @(Model.EsEdicion ? "Guardar cambios" : "Crear plan")
+            </button>
+        </div>
+    </div>
+</form>
+
+<script>
+    // Vista previa en vivo y atajos de duración (solo presentación)
+    document.addEventListener('DOMContentLoaded', function () {
+        const $ = (s) => document.querySelector(s);
+        const campo = (k) => document.querySelector('[data-pv="' + k + '"]');
+        const tipos = {
+            '1': { texto: 'Mensual por días', icono: 'bi-calendar-week', variante: 'info' },
+            '2': { texto: 'Mensual ilimitado', icono: 'bi-infinity', variante: 'primary' },
+            '3': { texto: 'Pase diario', icono: 'bi-ticket-perforated', variante: 'warning' }
+        };
+        const fmt = (n) => '$ ' + (Number(n) || 0).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+
+        const render = () => {
+            const t = tipos[campo('tipo').value] || tipos['2'];
+            const dias = Number(campo('duracion').value) || 0;
+            const porSemana = Number(campo('dias').value) || 0;
+            $('[data-pv-nombre]').textContent = campo('nombre').value.trim() || 'Nuevo plan';
+            $('[data-pv-tipo]').textContent = t.texto;
+            $('[data-pv-icon]').className = 'module-icon ' + t.variante;
+            $('[data-pv-icon]').innerHTML = '<i class="bi ' + t.icono + '"></i>';
+            $('[data-pv-precio]').textContent = fmt(String(campo('precio').value).replace(',', '.'));
+            $('[data-pv-duracion]').textContent = '/ ' + (dias === 1 ? '1 día' : dias + ' días');
+
+            const acceso = campo('tipo').value === '3' ? 'Acceso por un día'
+                : porSemana ? 'Hasta ' + porSemana + (porSemana === 1 ? ' día' : ' días') + ' por semana'
+                : 'Acceso libre todos los días';
+            const items = [[acceso, true], ['Ciclo de ' + (dias === 1 ? '1 día' : dias + ' días'), true],
+                ['Sábados', campo('sabado').checked], ['Domingos', campo('domingo').checked]];
+            $('[data-pv-beneficios]').innerHTML = items.map(([txt, ok]) =>
+                '<li class="' + (ok ? '' : 'off') + '"><i class="bi ' + (ok ? 'bi-check-circle-fill' : 'bi-x-circle') + '"></i>' + txt.replace(/</g, '&lt;') + '</li>').join('');
+
+            // Días por semana: se resalta solo cuando aplica al tipo elegido
+            document.querySelector('[data-dias-semana]').classList.toggle('is-dimmed', campo('tipo').value !== '1');
+            document.querySelectorAll('[data-duracion]').forEach((b) => b.classList.toggle('active', Number(b.dataset.duracion) === dias));
+        };
+
+        document.querySelectorAll('[data-pv]').forEach((el) => el.addEventListener(el.type === 'checkbox' || el.tagName === 'SELECT' ? 'change' : 'input', render));
+        document.querySelectorAll('[data-duracion]').forEach((b) => b.addEventListener('click', () => {
+            campo('duracion').value = b.dataset.duracion;
+            campo('duracion').dispatchEvent(new Event('input'));
+        }));
+        render();
+    });
+</script>

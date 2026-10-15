@@ -1,8 +1,10 @@
+using GymCore.Web.Seguridad;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Cryptography;
 using GymCore.Dominio.Entidades;
 using GymCore.Dominio.Enums;
 using GymCore.Infraestructura.Persistencia;
+using GymCore.Web.Componentes;
 using GymCore.Web.Pages.Entrenadores;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -10,16 +12,29 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GymCore.Web.Pages.Socios;
 
+[RequierePermiso(Permisos.SociosVer, Permisos.SociosVerAsignados)]
 public class DetalleModel : PageModel
 {
     private readonly GymDbContext _db;
-    public DetalleModel(GymDbContext db) => _db = db;
+    private readonly IUsuarioActual _usuario;
+    private readonly GymCore.Web.Comercial.ReportesComerciales _comercial;
+    public DetalleModel(GymDbContext db, IUsuarioActual usuario, GymCore.Web.Comercial.ReportesComerciales comercial)
+    { _db = db; _usuario = usuario; _comercial = comercial; }
 
     public record SuscripcionFila(SocioPlan Suscripcion, decimal Pagado)
     {
         public decimal Saldo => Math.Max(0m, Suscripcion.Plan.Precio - Pagado);
     }
-    public record EventoActividad(DateTime FechaUtc, string Icono, string Variante, string Titulo, string? Detalle);
+    // Usuario: responsable cuando se conoce (pagos con cajero y acciones auditadas)
+    public record EventoActividad(DateTime FechaUtc, string Icono, string Variante, string Titulo, string? Detalle, string? Usuario = null);
+
+    // Acciones administrativas que solo existen en la auditoría (el resto se reconstruye de los datos)
+    // Lista (no array): en C# 14 array.Contains se resuelve a ReadOnlySpan y EF 9 no lo traduce
+    private static readonly List<TipoEventoSistema> TiposAuditados = new()
+    {
+        TipoEventoSistema.SocioCreado, TipoEventoSistema.SocioEditado, TipoEventoSistema.SocioBaja, TipoEventoSistema.SocioReactivado,
+        TipoEventoSistema.CredencialRegenerada, TipoEventoSistema.PagoAnulado
+    };
 
     [BindProperty(SupportsGet = true)] public int Id { get; set; }
     [TempData] public string? Flash { get; set; }
@@ -30,6 +45,7 @@ public class DetalleModel : PageModel
 
     public List<SuscripcionFila> Suscripciones { get; private set; } = new();
     public List<Pago> Pagos { get; private set; } = new();
+    public Dictionary<int, decimal> PagadoPorSub { get; private set; } = new(); // total abonado por suscripción
     public List<Asistencia> Asistencias { get; private set; } = new();   // historial (últimas 200)
     public Dictionary<string, int> CalendarioAsistencia { get; private set; } = new(); // yyyy-MM-dd local -> cantidad (último año)
     public List<int> AsistenciasPorSemana { get; private set; } = new(); // últimas 12 semanas (lunes a domingo), la última es la actual
@@ -37,15 +53,25 @@ public class DetalleModel : PageModel
     public List<Entrenador> EntrenadoresDisponibles { get; private set; } = new();
     public List<MedicionFisica> Mediciones { get; private set; } = new();
     public List<EventoActividad> Actividad { get; private set; } = new();
+    public GymCore.Web.Comercial.ReportesComerciales.ComprasSocio? Compras { get; private set; }   // solo con VENTAS_VER
 
     // KPIs
     public int DiasComoSocio { get; private set; }
     public int AsistenciasMes { get; private set; }
     public int AsistenciasAnio { get; private set; }
     public double PromedioSemanal { get; private set; }
-    public int CuotasPagadas => Pagos.Count;
-    public decimal TotalPagado => Pagos.Sum(p => p.Importe);
+    // Totales sin anulados; la lista Pagos los incluye para el historial
+    public int CuotasPagadas => Pagos.Count(p => !p.Anulado);
+    public decimal TotalPagado => Pagos.Where(p => !p.Anulado).Sum(p => p.Importe);
     public int Renovaciones => Math.Max(0, Suscripciones.Count - 1);
+
+    // Filtro de alcance para todos los handlers: un entrenador solo opera sobre sus socios asignados
+    public override async Task OnPageHandlerExecutionAsync(Microsoft.AspNetCore.Mvc.Filters.PageHandlerExecutingContext ctx,
+        Microsoft.AspNetCore.Mvc.Filters.PageHandlerExecutionDelegate next)
+    {
+        if (!await SociosConsultas.PuedeVerSocioAsync(_db, _usuario, Id)) { ctx.Result = Forbid(); return; }
+        await next();
+    }
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -61,11 +87,11 @@ public class DetalleModel : PageModel
             .Where(sp => sp.SocioId == Id).OrderByDescending(sp => sp.FechaInicio).ToListAsync();
 
         // Pagos (con su suscripción para el concepto)
-        Pagos = await _db.Pagos.AsNoTracking().Include(p => p.SocioPlan).ThenInclude(sp => sp!.Plan)
+        Pagos = await _db.Pagos.IgnoreQueryFilters().AsNoTracking().Include(p => p.SocioPlan).ThenInclude(sp => sp!.Plan)
             .Where(p => p.SocioId == Id).OrderByDescending(p => p.FechaPago).ToListAsync();
-        var pagadoPorSub = Pagos.Where(p => p.SocioPlanId != null).GroupBy(p => p.SocioPlanId!.Value)
+        PagadoPorSub = Pagos.Where(p => !p.Anulado && p.SocioPlanId != null).GroupBy(p => p.SocioPlanId!.Value)
             .ToDictionary(g => g.Key, g => g.Sum(p => p.Importe));
-        Suscripciones = subs.Select(s => new SuscripcionFila(s, pagadoPorSub.GetValueOrDefault(s.Id))).ToList();
+        Suscripciones = subs.Select(s => new SuscripcionFila(s, PagadoPorSub.GetValueOrDefault(s.Id))).ToList();
 
         // Asistencia
         var desdeUtc = DateTime.SpecifyKind(hoy.AddDays(-366), DateTimeKind.Local).ToUniversalTime();
@@ -94,18 +120,32 @@ public class DetalleModel : PageModel
         Mediciones = await _db.MedicionesFisicas.AsNoTracking().Where(m => m.SocioId == Id)
             .OrderBy(m => m.Fecha).ToListAsync();
 
-        Actividad = ArmarActividad();
+        var auditados = await _db.EventosSistema.AsNoTracking()
+            .Where(e => (e.SocioId == Id || (e.Entidad == EntidadAuditada.Socio && e.EntidadId == Id)) && TiposAuditados.Contains(e.Tipo))
+            .ToListAsync();
+        Actividad = ArmarActividad(auditados);
+
+        // Compras en el Punto de Venta
+        if (_usuario.Puede(GymCore.Web.Seguridad.Permisos.VentasVer))
+            Compras = await _comercial.ComprasDeSocioAsync(Id);
         return Page();
     }
 
-    private List<EventoActividad> ArmarActividad()
+    private List<EventoActividad> ArmarActividad(List<EventoSistema> auditados)
     {
+        var alta = auditados.FirstOrDefault(e => e.Tipo == TipoEventoSistema.SocioCreado);
         var ev = new List<EventoActividad>
         {
-            new(Socio.FechaAlta, "bi-person-plus", "success", "Alta como socio", $"N° {SocioPresentacion.Numero(Socio.NumeroVisible)}")
+            new(Socio.FechaAlta, "bi-person-plus", "success", "Alta como socio", $"N° {SocioPresentacion.Numero(Socio.NumeroVisible)}", alta?.Usuario)
         };
-        if (Socio.FechaBaja is { } baja)
+        // Bajas: las auditadas traen responsable; la baja vigente previa a la auditoría se reconstruye de FechaBaja
+        if (Socio.FechaBaja is { } baja && !auditados.Any(e => e.Tipo == TipoEventoSistema.SocioBaja))
             ev.Add(new(baja, "bi-person-x", "danger", "Baja del socio", null));
+        foreach (var a in auditados.Where(e => e.Tipo != TipoEventoSistema.SocioCreado))
+        {
+            var (texto, icono, variante) = a.Tipo.Estilo();
+            ev.Add(new(a.FechaUtc, icono, variante, texto, a.Resumen, a.Usuario));
+        }
 
         foreach (var s in Suscripciones)
         {
@@ -114,8 +154,8 @@ public class DetalleModel : PageModel
                 $"{s.Suscripcion.FechaInicio:dd/MM/yyyy} → {s.Suscripcion.FechaFin:dd/MM/yyyy}"));
         }
         foreach (var p in Pagos)
-            ev.Add(new(p.FechaPago, "bi-cash-coin", "success", $"Pago {SocioPresentacion.Dinero(p.Importe, p.Moneda)}",
-                $"{p.Medio.Texto()}{(p.SocioPlan?.Plan is { } pl ? $" · {pl.Nombre}" : "")}"));
+            ev.Add(new(p.FechaPago, "bi-cash-coin", p.Anulado ? "muted" : "success", $"Pago {SocioPresentacion.Dinero(p.Importe, p.Moneda)}{(p.Anulado ? " (anulado)" : "")}",
+                $"{p.Medio.Texto()}{(p.SocioPlan?.Plan is { } pl ? $" · {pl.Nombre}" : "")}", p.UsuarioCajero));
         foreach (var a in HistorialEntrenadores)
         {
             ev.Add(new(a.FechaAsignacion, "bi-person-badge", "info", $"Entrenador asignado: {a.Entrenador.NombreCompleto}", a.Objetivo is null ? null : $"Objetivo: {a.Objetivo}"));
@@ -131,6 +171,7 @@ public class DetalleModel : PageModel
 
     // ---------- Acciones ----------
 
+    [RequierePermiso(Permisos.SociosEliminar)]
     public async Task<IActionResult> OnPostToggleBajaAsync()
     {
         Flash = await SocioAcciones.AlternarBajaAsync(_db, Id);
@@ -138,6 +179,7 @@ public class DetalleModel : PageModel
     }
 
     // Emite un código nuevo para la credencial. El anterior deja de funcionar; el DNI sigue habilitado en el check-in.
+    [RequierePermiso(Permisos.CredencialesEmitir)]
     public async Task<IActionResult> OnPostRegenerarCredencialAsync()
     {
         var s = await _db.Socios.FirstOrDefaultAsync(x => x.Id == Id);
@@ -148,11 +190,14 @@ public class DetalleModel : PageModel
         while (await _db.Socios.AnyAsync(x => x.TarjetaCodigo == codigo));
 
         s.TarjetaCodigo = codigo;
+        _db.Auditar(TipoEventoSistema.CredencialRegenerada, EntidadAuditada.Socio, s.Id, $"{s.Apellido}, {s.Nombre}",
+            "Se emitió un nuevo código; el anterior quedó inválido", socioId: s.Id);
         await _db.SaveChangesAsync();
         Flash = "Se emitió una nueva credencial. La anterior ya no es válida.";
         return RedirectToPage(null, null, new { id = Id }, "tab-credencial");
     }
 
+    [RequierePermiso(Permisos.SociosEditar)]
     public async Task<IActionResult> OnPostAsignarEntrenadorAsync(int entrenadorId, string? objetivo, bool reemplazar = true)
     {
         var socio = await _db.Socios.FirstOrDefaultAsync(s => s.Id == Id);
@@ -173,7 +218,7 @@ public class DetalleModel : PageModel
             {
                 a.Activa = false;
                 a.FechaFin = DateTime.UtcNow;
-                _db.RegistrarEvento(a.Entrenador, TipoEventoEntrenador.DesasignacionSocio, "Socio desasignado", $"{nombreSocio} (cambio de entrenador)");
+                _db.RegistrarEvento(a.Entrenador, TipoEventoEntrenador.DesasignacionSocio, "Socio desasignado", $"{nombreSocio} (cambio de entrenador)", Id);
             }
         }
 
@@ -194,7 +239,7 @@ public class DetalleModel : PageModel
                 existente.Objetivo = objetivo ?? existente.Objetivo;
             }
             _db.RegistrarEvento(entrenador, TipoEventoEntrenador.AsignacionSocio, "Socio asignado",
-                nombreSocio + (objetivo is null ? "" : $"\nObjetivo: {objetivo}"));
+                nombreSocio + (objetivo is null ? "" : $"\nObjetivo: {objetivo}"), Id);
         }
 
         await _db.SaveChangesAsync();
@@ -202,6 +247,7 @@ public class DetalleModel : PageModel
         return RedirectToPage(null, null, new { id = Id }, "tab-entrenador");
     }
 
+    [RequierePermiso(Permisos.SociosEditar)]
     public async Task<IActionResult> OnPostQuitarEntrenadorAsync(int asignacionId)
     {
         var a = await _db.EntrenadorSocios.Include(x => x.Entrenador).Include(x => x.Socio)
@@ -209,7 +255,7 @@ public class DetalleModel : PageModel
         if (a is null) return NotFound();
         a.Activa = false;
         a.FechaFin = DateTime.UtcNow;
-        _db.RegistrarEvento(a.Entrenador, TipoEventoEntrenador.DesasignacionSocio, "Socio desasignado", $"{a.Socio.Apellido}, {a.Socio.Nombre}");
+        _db.RegistrarEvento(a.Entrenador, TipoEventoEntrenador.DesasignacionSocio, "Socio desasignado", $"{a.Socio.Apellido}, {a.Socio.Nombre}", Id);
         await _db.SaveChangesAsync();
         Flash = $"Se quitó a {a.Entrenador.NombreCompleto} como entrenador.";
         return RedirectToPage(null, null, new { id = Id }, "tab-entrenador");
@@ -234,6 +280,7 @@ public class DetalleModel : PageModel
         public static bool EnRango(decimal? v, decimal min, decimal max) => v is null || (v >= min && v <= max);
     }
 
+    [RequierePermiso(Permisos.EvolucionRegistrar)]
     public async Task<IActionResult> OnPostAgregarMedicionAsync(MedicionInput medicion)
     {
         if (!await _db.Socios.AnyAsync(s => s.Id == Id)) return NotFound();
@@ -272,6 +319,7 @@ public class DetalleModel : PageModel
         return RedirectToPage(null, null, new { id = Id }, "tab-evolucion");
     }
 
+    [RequierePermiso(Permisos.EvolucionRegistrar)]
     public async Task<IActionResult> OnPostEliminarMedicionAsync(int medicionId)
     {
         var m = await _db.MedicionesFisicas.FirstOrDefaultAsync(x => x.Id == medicionId && x.SocioId == Id);

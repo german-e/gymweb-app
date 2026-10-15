@@ -1,3 +1,4 @@
+using GymCore.Web.Seguridad;
 using GymCore.Dominio.Entidades;
 using GymCore.Dominio.Enums;
 using GymCore.Infraestructura.Persistencia;
@@ -6,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GymCore.Web.Pages.Entrenadores;
 
+[RequierePermiso(Permisos.EntrenadoresEditar)]
 public class EditModel : EntrenadorFormPageModel
 {
     public EditModel(GymDbContext db, IWebHostEnvironment env) : base(db, env) { }

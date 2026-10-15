@@ -1,6 +1,7 @@
 @page "{id:int}"
 @using GymCore.Web.Pages.Entrenadores
 @model GymCore.Web.Pages.Entrenadores.DetalleModel
+@inject IUsuarioActual Usuario
 @{
     var e = Model.Entrenador;
     ViewData["Title"] = e.NombreCompleto;
@@ -51,11 +52,16 @@
                 </div>
             </div>
             <div class="profile-hero__actions">
+                @if (Usuario.Puede(Permisos.EntrenadoresEditar))
+                {
                 <a class="secondary-btn" asp-page="Edit" asp-route-id="@e.Id"><i class="bi bi-pencil"></i> Editar</a>
-                @if (e.Activo)
+                }
+                @if (e.Activo && Usuario.Puede(Permisos.EntrenadoresEditar))
                 {
                     <button type="button" class="primary-btn border-0" data-bs-toggle="modal" data-bs-target="#asignarModal"><i class="bi bi-person-plus"></i> Asignar socio</button>
                 }
+                @if (Usuario.Puede(Permisos.EntrenadoresEditar))
+                {
                 <div class="dropdown">
                     <button class="secondary-btn px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Más acciones"><i class="bi bi-three-dots"></i></button>
                     <ul class="dropdown-menu dropdown-menu-end">
@@ -82,6 +88,7 @@
                         </li>
                     </ul>
                 </div>
+                }
             </div>
         </div>
     </header>
@@ -130,7 +137,7 @@
                         }
                         else
                         {
-                            <p class="text-muted mb-4">Sin descripción profesional. <a asp-page="Edit" asp-route-id="@e.Id" asp-fragment="sec-profesional">Agregar</a></p>
+                            <p class="text-muted mb-4">Sin descripción profesional. <a hidden="@(!Usuario.Puede(Permisos.EntrenadoresEditar))" asp-page="Edit" asp-route-id="@e.Id" asp-fragment="sec-profesional">Agregar</a></p>
                         }
                         <dl class="info-list mb-4">
                             <div><dt>Especialidad</dt><dd>@(e.Especialidad ?? "—")</dd></div>
@@ -190,7 +197,7 @@
                         <div class="empty-state__icon"><i class="bi bi-people"></i></div>
                         <h4>Sin socios asignados</h4>
                         <p>Asigná socios para hacer seguimiento de sus objetivos, rutinas y asistencia.</p>
-                        @if (e.Activo)
+                        @if (e.Activo && Usuario.Puede(Permisos.EntrenadoresEditar))
                         {
                             <button type="button" class="primary-btn border-0" data-bs-toggle="modal" data-bs-target="#asignarModal"><i class="bi bi-person-plus"></i> Asignar socio</button>
                         }
@@ -207,7 +214,7 @@
                             <i class="bi bi-search"></i>
                             <input type="search" placeholder="Filtrar socios…" data-table-filter="#tablaSocios" />
                         </label>
-                        @if (e.Activo)
+                        @if (e.Activo && Usuario.Puede(Permisos.EntrenadoresEditar))
                         {
                             <button type="button" class="primary-btn border-0" data-bs-toggle="modal" data-bs-target="#asignarModal"><i class="bi bi-person-plus"></i> Asignar socio</button>
                         }
@@ -252,6 +259,8 @@
                                         <td class="cell-actions text-end">
                                             <div class="row-actions">
                                                 <a class="icon-btn" asp-page="/Socios/Detalle" asp-route-id="@s.SocioId" title="Ver ficha del socio"><i class="bi bi-box-arrow-up-right"></i></a>
+                                                @if (Usuario.Puede(Permisos.EntrenadoresEditar))
+                                                {
                                                 <button type="button" class="icon-btn danger" title="Quitar asignación"
                                                         data-confirm-action="@Url.Page("Detalle", "Desasignar", new { id = e.Id, asignacionId = s.AsignacionId })"
                                                         data-confirm-title="¿Quitar a @s.Nombre?"
@@ -260,6 +269,7 @@
                                                         data-confirm-variant="warning">
                                                     <i class="bi bi-person-dash"></i>
                                                 </button>
+                                                }
                                             </div>
                                         </td>
                                     </tr>
@@ -273,10 +283,13 @@
 
             @* ---------- HISTORIAL ---------- *@
             <div class="tab-pane fade p-4" id="tab-historial" role="tabpanel">
+                @if (Usuario.Puede(Permisos.EntrenadoresEditar))
+                {
                 <form method="post" asp-page-handler="Observacion" asp-route-id="@e.Id" class="d-flex gap-2 mb-4 flex-wrap">
                     <input name="texto" class="form-control flex-grow-1" style="min-width: 220px; flex-basis: 0" maxlength="2000" placeholder="Agregar una observación al historial…" required />
                     <button type="submit" class="secondary-btn"><i class="bi bi-chat-left-text"></i> Registrar</button>
                 </form>
+                }
 
                 @if (Model.Historial.Count == 0)
                 {
@@ -297,6 +310,10 @@
                                         <h5>@ev.Titulo</h5>
                                         <time datetime="@ev.Fecha.ToString("o")">@ev.Fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</time>
                                         @if (!string.IsNullOrEmpty(ev.Detalle)) { <p>@ev.Detalle</p> }
+                                        @if (ev.Usuario is { } quien)
+                                        {
+                                            <span class="audit-user mt-1"><span class="avatar-circle sm">@UsuarioActual.InicialesDe(quien)</span> @quien</span>
+                                        }
                                     </div>
                                 </li>
                             }

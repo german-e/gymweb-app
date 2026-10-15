@@ -1,6 +1,7 @@
 using GymCore.Dominio.Entidades;
 using GymCore.Dominio.Enums;
 using GymCore.Infraestructura.Persistencia;
+using GymCore.Web.Componentes;
 
 namespace GymCore.Web.Pages.Entrenadores;
 
@@ -89,7 +90,9 @@ public static class EntrenadorPresentacion
         _ => ("bi-dot", "muted")
     };
 
-    public static void RegistrarEvento(this GymDbContext db, Entrenador entrenador, TipoEventoEntrenador tipo, string titulo, string? detalle = null)
+    // Historial propio del entrenador + evento de auditoría del sistema (mismo SaveChanges).
+    // socioId: socio involucrado cuando la acción afecta a uno solo (asignaciones).
+    public static void RegistrarEvento(this GymDbContext db, Entrenador entrenador, TipoEventoEntrenador tipo, string titulo, string? detalle = null, int? socioId = null)
     {
         db.EntrenadorEventos.Add(new EntrenadorEvento
         {
@@ -99,5 +102,7 @@ public static class EntrenadorPresentacion
             Detalle = detalle,
             Fecha = DateTime.UtcNow
         });
+        db.Auditar(EventoPresentacion.DesdeEntrenador(tipo), EntidadAuditada.Entrenador, entrenador.Id, entrenador.NombreCompleto,
+            titulo, detalle, socioId, referencia: entrenador);
     }
 }

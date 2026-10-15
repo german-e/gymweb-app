@@ -1,3 +1,4 @@
+using GymCore.Web.Seguridad;
 using GymCore.Dominio.Entidades;
 using GymCore.Infraestructura.Persistencia;
 using Microsoft.AspNetCore.Mvc;
@@ -6,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GymCore.Web.Pages.Entrenadores;
 
+[RequierePermiso(Permisos.EntrenadoresVer)]
 public class IndexModel : PageModel
 {
     private readonly GymDbContext _db;
@@ -52,12 +54,14 @@ public class IndexModel : PageModel
         SociosAsignados = await _db.EntrenadorSocios.Where(a => a.Activa).Select(a => a.SocioId).Distinct().CountAsync();
     }
 
+    [RequierePermiso(Permisos.EntrenadoresEditar)]
     public async Task<IActionResult> OnPostToggleEstadoAsync(int id)
     {
         Flash = await EntrenadorAcciones.AlternarEstadoAsync(_db, id);
         return RedirectToPage();
     }
 
+    [RequierePermiso(Permisos.EntrenadoresEditar)]
     public async Task<IActionResult> OnPostEliminarAsync(int id)
     {
         Flash = await EntrenadorAcciones.EliminarAsync(_db, _env, id);

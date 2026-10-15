@@ -1,0 +1,129 @@
+@page
+@model GymCore.Web.Pages.Ventas.CategoriasModel
+@inject IUsuarioActual Usuario
+@{
+    ViewData["Title"] = "Categorías";
+    var puedeCrear = Usuario.Puede(Permisos.ProductosCrear);
+    var puedeEditar = Usuario.Puede(Permisos.ProductosEditar);
+}
+
+<section class="page-shell">
+    <div class="page-header">
+        <div>
+            <span class="eyebrow"><i class="bi bi-cart3"></i> Ventas e inventario</span>
+            <h2>Categorías</h2>
+            <p>Agrupan los productos en el Punto de Venta y en los reportes comerciales.</p>
+        </div>
+        <div class="header-actions">
+            @if (puedeCrear)
+            {
+                <button type="button" class="primary-btn border-0" data-categoria-editar data-bs-toggle="modal" data-bs-target="#categoriaModal"><i class="bi bi-plus-lg"></i> Nueva categoría</button>
+            }
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.Flash))
+    {
+        <div class="flash success" role="status"><i class="bi bi-check-circle-fill"></i> @Model.Flash</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.FlashError))
+    {
+        <div class="flash danger" role="alert"><i class="bi bi-exclamation-triangle-fill"></i> @Model.FlashError</div>
+    }
+
+    @if (Model.Filas.Count == 0)
+    {
+        <div class="data-card"><partial name="Components/_EmptyState" model='new EmptyStateVm("bi-tags", "Sin categorías", "Creá categorías como Bebidas o Suplementos para organizar el catálogo.")' /></div>
+    }
+    else
+    {
+        <div class="category-grid">
+            @foreach (var f in Model.Filas)
+            {
+                var c = f.Categoria;
+                <article class="category-card @(c.Activa ? "" : "is-inactive")">
+                    <div class="category-card__head">
+                        <div class="module-icon primary"><i class="bi @c.Icono"></i></div>
+                        <div class="min-w-0">
+                            <h3>@c.Nombre</h3>
+                            <small>@(c.Descripcion ?? "Sin descripción")</small>
+                        </div>
+                        @if (!c.Activa)
+                        {
+                            <span class="status-pill muted ms-auto">Inactiva</span>
+                        }
+                    </div>
+                    <dl class="category-card__stats">
+                        <div><dt>Productos</dt><dd class="num">@f.Activos<small>@(f.Productos > f.Activos ? $" / {f.Productos}" : "")</small></dd></div>
+                        <div class="@(f.Alertas > 0 ? "is-alert" : "")"><dt>Con alerta de stock</dt><dd class="num">@f.Alertas</dd></div>
+                    </dl>
+                    <div class="category-card__actions">
+                        <a class="secondary-btn" asp-page="/Ventas/Productos/Index" asp-route-categoria="@c.Id"><i class="bi bi-box2"></i> Ver productos</a>
+                        @if (puedeEditar)
+                        {
+                            <button type="button" class="icon-btn" data-bs-toggle="modal" data-bs-target="#categoriaModal"
+                                    data-categoria-editar="@c.Id" data-nombre="@c.Nombre" data-descripcion="@c.Descripcion" data-icono="@c.Icono"
+                                    aria-label="Editar @c.Nombre" title="Editar"><i class="bi bi-pencil"></i></button>
+                            <button type="button" class="icon-btn"
+                                    data-confirm-action="@Url.Page("Categorias", "Toggle", new { id = c.Id })"
+                                    data-confirm-title="@(c.Activa ? "¿Desactivar " : "¿Activar ")@c.Nombre?"
+                                    data-confirm-text="@(c.Activa ? "No se podrá elegir para productos nuevos. Los productos que ya tiene siguen a la venta." : "Volverá a estar disponible para clasificar productos.")"
+                                    data-confirm-label="@(c.Activa ? "Desactivar" : "Activar")"
+                                    data-confirm-variant="@(c.Activa ? "warning" : "success")"
+                                    aria-label="@(c.Activa ? "Desactivar" : "Activar") @c.Nombre" title="@(c.Activa ? "Desactivar" : "Activar")">
+                                <i class="bi @(c.Activa ? "bi-toggle-on" : "bi-toggle-off")"></i>
+                            </button>
+                        }
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</section>
+
+<partial name="Components/_ConfirmModal" />
+
+@if (puedeCrear || puedeEditar)
+{
+    <div class="modal fade" id="categoriaModal" tabindex="-1" aria-labelledby="categoriaModalTitulo" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="post" asp-page-handler="Guardar" class="modal-content" data-submit-loading data-categoria-form>
+                <input type="hidden" name="id" data-categoria-id />
+                <div class="modal-header">
+                    <h5 class="modal-title" id="categoriaModalTitulo" data-categoria-titulo>Nueva categoría</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="catNombre">Nombre</label><span class="req text-danger">*</span>
+                        <input class="form-control" id="catNombre" name="nombre" maxlength="60" required data-categoria-nombre />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="catDescripcion">Descripción</label>
+                        <input class="form-control" id="catDescripcion" name="descripcion" maxlength="200" placeholder="Opcional" data-categoria-descripcion />
+                    </div>
+                    <fieldset>
+                        <legend class="form-label">Ícono</legend>
+                        <div class="icon-picker" role="radiogroup">
+                            @foreach (var (icono, nombre) in InventarioPresentacion.IconosCategoria)
+                            {
+                                <label title="@nombre">
+                                    <input type="radio" name="icono" value="@icono" checked="@(icono == "bi-box")" />
+                                    <span><i class="bi @icono"></i><span class="visually-hidden">@nombre</span></span>
+                                </label>
+                            }
+                        </div>
+                    </fieldset>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="secondary-btn" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="primary-btn border-0"><i class="bi bi-check2"></i> Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <script src="~/js/ventas.js" asp-append-version="true"></script>
+}

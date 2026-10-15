@@ -1,0 +1,96 @@
+@page
+@using GymCore.Web.Reportes
+@model GymCore.Web.Pages.Reportes.SociosModel
+@{
+    ViewData["Title"] = "Evolución de socios";
+    var r = Model.Reporte;
+    var etiquetas = r.Meses.Select(m => Presentacion.Mes(m.Mes)).ToList();
+    var titulos = r.Meses.Select(m => Periodo.NombreMesLargo(m.Mes) + " " + m.Mes.Year).ToList();
+}
+
+<section class="page-shell viz-root">
+    <div class="page-header">
+        <div>
+            <span class="eyebrow"><i class="bi bi-bar-chart-line"></i> Inteligencia de negocio</span>
+            <h2>Evolución de socios</h2>
+            <p>¿Estoy creciendo o perdiendo socios? Altas, bajas y crecimiento neto mes a mes.</p>
+        </div>
+    </div>
+
+    <partial name="_Nav" />
+    <partial name="_FiltroPeriodo" model="Model.Periodo" />
+
+    <div class="summary-grid cols-5">
+        <div class="summary-card"><div class="module-icon primary"><i class="bi bi-people-fill"></i></div><div><p>Activos hoy</p><h4>@r.ActivosHoy.ToString("N0", Periodo.Es)</h4></div></div>
+        <div class="summary-card" data-bs-toggle="tooltip" title="Socios que pasaron a estar activos en el período (nuevos y reincorporados)"><div class="module-icon success"><i class="bi bi-person-plus"></i></div><div><p>Altas del período</p><h4>@r.Altas</h4></div></div>
+        <div class="summary-card" data-bs-toggle="tooltip" title="Socios que dejaron de estar activos: dados de baja o con la membresía vencida sin renovar"><div class="module-icon danger"><i class="bi bi-person-dash"></i></div><div><p>Bajas del período</p><h4>@r.Bajas</h4></div></div>
+        <div class="summary-card" data-bs-toggle="tooltip" title="Activos al final del período menos activos al inicio (= altas − bajas)"><div class="module-icon @(r.Neto >= 0 ? "success" : "danger")"><i class="bi @(r.Neto >= 0 ? "bi-graph-up-arrow" : "bi-graph-down-arrow")"></i></div><div><p>Crecimiento neto</p><h4>@(r.Neto > 0 ? "+" : "")@r.Neto</h4></div></div>
+        <div class="summary-card" data-bs-toggle="tooltip" title="De los socios activos al inicio del período, porcentaje que sigue activo al final"><div class="module-icon info"><i class="bi bi-arrow-repeat"></i></div><div><p>Retención</p><h4>@r.Retencion.ToString("0.#", Periodo.Es)%</h4></div></div>
+    </div>
+
+    @if (r.Meses.All(m => m.ActivosCierre == 0 && m.ActivosInicio == 0))
+    {
+        <div class="data-card"><partial name="Components/_EmptyState" model='new EmptyStateVm("bi-people", "Sin socios activos en el período", "Cuando haya socios con suscripciones en este rango vas a ver su evolución.")' /></div>
+    }
+    else
+    {
+        <div class="panel-card viz-card">
+            <div class="viz-card__head">
+                <div><h3>Socios activos al cierre de cada mes</h3><p>Línea temporal · el último punto es hoy</p></div>
+            </div>
+            <partial name="_Viz" model='new VizVm("line", new { etiquetas, titulos, formato = "numero", series = new[] { new { nombre = "Socios activos", valores = r.Meses.Select(m => (decimal?)m.ActivosCierre), slot = 1 } } }, "Socios activos al cierre de cada mes del período")' />
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="panel-card viz-card">
+                <div class="viz-card__head">
+                    <div><h3>Altas y bajas por mes</h3><p>Barras comparativas</p></div>
+                    <ul class="viz-legend">
+                        <li><span class="viz-key caja" style="background: var(--series-1)"></span> Altas</li>
+                        <li><span class="viz-key caja" style="background: var(--series-2)"></span> Bajas</li>
+                    </ul>
+                </div>
+                <partial name="_Viz" model='new VizVm("bars", new { etiquetas, titulos, formato = "numero", series = new object[] { new { nombre = "Altas", valores = r.Meses.Select(m => (decimal?)m.Altas), slot = 1 }, new { nombre = "Bajas", valores = r.Meses.Select(m => (decimal?)m.Bajas), slot = 2 } } }, "Altas y bajas de socios por mes")' />
+            </div>
+            <div class="panel-card viz-card">
+                <div class="viz-card__head">
+                    <div><h3>Crecimiento neto por mes</h3><p>Tendencia de crecimiento · altas − bajas</p></div>
+                    <ul class="viz-legend">
+                        <li><span class="viz-key caja" style="background: var(--viz-pos)"></span> Crece</li>
+                        <li><span class="viz-key caja" style="background: var(--viz-neg)"></span> Pierde</li>
+                    </ul>
+                </div>
+                <partial name="_Viz" model='new VizVm("diverging", new { etiquetas, titulos, formato = "numero", nombre = "Crecimiento neto", valores = r.Meses.Select(m => m.Neto) }, "Crecimiento neto de socios por mes")' />
+            </div>
+        </div>
+
+        <div class="data-card">
+            <div class="toolbar"><strong>Datos por mes</strong><span class="small text-muted">Equivalente en tabla de los gráficos</span></div>
+            <div class="table-responsive">
+                <table class="data-table viz-data">
+                    <thead><tr><th>Mes</th><th class="text-end">Activos al inicio</th><th class="text-end">Altas</th><th class="text-end">Bajas</th><th class="text-end">Neto</th><th class="text-end">Activos al cierre</th><th class="text-end">Registros nuevos</th></tr></thead>
+                    <tbody>
+                        @foreach (var m in r.Meses)
+                        {
+                            <tr>
+                                <td>@Periodo.NombreMesLargo(m.Mes) @m.Mes.Year</td>
+                                <td class="text-end num">@m.ActivosInicio</td>
+                                <td class="text-end num">@m.Altas</td>
+                                <td class="text-end num">@m.Bajas</td>
+                                <td class="text-end num fw-semibold @(m.Neto > 0 ? "text-success" : m.Neto < 0 ? "text-danger" : "")">@(m.Neto > 0 ? "+" : "")@m.Neto</td>
+                                <td class="text-end num">@m.ActivosCierre</td>
+                                <td class="text-end num">@m.Registros</td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot><tr><th>Total del período</th><th></th><th class="text-end">@r.Altas</th><th class="text-end">@r.Bajas</th><th class="text-end">@(r.Neto > 0 ? "+" : "")@r.Neto</th><th></th><th class="text-end">@r.Registros</th></tr></tfoot>
+                </table>
+            </div>
+        </div>
+        <p class="kpi-footnote"><i class="bi bi-people"></i> @r.SinEntrenador socios activos no tienen entrenador asignado. <a asp-page="/Socios/Socios" asp-route-f="sinentrenador">Ver listado</a></p>
+    }
+</section>
+
+@section Scripts {
+    <script src="~/js/charts.js" asp-append-version="true"></script>
+}

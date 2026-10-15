@@ -1,0 +1,62 @@
+@model MovimientosVm
+@{
+    var es = new System.Globalization.CultureInfo("es-AR");
+    var hoy = DateTime.Today;
+    string Dia(DateTime d) => d == hoy ? "Hoy" : d == hoy.AddDays(-1) ? "Ayer" : d.ToString("dddd d 'de' MMMM yyyy", es);
+}
+@* Libro de inventario: qué entró o salió, cuánto quedó, quién lo hizo y por qué *@
+@if (Model.Movimientos.Count == 0)
+{
+    <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-arrow-left-right", "Sin movimientos", Model.TextoVacio)' />
+}
+else
+{
+    <ol class="timeline event-timeline stock-timeline">
+        @foreach (var dia in Model.Movimientos.GroupBy(m => m.Fecha.ToLocalTime().Date))
+        {
+            var titulo = Dia(dia.Key);
+            <li class="timeline-group">@(char.ToUpper(titulo[0]) + titulo[1..])</li>
+            foreach (var m in dia)
+            {
+                var (icono, variante) = m.Tipo.Estilo();
+                var local = m.Fecha.ToLocalTime();
+                <li class="timeline-item">
+                    <span class="timeline-dot @variante"><i class="bi @icono"></i></span>
+                    <div class="timeline-body">
+                        <div class="event-line">
+                            <h5>
+                                @InventarioPresentacion.Texto(m.Tipo)
+                                <span class="stock-delta @(m.Cantidad > 0 ? "in" : "out")">@InventarioPresentacion.ConSigno(m.Cantidad)</span>
+                            </h5>
+                            <time datetime="@local.ToString("s")" data-bs-toggle="tooltip" title="@local.ToString("dd/MM/yyyy HH:mm:ss")">@local.ToString("HH:mm")</time>
+                        </div>
+                        <div class="event-subject">
+                            @if (Model.MostrarProducto && m.Producto is not null)
+                            {
+                                <span class="entity-chip producto">Producto</span>
+                                <a asp-page="/Ventas/Productos/Detalle" asp-route-id="@m.ProductoId">@m.Producto.Nombre</a>
+                                <span class="text-soft">·</span>
+                            }
+                            <span class="text-soft">Stock resultante <strong class="text-body num">@m.StockResultante</strong></span>
+                            @if (m.CostoUnitario is { } costo)
+                            {
+                                <span class="text-soft">· costo @GymCore.Web.Pages.Socios.SocioPresentacion.Dinero(costo)</span>
+                            }
+                            @if (m.VentaId is { } vid)
+                            {
+                                <span class="text-soft">·</span> <a asp-page="/Ventas/Ticket" asp-route-id="@vid" class="num">V-@vid.ToString("D6")</a>
+                            }
+                        </div>
+                        @if (!string.IsNullOrEmpty(m.Motivo))
+                        {
+                            <p>@m.Motivo</p>
+                        }
+                        <span class="audit-user mt-1">
+                            <span class="avatar-circle sm">@UsuarioActual.InicialesDe(m.Usuario ?? "?")</span> @(m.Usuario ?? "—")
+                        </span>
+                    </div>
+                </li>
+            }
+        }
+    </ol>
+}

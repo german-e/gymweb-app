@@ -1,0 +1,85 @@
+@page "{id:int}"
+@using GymCore.Web.Pages.Administracion.Usuarios
+@model GymCore.Web.Pages.Administracion.Usuarios.DetalleModel
+@{
+    var u = Model.Usuario;
+    ViewData["Title"] = u.NombreCompleto;
+    var (estado, variante) = UsuarioAcciones.Estado(u);
+}
+
+<section class="page-shell">
+    <a class="text-decoration-none small fw-semibold" asp-page="Index"><i class="bi bi-arrow-left"></i> Usuarios</a>
+
+    @if (!string.IsNullOrEmpty(Model.Flash))
+    {
+        <div class="flash success" role="status"><i class="bi bi-check-circle-fill"></i> @Model.Flash</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.PasswordTemporal))
+    {
+        <partial name="_PasswordTemporal" model="Model.PasswordTemporal" />
+    }
+    @if (!string.IsNullOrEmpty(Model.FlashError))
+    {
+        <div class="flash danger" role="alert"><i class="bi bi-exclamation-triangle-fill"></i> @Model.FlashError</div>
+    }
+
+    <header class="data-card">
+        <div class="member-hero">
+            <div class="member-hero__main">
+                <span class="avatar-circle xl">@UsuarioActual.InicialesDe(u.NombreCompleto)</span>
+                <div class="member-hero__info">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <h2>@u.NombreCompleto</h2>
+                        <span class="status-pill @variante">@estado</span>
+                        @if (Model.EsYo) { <span class="badge-light">Vos</span> }
+                    </div>
+                    <div class="profile-hero__meta">
+                        <span><i class="bi bi-at"></i> @u.NombreUsuario</span>
+                        <span><i class="bi bi-shield-lock"></i> @u.Rol.Nombre</span>
+                        @if (u.Email is not null) { <span><i class="bi bi-envelope"></i> @u.Email</span> }
+                        @if (u.Entrenador is not null) { <span><i class="bi bi-person-badge"></i> <a asp-page="/Entrenadores/Detalle" asp-route-id="@u.EntrenadorId">@u.Entrenador.NombreCompleto</a></span> }
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap mt-3">
+                        <a class="primary-btn" asp-page="Editar" asp-route-id="@u.Id"><i class="bi bi-pencil"></i> Editar</a>
+                        <div class="dropdown">
+                            <button class="secondary-btn px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Más acciones"><i class="bi bi-three-dots"></i></button>
+                            <partial name="_AccionesUsuario" model='(u, Model.EsYo, "/Administracion/Usuarios/Detalle")' />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <dl class="member-strip m-0">
+            <div><dt>Último acceso</dt><dd>@(u.UltimoAcceso?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "Nunca ingresó")</dd></div>
+            <div><dt>Alta</dt><dd>@u.FechaAlta.ToLocalTime().ToString("dd/MM/yyyy")</dd></div>
+            <div><dt>Acciones registradas</dt><dd class="num">@Model.AccionesTotales</dd></div>
+            <div><dt>Contraseña</dt><dd>@(u.DebeCambiarPassword ? "Temporal (pendiente de cambio)" : "Definida por el usuario")</dd></div>
+            <div><dt>Bloqueo</dt><dd>@(u.EstaBloqueado(DateTime.UtcNow) ? $"Hasta {u.BloqueadoHasta!.Value.ToLocalTime():HH:mm}" : u.IntentosFallidos > 0 ? $"{u.IntentosFallidos} intento(s) fallido(s)" : "Sin bloqueo")</dd></div>
+        </dl>
+    </header>
+
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="panel-card mb-4">
+                <div class="panel-head mb-3"><h3>Permisos efectivos</h3><a class="muted-link" asp-page="/Administracion/Roles/Editar" asp-route-id="@u.RolId">Editar rol @u.Rol.Nombre</a></div>
+                <partial name="Components/_PermisosEfectivos" model="u.Rol" />
+            </div>
+            <div class="panel-card">
+                <div class="panel-head mb-3"><h3>Actividad del usuario</h3><a class="muted-link" asp-page="/Administracion/Auditoria" asp-route-Usuario="@u.NombreCompleto">Ver en auditoría</a></div>
+                <partial name="Components/_EventosTimeline" model='new EventosTimelineVm(Model.Actividad, Compacto: true, TextoVacio: "Todavía no realizó acciones en el sistema.")' />
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="panel-card mb-4">
+                <div class="panel-head mb-3"><h3><i class="bi bi-box-arrow-in-right text-primary"></i> Accesos</h3></div>
+                <partial name="Components/_EventosTimeline" model='new EventosTimelineVm(Model.Accesos, MostrarEntidad: false, Compacto: true, TextoVacio: "Sin accesos registrados.")' />
+            </div>
+            <div class="panel-card">
+                <div class="panel-head mb-3"><h3><i class="bi bi-clock-history text-primary"></i> Historial de la cuenta</h3></div>
+                <partial name="Components/_EventosTimeline" model='new EventosTimelineVm(Model.Cuenta, MostrarEntidad: false, Compacto: true, TextoVacio: "Sin cambios registrados.")' />
+            </div>
+        </div>
+    </div>
+</section>
+
+<partial name="Components/_ConfirmModal" />

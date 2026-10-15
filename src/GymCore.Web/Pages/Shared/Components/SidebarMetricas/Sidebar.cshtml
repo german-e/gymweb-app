@@ -1,0 +1,15 @@
+@using GymCore.Web.Pages.Socios
+@model GymCore.Web.Componentes.IndicadoresGimnasio.Resumen?
+@{
+    var c = Model?.Cobranza;
+    var m = Model?.Membresias;
+}
+<a class="mini-card text-decoration-none" asp-page="/Pagos/Index" aria-label="Ver cobranza">
+    <span class="mini-card__label">Cobranza de hoy</span>
+    <strong>@(c is null ? "—" : SocioPresentacion.Dinero(c.Hoy))</strong>
+    <small>@(c is null ? "Sin datos" : $"{c.PagosHoy} {(c.PagosHoy == 1 ? "pago" : "pagos")} · Mes {SocioPresentacion.Dinero(c.Mes)}")</small>
+    <dl class="mini-card__stats">
+        <div><dt><i class="bi bi-people"></i> Socios activos</dt><dd>@(m?.Activos.ToString() ?? "—")</dd></div>
+        <div class="@(m is { Morosos: > 0 } ? "is-alert" : "")"><dt><i class="bi bi-hourglass-split"></i> Pagos pendientes</dt><dd>@(m?.Morosos.ToString() ?? "—")</dd></div>
+    </dl>
+</a>

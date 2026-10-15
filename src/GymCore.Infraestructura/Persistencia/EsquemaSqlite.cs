@@ -5,11 +5,16 @@ namespace GymCore.Infraestructura.Persistencia;
 
 // EnsureCreated no actualiza una base existente. Este helper la alinea con el modelo de forma
 // idempotente y sin migraciones:
-//   1. agrega columnas NULLABLES nuevas a tablas existentes (ALTER TABLE ADD COLUMN),
+//   1. agrega columnas nuevas a tablas existentes (ALTER TABLE ADD COLUMN): nullables, o NOT NULL
+//      con DEFAULT si la propiedad tiene la anotación DefaultAlAgregar,
 //   2. crea las tablas e índices que falten (a partir del script que genera EF).
 // No elimina ni modifica columnas existentes.
 public static class EsquemaSqlite
 {
+    // Anotación para columnas NOT NULL nuevas: literal SQL con el que se completan las filas existentes.
+    // No se usa HasDefaultValue de EF porque en bool omite el false al insertar (sentinel).
+    public const string DefaultAlAgregar = "GymCore:DefaultAlAgregar";
+
     public static async Task ActualizarAsync(GymDbContext db)
     {
         await AgregarColumnasFaltantesAsync(db);
@@ -58,9 +63,14 @@ public static class EsquemaSqlite
             foreach (var prop in entidad.GetProperties())
             {
                 var columna = prop.GetColumnName(objeto);
-                if (columna is null || existentes.Contains(columna) || !prop.IsColumnNullable(objeto)) continue;
+                if (columna is null || existentes.Contains(columna)) continue;
                 var tipo = prop.GetColumnType(objeto);
-                try { await db.Database.ExecuteSqlRawAsync($"ALTER TABLE \"{tabla}\" ADD COLUMN \"{columna}\" {tipo} NULL;"); } catch { }
+                // NOT NULL solo si la propiedad declara con qué valor completar las filas existentes
+                var definicion = prop.IsColumnNullable(objeto) ? $"{tipo} NULL"
+                    : prop.FindAnnotation(DefaultAlAgregar)?.Value is string valor ? $"{tipo} NOT NULL DEFAULT {valor}"
+                    : null;
+                if (definicion is null) continue;
+                try { await db.Database.ExecuteSqlRawAsync($"ALTER TABLE \"{tabla}\" ADD COLUMN \"{columna}\" {definicion};"); } catch { }
             }
         }
     }

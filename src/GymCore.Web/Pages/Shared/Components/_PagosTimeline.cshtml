@@ -1,0 +1,47 @@
+@using GymCore.Web.Pages.Pagos
+@using GymCore.Web.Pages.Socios
+@model GymCore.Web.Componentes.PagosTimelineVm
+@{
+    var es = new System.Globalization.CultureInfo("es-AR");
+}
+@* Historial de pagos (ficha del socio y detalle de pago). Requiere Pago.SocioPlan.Plan cargado para el concepto. *@
+<ol class="timeline pay-timeline">
+    @foreach (var mes in Model.Pagos.GroupBy(p => { var l = p.FechaPago.ToLocalTime(); return new DateTime(l.Year, l.Month, 1); }))
+    {
+        var titulo = mes.Key.ToString("MMMM yyyy", es);
+        <li class="timeline-group">
+            @(char.ToUpper(titulo[0]) + titulo[1..])
+            <span>· @SocioPresentacion.Dinero(mes.Where(p => !p.Anulado).Sum(p => p.Importe))</span>
+        </li>
+        foreach (var p in mes)
+        {
+            var estado = p.Estado(Model.PagadoPorPeriodo);
+            var local = p.FechaPago.ToLocalTime();
+            <li class="timeline-item @(p.Id == Model.ActualId ? "is-current" : "") @(p.Anulado ? "is-anulado" : "")">
+                <span class="timeline-dot @estado.Variante()"><i class="bi @p.Medio.Icono()"></i></span>
+                <div class="timeline-body">
+                    <div class="pay-line">
+                        <div class="min-w-0">
+                            <h5>
+                                @if (p.Id == Model.ActualId) { @p.Concepto() }
+                                else { <a class="text-reset" asp-page="/Pagos/Recibo" asp-route-id="@p.Id">@p.Concepto()</a> }
+                            </h5>
+                            <time datetime="@local.ToString("s")">@local.ToString("dd/MM/yyyy HH:mm") · @p.Medio.Texto()@(p.UsuarioCajero is null ? "" : $" · {p.UsuarioCajero}")</time>
+                        </div>
+                        <div class="pay-line__amount">
+                            <strong class="num">@SocioPresentacion.Dinero(p.Importe, p.Moneda)</strong>
+                            <span class="status-pill @estado.Variante()">@estado.Texto()</span>
+                        </div>
+                    </div>
+                    @if (p.Id != Model.ActualId)
+                    {
+                        <div class="pay-line__actions d-print-none">
+                            <a asp-page="/Pagos/Recibo" asp-route-id="@p.Id"><i class="bi bi-receipt"></i> @p.Numero()</a>
+                            <a asp-page="/Pagos/Recibo" asp-route-id="@p.Id" asp-route-imprimir="true" target="_blank"><i class="bi bi-printer"></i> Imprimir</a>
+                        </div>
+                    }
+                </div>
+            </li>
+        }
+    }
+</ol>

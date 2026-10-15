@@ -1,0 +1,22 @@
+@page
+@inject IUsuarioActual Usuario
+@{
+    ViewData["Title"] = "Acceso restringido";
+}
+
+<section class="page-shell">
+    <div class="data-card narrow-card mx-auto w-100">
+        <div class="empty-state py-5">
+            <div class="empty-state__icon warning"><i class="bi bi-shield-lock"></i></div>
+            <h4>No tenés acceso a esta sección</h4>
+            <p>
+                Tu rol <strong>@Usuario.Rol</strong> no incluye el permiso necesario.
+                Si lo necesitás para tu trabajo, pedíselo a un administrador.
+            </p>
+            <div class="d-flex gap-2 justify-content-center flex-wrap">
+                <a class="primary-btn" asp-page="/Panel"><i class="bi bi-grid-1x2"></i> Ir al panel</a>
+                <a class="secondary-btn" asp-page="/Cuenta/Perfil"><i class="bi bi-person"></i> Ver mis permisos</a>
+            </div>
+        </div>
+    </div>
+</section>

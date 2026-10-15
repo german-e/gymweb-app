@@ -1,0 +1,85 @@
+@using GymCore.Web.Pages.Socios
+@model GymCore.Web.Componentes.IndicadoresGimnasio.Resumen?
+@inject IUsuarioActual Usuario
+@{
+    // Cada alerta se muestra solo si el usuario puede abrir la pantalla a la que lleva
+    var verSocios = Usuario.Puede(Permisos.SociosVer);
+    var verPlanes = Usuario.Puede(Permisos.PlanesVer);
+    var stock = ViewData["Stock"] as GymCore.Web.Comercial.ServicioInventario.ResumenStock;
+    var verStock = stock is not null;
+    if (!verSocios && !verPlanes && !verStock) { return; }
+    var m = Model?.Membresias;
+    var urgentes = (verSocios ? Model?.AlertasUrgentes ?? 0 : 0) + (stock?.Urgentes ?? 0);
+}
+<div class="dropdown">
+    <button class="icon-button" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
+            aria-label="Centro de alertas: @urgentes @(urgentes == 1 ? "alerta urgente" : "alertas urgentes")">
+        <i class="bi bi-bell"></i>
+        @if (urgentes > 0)
+        {
+            <span class="badge-dot">@(urgentes > 99 ? "99+" : urgentes.ToString())</span>
+        }
+    </button>
+    <div class="dropdown-menu dropdown-menu-end alert-center">
+        <div class="alert-center__head">
+            <strong>Centro de alertas</strong>
+            <small>@(urgentes == 0 ? "Sin pendientes urgentes" : $"{urgentes} {(urgentes == 1 ? "requiere" : "requieren")} atención")</small>
+        </div>
+        @if (stock is not null)
+        {
+            // Inventario: 🔴 sin stock · 🟠 crítico · 🟡 próximo al mínimo
+            var alertasStock = new[]
+            {
+                (Tono: "danger", Icono: "bi-x-octagon", Titulo: "Productos sin stock", Texto: "No se pueden vender", Cantidad: stock.SinStock, Filtro: "sinstock"),
+                (Tono: "orange", Icono: "bi-exclamation-triangle", Titulo: "Stock crítico", Texto: "En o por debajo del mínimo", Cantidad: stock.Criticos, Filtro: "critico"),
+                (Tono: "warning", Icono: "bi-exclamation-circle", Titulo: "Próximos al mínimo", Texto: "Conviene reponer pronto", Cantidad: stock.Proximos, Filtro: "proximo"),
+            };
+            <ul class="alert-center__list alert-center__list--grupo" aria-label="Alertas de inventario">
+                @foreach (var a in alertasStock.Where(x => x.Cantidad > 0 || x.Filtro != "proximo"))
+                {
+                    <li>
+                        <a class="alert-center__item @(a.Cantidad == 0 ? "is-zero" : "")" href="@Url.Page("/Ventas/Inventario", new { f = a.Filtro })">
+                            <span class="alert-center__icon @a.Tono"><i class="bi @a.Icono"></i></span>
+                            <span class="alert-center__copy"><strong>@a.Titulo</strong><small>@a.Texto</small></span>
+                            <span class="alert-center__count @a.Tono">@a.Cantidad</span>
+                            <i class="bi bi-chevron-right text-soft"></i>
+                        </a>
+                    </li>
+                }
+            </ul>
+        }
+        @if (m is null)
+        {
+            if (verSocios || verPlanes)
+            {
+                <p class="text-muted small px-3 py-2 mb-0">No se pudieron calcular las alertas.</p>
+            }
+        }
+        else
+        {
+            // Centro de alertas: cada fila lleva a la pantalla donde se resuelve
+            var alertas = new[]
+            {
+                (Visible: verSocios, Tono: "danger", Icono: "bi-x-octagon", Titulo: "Pagos vencidos", Texto: "Membresías vencidas sin renovar", Cantidad: m.Vencidos.Count, Href: Url.Page("/Socios/Socios", new { f = "vencido" })),
+                (Visible: verSocios, Tono: "orange", Icono: "bi-alarm", Titulo: "Membresías por vencer", Texto: $"En los próximos {SociosConsultas.DiasAvisoVencimiento} días", Cantidad: m.PorVencer.Count, Href: Url.Page("/Socios/Socios", new { f = "porvencer" })),
+                (Visible: verSocios, Tono: "warning", Icono: "bi-person-badge", Titulo: "Socios sin entrenador", Texto: "Sin profesional asignado", Cantidad: m.SinEntrenador, Href: Url.Page("/Socios/Socios", new { f = "sinentrenador" })),
+                (Visible: verPlanes, Tono: "info", Icono: "bi-pause-circle", Titulo: "Planes inactivos", Texto: "No disponibles para nuevas altas", Cantidad: Model!.PlanesInactivos, Href: Url.Page("/Planes/Planes", new { estado = "inactivo" })),
+                (Visible: verSocios, Tono: "success", Icono: "bi-stars", Titulo: "Nuevos socios", Texto: "Registrados este mes", Cantidad: m.NuevosMes, Href: Url.Page("/Socios/Socios", new { f = "nuevo" })),
+            };
+            <ul class="alert-center__list">
+                @foreach (var a in alertas.Where(x => x.Visible))
+                {
+                    <li>
+                        <a class="alert-center__item @(a.Cantidad == 0 ? "is-zero" : "")" href="@a.Href">
+                            <span class="alert-center__icon @a.Tono"><i class="bi @a.Icono"></i></span>
+                            <span class="alert-center__copy"><strong>@a.Titulo</strong><small>@a.Texto</small></span>
+                            <span class="alert-center__count @a.Tono">@a.Cantidad</span>
+                            <i class="bi bi-chevron-right text-soft"></i>
+                        </a>
+                    </li>
+                }
+            </ul>
+        }
+        <a class="alert-center__foot" asp-page="/Panel">Ir al panel de gestión <i class="bi bi-arrow-right"></i></a>
+    </div>
+</div>

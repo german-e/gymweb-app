@@ -28,6 +28,13 @@ public class Plan
     public bool PermiteAccesoSabado { get; set; } = true;
     public bool PermiteAccesoDomingo { get; set; } = true;
 
+    // Estado comercial: un plan inactivo no admite nuevas altas ni renovaciones.
+    // Las suscripciones existentes no se modifican.
+    public bool Activo { get; set; } = true;
+
+    // UTC. Null = plan creado antes de que se registrara la fecha.
+    public DateTime? FechaAlta { get; set; } = DateTime.UtcNow;
+
     // Navegación
     public ICollection<SocioPlan> Suscripciones { get; set; } = new List<SocioPlan>();
 }

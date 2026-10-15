@@ -1,0 +1,55 @@
+@using GymCore.Dominio.Enums
+@model GymCore.Web.Componentes.EventosTimelineVm
+@{
+    var es = new System.Globalization.CultureInfo("es-AR");
+    var hoy = DateTime.Today;
+    string Dia(DateTime d) => d == hoy ? "Hoy" : d == hoy.AddDays(-1) ? "Ayer" : d.ToString("dddd d 'de' MMMM yyyy", es);
+}
+@if (Model.Eventos.Count == 0)
+{
+    <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-clock-history", "Sin actividad", Model.TextoVacio)' />
+}
+else
+{
+    <ol class="timeline event-timeline @(Model.Compacto ? "compact" : "")">
+        @foreach (var dia in Model.Eventos.GroupBy(e => e.FechaUtc.ToLocalTime().Date))
+        {
+            var titulo = Dia(dia.Key);
+            <li class="timeline-group">@(char.ToUpper(titulo[0]) + titulo[1..])</li>
+            foreach (var ev in dia)
+            {
+                var (texto, icono, variante) = ev.Tipo.Estilo();
+                var href = ev.Href(Url);
+                var local = ev.FechaUtc.ToLocalTime();
+                <li class="timeline-item">
+                    <span class="timeline-dot @variante"><i class="bi @icono"></i></span>
+                    <div class="timeline-body">
+                        <div class="event-line">
+                            <h5>@texto</h5>
+                            <time datetime="@local.ToString("s")" data-bs-toggle="tooltip" title="@local.ToString("dd/MM/yyyy HH:mm:ss")">@local.ToString("HH:mm")</time>
+                        </div>
+                        <div class="event-subject">
+                            @if (Model.MostrarEntidad)
+                            {
+                                <span class="entity-chip @ev.Entidad.ToString().ToLowerInvariant()">@ev.Entidad.Texto()</span>
+                                @if (href is not null) { <a href="@href">@ev.EntidadNombre</a> }
+                                else { <span class="fw-semibold">@ev.EntidadNombre</span> }
+                            }
+                            @if (!string.IsNullOrEmpty(ev.Resumen))
+                            {
+                                <span class="text-soft">@(Model.MostrarEntidad ? "· " : "")@ev.Resumen</span>
+                            }
+                        </div>
+                        @if (!Model.Compacto && !string.IsNullOrEmpty(ev.Detalle) && ev.Detalle != ev.Resumen)
+                        {
+                            <p>@ev.Detalle</p>
+                        }
+                        <span class="audit-user mt-1">
+                            <span class="avatar-circle sm">@UsuarioActual.InicialesDe(ev.Usuario ?? "?")</span> @(ev.Usuario ?? "—")
+                        </span>
+                    </div>
+                </li>
+            }
+        }
+    </ol>
+}

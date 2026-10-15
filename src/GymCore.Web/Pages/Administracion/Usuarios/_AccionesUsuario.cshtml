@@ -1,0 +1,44 @@
+@model (GymCore.Dominio.Entidades.Usuario Usuario, bool EsYo, string Pagina)
+@{
+    var u = Model.Usuario;
+    var bloqueado = u.EstaBloqueado(DateTime.UtcNow);
+}
+@* Menú de acciones de un usuario (listado y ficha). Las acciones POST piden confirmación. *@
+<ul class="dropdown-menu dropdown-menu-end">
+    <li><a class="dropdown-item" asp-page="/Administracion/Usuarios/Detalle" asp-route-id="@u.Id"><i class="bi bi-eye"></i> Ver</a></li>
+    <li><a class="dropdown-item" asp-page="/Administracion/Usuarios/Editar" asp-route-id="@u.Id"><i class="bi bi-pencil"></i> Editar</a></li>
+    <li>
+        <button type="button" class="dropdown-item"
+                data-confirm-action="@Url.Page(Model.Pagina, "Resetear", new { id = u.Id })"
+                data-confirm-title="¿Restablecer la contraseña de @u.NombreCompleto?"
+                data-confirm-text="Se generará una contraseña temporal que se muestra una sola vez. Deberá cambiarla al ingresar y se cerrarán sus sesiones abiertas."
+                data-confirm-label="Generar contraseña temporal" data-confirm-variant="warning">
+            <i class="bi bi-key"></i> Resetear contraseña
+        </button>
+    </li>
+    @if (bloqueado)
+    {
+        <li>
+            <button type="button" class="dropdown-item"
+                    data-confirm-action="@Url.Page(Model.Pagina, "Desbloquear", new { id = u.Id })"
+                    data-confirm-title="¿Desbloquear a @u.NombreCompleto?"
+                    data-confirm-text="Podrá volver a intentar el ingreso de inmediato."
+                    data-confirm-label="Desbloquear" data-confirm-variant="primary">
+                <i class="bi bi-unlock"></i> Desbloquear
+            </button>
+        </li>
+    }
+    @if (!Model.EsYo)
+    {
+        <li><hr class="dropdown-divider" /></li>
+        <li>
+            <button type="button" class="dropdown-item @(u.Activo ? "text-danger" : "")"
+                    data-confirm-action="@Url.Page(Model.Pagina, "ToggleEstado", new { id = u.Id })"
+                    data-confirm-title="@(u.Activo ? "¿Desactivar a " : "¿Activar a ")@u.NombreCompleto?"
+                    data-confirm-text="@(u.Activo ? "No podrá iniciar sesión y se cerrarán sus sesiones abiertas. Su historial se conserva." : "Podrá volver a iniciar sesión con su contraseña actual.")"
+                    data-confirm-label="@(u.Activo ? "Desactivar" : "Activar")" data-confirm-variant="@(u.Activo ? "danger" : "success")">
+                <i class="bi @(u.Activo ? "bi-person-x" : "bi-person-check")"></i> @(u.Activo ? "Desactivar" : "Activar")
+            </button>
+        </li>
+    }
+</ul>

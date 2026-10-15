@@ -1,0 +1,77 @@
+@page
+@using GymCore.Web.Reportes
+@model GymCore.Web.Pages.Reportes.EntrenadoresModel
+@{
+    ViewData["Title"] = "Análisis de entrenadores";
+    var r = Model.Reporte;
+    var activos = r.Activos;
+}
+
+<section class="page-shell viz-root">
+    <div class="page-header">
+        <div>
+            <span class="eyebrow"><i class="bi bi-bar-chart-line"></i> Inteligencia de negocio</span>
+            <h2>Análisis de entrenadores</h2>
+            <p>¿Qué entrenador tiene más socios? Carteras, nuevas asignaciones y participación.</p>
+        </div>
+    </div>
+
+    <partial name="_Nav" />
+    <partial name="_FiltroPeriodo" model="Model.Periodo" />
+
+    <div class="summary-grid cols-5">
+        <div class="summary-card"><div class="module-icon primary"><i class="bi bi-person-badge"></i></div><div><p>Entrenadores activos</p><h4>@activos.Count</h4></div></div>
+        <div class="summary-card" data-bs-toggle="tooltip" title="Socios con asignación activa (sin dados de baja)">
+            <div class="module-icon success"><i class="bi bi-trophy"></i></div>
+            <div class="min-w-0"><p>Mayor cartera</p><h4>@(r.MayorCartera?.Cartera ?? 0)</h4><small class="text-muted text-truncate d-block">@(r.MayorCartera?.Entrenador.NombreCompleto ?? "—")</small></div>
+        </div>
+        <div class="summary-card">
+            <div class="module-icon warning"><i class="bi bi-arrow-down-circle"></i></div>
+            <div class="min-w-0"><p>Menor cartera</p><h4>@(r.MenorCartera?.Cartera ?? 0)</h4><small class="text-muted text-truncate d-block">@(r.MenorCartera?.Entrenador.NombreCompleto ?? "—")</small></div>
+        </div>
+        <div class="summary-card"><div class="module-icon info"><i class="bi bi-calculator"></i></div><div><p>Promedio por entrenador</p><h4>@r.Promedio.ToString("0.#", Periodo.Es)</h4></div></div>
+        <div class="summary-card" data-bs-toggle="tooltip" title="Socios activos sin ningún entrenador asignado">
+            <div class="module-icon danger"><i class="bi bi-person-x"></i></div>
+            <div><p>Socios sin entrenador</p><h4>@r.SociosActivosSinEntrenador</h4><a class="small" asp-page="/Socios/Socios" asp-route-f="sinentrenador">Asignar</a></div>
+        </div>
+    </div>
+
+    @if (activos.Count == 0)
+    {
+        <div class="data-card"><partial name="Components/_EmptyState" model='new EmptyStateVm("bi-person-badge", "No hay entrenadores activos", "Cargá entrenadores para ver su análisis.")' /></div>
+    }
+    else
+    {
+        <div class="dashboard-grid">
+            <div class="panel-card">
+                <div class="panel-head mb-3"><h3><i class="bi bi-trophy text-primary"></i> Top entrenadores por cartera</h3><span class="small text-muted">@r.TotalCartera socios asignados</span></div>
+                <partial name="_BarrasH" model='new BarrasHVm(activos.Select(f => new BarraH(f.Entrenador.NombreCompleto, f.Cartera, $"{f.Cartera} · {f.Participacion.ToString("0.#", Periodo.Es)}%", null, Url.Page("/Entrenadores/Detalle", new { id = f.Entrenador.Id }))).ToList(), "Socios asignados por entrenador", Numerada: true)' />
+            </div>
+            <div class="panel-card">
+                <div class="panel-head mb-3"><h3>Nuevos socios asignados</h3><span class="small text-muted">@Model.Periodo.Texto · @r.Nuevos en total</span></div>
+                <partial name="_BarrasH" model='new BarrasHVm(activos.OrderByDescending(f => f.Nuevos).Select(f => new BarraH(f.Entrenador.NombreCompleto, f.Nuevos, f.Nuevos.ToString(), null, Url.Page("/Entrenadores/Detalle", new { id = f.Entrenador.Id }))).ToList(), "Nuevas asignaciones por entrenador en el período")' />
+            </div>
+        </div>
+
+        <div class="data-card">
+            <div class="toolbar"><strong>Detalle por entrenador</strong><span class="small text-muted">Equivalente en tabla</span></div>
+            <div class="table-responsive">
+                <table class="data-table viz-data" data-sortable>
+                    <thead><tr><th data-sort="text">Entrenador</th><th>Estado</th><th data-sort="num" class="text-end">Cartera</th><th data-sort="num" class="text-end">Participación</th><th data-sort="num" class="text-end">Nuevos en el período</th></tr></thead>
+                    <tbody>
+                        @foreach (var f in r.Filas)
+                        {
+                            <tr class="@(f.Entrenador.Activo ? "" : "row-inactive")">
+                                <td><a asp-page="/Entrenadores/Detalle" asp-route-id="@f.Entrenador.Id">@f.Entrenador.NombreCompleto</a></td>
+                                <td><span class="status-pill @(f.Entrenador.Activo ? "success" : "muted")">@(f.Entrenador.Activo ? "Activo" : "Inactivo")</span></td>
+                                <td class="text-end num">@f.Cartera</td>
+                                <td class="text-end num" data-sort-value="@f.Participacion.ToString(System.Globalization.CultureInfo.InvariantCulture)">@f.Participacion.ToString("0.#", Periodo.Es)%</td>
+                                <td class="text-end num">@f.Nuevos</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</section>

@@ -1,0 +1,52 @@
+@page
+@using GymCore.Web.Reportes
+@model GymCore.Web.Pages.Reportes.ExportacionesModel
+@{
+    ViewData["Title"] = "Exportaciones";
+}
+
+<section class="page-shell">
+    <div class="page-header">
+        <div>
+            <span class="eyebrow"><i class="bi bi-bar-chart-line"></i> Inteligencia de negocio</span>
+            <h2>Exportaciones</h2>
+            <p>Descargá los reportes en Excel para trabajarlos, o en PDF para compartirlos. Cada exportación queda registrada en la auditoría.</p>
+        </div>
+    </div>
+
+    <partial name="_Nav" />
+    <partial name="_FiltroPeriodo" model="Model.Periodo" />
+
+    <div class="export-grid">
+        @foreach (var (tipo, titulo, icono, descripcion, usaPeriodo) in Exportador.Catalogo)
+        {
+            <article class="export-card">
+                <div class="module-icon primary"><i class="bi @icono"></i></div>
+                <div class="export-card__copy">
+                    <h3>@titulo</h3>
+                    <p>@descripcion</p>
+                    <small class="text-soft"><i class="bi bi-calendar-range"></i> @(usaPeriodo ? $"{Model.Periodo.Desde:dd/MM/yyyy} al {Model.Periodo.Hasta:dd/MM/yyyy}" : "Situación actual")</small>
+                </div>
+                <div class="export-card__acciones">
+                    <a class="secondary-btn btn-compact" asp-page-handler="Excel" asp-route-tipo="@tipo" asp-route-p="@Model.Periodo.Clave"
+                       asp-route-desde="@Model.Periodo.Desde.ToString("yyyy-MM-dd")" asp-route-hasta="@Model.Periodo.Hasta.ToString("yyyy-MM-dd")"
+                       data-export-feedback="Excel de @titulo descargado.">
+                        <i class="bi bi-file-earmark-excel text-success"></i> Excel
+                    </a>
+                    <a class="secondary-btn btn-compact" asp-page="Imprimir" asp-route-tipo="@tipo" asp-route-p="@Model.Periodo.Clave"
+                       asp-route-desde="@Model.Periodo.Desde.ToString("yyyy-MM-dd")" asp-route-hasta="@Model.Periodo.Hasta.ToString("yyyy-MM-dd")" target="_blank" rel="noopener">
+                        <i class="bi bi-file-earmark-pdf text-danger"></i> PDF
+                    </a>
+                </div>
+            </article>
+        }
+    </div>
+    <p class="kpi-footnote"><i class="bi bi-info-circle"></i> El PDF se abre listo para imprimir: elegí “Guardar como PDF” como destino. Los datos incluyen información personal de socios: compartilos solo por canales autorizados.</p>
+</section>
+
+@section Scripts {
+    <script>
+        document.querySelectorAll('[data-export-feedback]').forEach(a => a.addEventListener('click', () =>
+            setTimeout(() => GymUi.toast(a.dataset.exportFeedback), 600)));
+    </script>
+}

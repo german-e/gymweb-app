@@ -1,64 +1,202 @@
 @page
+@using GymCore.Dominio.Enums
+@using GymCore.Web.Pages.Planes
+@using GymCore.Web.Pages.Socios
 @model GymCore.Web.Pages.Planes.PlanesModel
+@inject IUsuarioActual Usuario
 @{
     ViewData["Title"] = "Planes";
+    var top = Model.MasContratado;
+    var estadoInicial = (Model.Estado ?? "").ToLowerInvariant() is "activo" or "inactivo" ? Model.Estado!.ToLowerInvariant() : "";
+    string Chip(string v) => estadoInicial == v ? "active" : "";
 }
 
-<section class="container py-4">
-    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
+<section class="page-shell">
+    <div class="page-header">
         <div>
-            <h1 class="h4 mb-1">Planes</h1>
-            <p class="text-muted mb-0">Catálogo de planes disponibles.</p>
+            <span class="eyebrow"><i class="bi bi-box-seam"></i> Catálogo</span>
+            <h2>Planes</h2>
+            <p>Precios, duración y reglas de acceso de cada membresía que ofrece el gimnasio.</p>
         </div>
-        <div>
-            <a class="btn btn-primary" asp-page="/Planes/Create">Nuevo plan</a>
+        <div class="header-actions">
+            @if (Usuario.Puede(Permisos.PlanesEditar))
+            {
+            <a class="primary-btn" asp-page="Create"><i class="bi bi-plus-lg"></i> Nuevo plan</a>
+            }
         </div>
     </div>
 
-    <div class="row g-3">
-        @if (Model.Items.Count == 0)
-        {
-            <div class="col-12">
-                <div class="alert alert-info">No hay planes cargados.</div>
+    @if (!string.IsNullOrEmpty(Model.Flash))
+    {
+        <div class="flash success" role="status"><i class="bi bi-check-circle-fill"></i> @Model.Flash</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.FlashError))
+    {
+        <div class="flash danger" role="alert"><i class="bi bi-exclamation-triangle-fill"></i> @Model.FlashError</div>
+    }
+
+    <div class="stats-grid">
+        <partial name="Components/_StatCard" model='new StatCardVm("Total de planes", Model.Total.ToString(), "bi-box-seam", "primary")' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Planes activos", Model.ActivosCount.ToString(), "bi-check2-circle", "success", Model.Total > 0 ? $"{Model.ActivosCount * 100 / Model.Total}%" : null)' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Plan más contratado", top?.Plan.Nombre ?? "—", "bi-trophy", "warning", top is null ? null : $"{top.Suscripciones} {(top.Suscripciones == 1 ? "alta" : "altas")}", top is null ? null : Url.Page("Detalle", new { id = top.Plan.Id }))' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Ingreso mensual estimado", SocioPresentacion.Dinero(Model.IngresoMensualEstimado), "bi-graph-up-arrow", "danger")' />
+    </div>
+    <p class="kpi-footnote">
+        <i class="bi bi-info-circle"></i>
+        Solo los planes activos pueden elegirse en nuevas altas y renovaciones. El ingreso estimado suma el precio de cada suscripción vigente.
+    </p>
+
+    <div class="data-card">
+        <div class="toolbar">
+            <div class="toolbar-group">
+                <label class="search-input" aria-label="Buscar planes">
+                    <i class="bi bi-search"></i>
+                    <input type="search" placeholder="Buscar por nombre o descripción…" data-table-filter="#tablaPlanes" />
+                    <kbd>/</kbd>
+                </label>
             </div>
+            <div class="toolbar-group">
+                <div class="filter-chips" role="group" aria-label="Filtrar por estado" data-table-facet="#tablaPlanes" data-facet="estado">
+                    <button type="button" class="filter-chip @Chip("")" data-value="">Todos <span class="count">@Model.Total</span></button>
+                    <button type="button" class="filter-chip @Chip("activo")" data-value="activo"><i class="bi bi-circle-fill text-success" style="font-size:.45rem"></i> Activos <span class="count">@Model.ActivosCount</span></button>
+                    <button type="button" class="filter-chip @Chip("inactivo")" data-value="inactivo"><i class="bi bi-circle-fill text-secondary" style="font-size:.45rem"></i> Inactivos <span class="count">@(Model.Total - Model.ActivosCount)</span></button>
+                </div>
+                <select class="form-select" aria-label="Filtrar por tipo" data-table-facet="#tablaPlanes" data-facet="tipo">
+                    <option value="">Todos los tipos</option>
+                    @foreach (var t in Enum.GetValues<TipoPlan>())
+                    {
+                        <option value="@t">@t.Texto()</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        @if (Model.Filas.Count == 0)
+        {
+            <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-box-seam", "Todavía no hay planes", "Creá el primer plan para poder suscribir socios y registrar sus cuotas.", "Nuevo plan", Url.Page("Create"))' />
         }
         else
         {
-            foreach (var p in Model.Items)
-            {
-                <div class="col-12 col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm module-card">
-                        <div class="card-body d-flex flex-column">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <div>
-                                    <h3 class="h6 mb-0">@p.Nombre</h3>
-                                    @if (Model.ActivosPorPlan.TryGetValue(p.Id, out var cant) && cant > 0)
-                                    {
-                                        <span class="badge text-bg-success mt-1">@cant activos</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge text-bg-secondary mt-1">0 activos</span>
-                                    }
-                                </div>
-                                <span class="badge text-bg-light">@p.Tipo</span>
-                            </div>
-                            <p class="text-muted small mb-2">@p.Descripcion</p>
-                            <div class="mb-2 fw-semibold">Precio: $ @p.Precio @p.Moneda</div>
-                            <div class="text-muted small mb-3">Duración: @p.DuracionDias días</div>
-                            @if (p.MaxDiasPorSemana.HasValue)
-                            {
-                                <div class="text-muted small">Tope semanal: @p.MaxDiasPorSemana x semana</div>
-                            }
-                            <div class="mt-auto d-flex gap-2 pt-3">
-                                <a class="btn btn-sm btn-outline-success" asp-page="/Planes/Suscriptos" asp-route-planId="@p.Id">Ver socios</a>
-                                <a class="btn btn-sm btn-outline-primary" asp-page="/Planes/Edit" asp-route-id="@p.Id">Editar</a>
-                                <a class="btn btn-sm btn-outline-danger" asp-page="/Planes/Delete" asp-route-id="@p.Id">Eliminar</a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            }
+            <div class="table-responsive">
+                <table class="data-table stack-sm" id="tablaPlanes" data-sortable>
+                    <thead>
+                        <tr>
+                            <th data-sort="text">Plan</th>
+                            <th data-sort="num" class="text-end">Precio</th>
+                            <th data-sort="num">Duración</th>
+                            <th data-sort="num" class="text-center">Socios</th>
+                            <th>Estado</th>
+                            <th data-sort="num">Creado</th>
+                            <th class="text-end"><span class="visually-hidden">Acciones</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var f in Model.Filas)
+                        {
+                            var p = f.Plan;
+                            var (estadoTexto, estadoVariante) = PlanPresentacion.Estado(p);
+                            var textoToggle = PlanPresentacion.TextoCambioEstado(p, f.Activos);
+                            <tr data-search="@($"{p.Nombre} {p.Descripcion} {p.Tipo.Texto()}")"
+                                class="@(p.Activo ? "" : "row-inactive")"
+                                data-estado="@(p.Activo ? "activo" : "inactivo")"
+                                data-tipo="@p.Tipo">
+                                <td class="cell-main" data-label="Plan" data-sort-value="@p.Nombre">
+                                    <div class="person-cell">
+                                        <div class="module-icon sm @p.Tipo.Variante()"><i class="bi @p.Tipo.Icono()"></i></div>
+                                        <div class="person-cell__copy">
+                                            <a asp-page="Detalle" asp-route-id="@p.Id">@p.Nombre</a>
+                                            <small>@p.Tipo.Texto()@(p.MaxDiasPorSemana is int n ? $" · {n}x semana" : "")</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td data-label="Precio" class="text-end num fw-semibold" data-sort-value="@p.Precio.ToString(System.Globalization.CultureInfo.InvariantCulture)">@SocioPresentacion.Dinero(p.Precio, p.Moneda)</td>
+                                <td data-label="Duración" class="text-soft num" data-sort-value="@p.DuracionDias">@PlanPresentacion.Duracion(p.DuracionDias)</td>
+                                <td data-label="Socios" class="text-center num" data-sort-value="@f.Activos">
+                                    <a class="count-badge" asp-page="Detalle" asp-route-id="@p.Id" asp-fragment="tab-socios"
+                                       data-bs-toggle="tooltip" title="@f.Activos vigentes · @f.Suscripciones suscripciones en total">
+                                        <i class="bi bi-people"></i> @f.Activos
+                                    </a>
+                                </td>
+                                <td data-label="Estado">
+                                    <span class="status-pill @estadoVariante" data-bs-toggle="tooltip"
+                                          title="@(p.Activo ? "Disponible para nuevas altas y renovaciones" : "No admite nuevas altas ni renovaciones")">@estadoTexto</span>
+                                </td>
+                                <td data-label="Creado" class="text-soft num" data-sort-value="@(p.FechaAlta?.Ticks ?? 0)">@PlanPresentacion.FechaAlta(p)</td>
+                                <td class="cell-actions text-end">
+                                    <div class="row-actions">
+                                        <a class="icon-btn d-none d-md-inline-grid" asp-page="Detalle" asp-route-id="@p.Id" data-bs-toggle="tooltip" title="Ver detalle"><i class="bi bi-eye"></i></a>
+                                        @if (Usuario.Puede(Permisos.PlanesEditar))
+                                        {
+                                        <a class="icon-btn d-none d-md-inline-grid" asp-page="Edit" asp-route-id="@p.Id" data-bs-toggle="tooltip" title="Editar"><i class="bi bi-pencil"></i></a>
+                                        }
+                                        <div class="dropdown">
+                                            <button class="icon-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Más acciones">
+                                                <i class="bi bi-three-dots-vertical"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li><a class="dropdown-item" asp-page="Detalle" asp-route-id="@p.Id"><i class="bi bi-eye"></i> Ver detalle</a></li>
+                                                @if (Usuario.Puede(Permisos.PlanesEditar))
+                                                {
+                                                <li><a class="dropdown-item" asp-page="Edit" asp-route-id="@p.Id"><i class="bi bi-pencil"></i> Editar</a></li>
+                                                }
+                                                @if (Usuario.Puede(Permisos.PlanesEditar))
+                                                {
+                                                <li><a class="dropdown-item" asp-page="Create" asp-route-duplicar="@p.Id"><i class="bi bi-copy"></i> Duplicar</a></li>
+                                                }
+                                                <li><a class="dropdown-item" asp-page="Detalle" asp-route-id="@p.Id" asp-fragment="tab-socios"><i class="bi bi-people"></i> Ver socios</a></li>
+                                                @if (Usuario.Puede(Permisos.PlanesEditar))
+                                                {
+                                                <li><hr class="dropdown-divider" /></li>
+                                                <li>
+                                                    <button type="button" class="dropdown-item"
+                                                            data-confirm-action="@Url.Page("Planes", "ToggleEstado", new { id = p.Id })"
+                                                            data-confirm-title="@(p.Activo ? "¿Desactivar " : "¿Activar ")@p.Nombre?"
+                                                            data-confirm-text="@textoToggle"
+                                                            data-confirm-label="@(p.Activo ? "Desactivar plan" : "Activar plan")"
+                                                            data-confirm-variant="@(p.Activo ? "warning" : "success")">
+                                                        <i class="bi @(p.Activo ? "bi-toggle-off" : "bi-toggle-on")"></i> @(p.Activo ? "Desactivar" : "Activar")
+                                                    </button>
+                                                </li>
+                                                <li>
+                                                    @if (f.Suscripciones > 0)
+                                                    {
+                                                        <span class="dropdown-item disabled" title="Tiene suscripciones registradas: desactivalo en su lugar">
+                                                            <i class="bi bi-trash"></i> Eliminar <small class="ms-auto text-muted">en uso</small>
+                                                        </span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <button type="button" class="dropdown-item text-danger"
+                                                                data-confirm-action="@Url.Page("Delete", new { id = p.Id })"
+                                                                data-confirm-title="¿Eliminar el plan @p.Nombre?"
+                                                                data-confirm-text="El plan se borrará del catálogo de forma permanente. Si solo dejaste de ofrecerlo, preferí desactivarlo."
+                                                                data-confirm-label="Eliminar plan"
+                                                                data-confirm-variant="danger">
+                                                            <i class="bi bi-trash"></i> Eliminar
+                                                        </button>
+                                                    }
+                                                </li>
+                                                }
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        <tr data-filter-empty hidden>
+                            <td colspan="7">
+                                <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-search", "Sin resultados", "Probá con otro término o quitá los filtros activos.")' />
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="data-card__foot">
+                <span>Mostrando <strong data-filter-count="#tablaPlanes">@Model.Filas.Count</strong> de @Model.Filas.Count</span>
+                <span class="d-none d-md-inline">Tip: hacé clic en un encabezado para ordenar · <kbd>/</kbd> para buscar</span>
+            </div>
         }
     </div>
 </section>
+
+<partial name="Components/_ConfirmModal" />

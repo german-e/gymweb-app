@@ -11,6 +11,8 @@ public class PlanConfig : IEntityTypeConfiguration<Plan>
         b.Property(x => x.Nombre).IsRequired().HasMaxLength(120);
         b.Property(x => x.Precio).HasColumnType("decimal(18,2)");
         b.Property(x => x.Moneda).HasMaxLength(10);
+        // Bases existentes: la columna se agrega como NOT NULL DEFAULT 1 (todos los planes previos quedan activos)
+        b.Property(x => x.Activo).HasAnnotation(EsquemaSqlite.DefaultAlAgregar, "1");
     }
 }
 
@@ -36,6 +38,16 @@ public class PagoConfig : IEntityTypeConfiguration<Pago>
     {
         b.Property(x => x.Importe).HasColumnType("decimal(18,2)");
         b.Property(x => x.Moneda).HasMaxLength(10);
+        b.Property(x => x.MotivoAnulacion).HasMaxLength(Pago.MotivoMaxLength);
+        // Bases existentes: la columna se agrega como NOT NULL DEFAULT 0 (ningún pago previo queda anulado)
+        b.Property(x => x.Anulado).HasAnnotation(EsquemaSqlite.DefaultAlAgregar, "0");
+
+        // Un pago anulado no impacta en recaudación, saldos ni indicadores. Para verlo (listado, detalle,
+        // historial) la consulta debe pedirlo explícitamente con IgnoreQueryFilters().
+        b.HasQueryFilter(x => !x.Anulado);
+
+        // Reportes: recaudación por rango de fechas
+        b.HasIndex(x => x.FechaPago);
 
         b.HasOne(x => x.Socio)
          .WithMany(s => s.Pagos)
@@ -57,5 +69,9 @@ public class AsistenciaConfig : IEntityTypeConfiguration<Asistencia>
          .WithMany(s => s.Asistencias)
          .HasForeignKey(x => x.SocioId)
          .OnDelete(DeleteBehavior.Restrict);
+
+        // Reportes: asistencia por período y última asistencia por socio
+        b.HasIndex(x => x.FechaHoraIngreso);
+        b.HasIndex(x => new { x.SocioId, x.FechaHoraIngreso });
     }
 }

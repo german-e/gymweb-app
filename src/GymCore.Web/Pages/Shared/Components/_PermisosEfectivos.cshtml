@@ -1,0 +1,23 @@
+@model GymCore.Dominio.Entidades.Rol
+@* Permisos del rol agrupados por módulo (perfil y ficha de usuario). *@
+@if (Model.AccesoTotal)
+{
+    <div class="flash info-flash mb-3"><i class="bi bi-stars"></i> <span>Rol con <strong>acceso total</strong>: incluye todos los permisos, también los que se agreguen en el futuro.</span></div>
+}
+<div class="perm-grid">
+    @foreach (var modulo in Permisos.Catalogo.GroupBy(p => p.Modulo))
+    {
+        <div class="perm-group">
+            <h6>@modulo.Key</h6>
+            <ul>
+                @foreach (var p in modulo)
+                {
+                    var tiene = Model.Tiene(p.Codigo);
+                    <li class="@(tiene ? "on" : "off")" data-bs-toggle="tooltip" title="@p.Descripcion">
+                        <i class="bi @(tiene ? "bi-check-circle-fill" : "bi-dash-circle")"></i> @p.Nombre
+                    </li>
+                }
+            </ul>
+        </div>
+    }
+</div>

@@ -91,6 +91,20 @@ public static class SociosConsultas
         return resultado;
     }
 
+    // Socios con asignación activa al entrenador (alcance del permiso SOCIOS_VER_ASIGNADOS)
+    public static async Task<List<int>> AsignadosAsync(GymDbContext db, int? entrenadorId) =>
+        entrenadorId is null ? new List<int>()
+            : await db.EntrenadorSocios.AsNoTracking().Where(a => a.Activa && a.EntrenadorId == entrenadorId)
+                .Select(a => a.SocioId).Distinct().ToListAsync();
+
+    // Quien tiene SOCIOS_VER ve a todos; con SOCIOS_VER_ASIGNADOS, solo a los asignados a su ficha de entrenador
+    public static async Task<bool> PuedeVerSocioAsync(GymDbContext db, GymCore.Web.Componentes.IUsuarioActual usuario, int socioId)
+    {
+        if (usuario.Puede(GymCore.Web.Seguridad.Permisos.SociosVer)) return true;
+        if (!usuario.Puede(GymCore.Web.Seguridad.Permisos.SociosVerAsignados) || usuario.EntrenadorId is null) return false;
+        return await db.EntrenadorSocios.AnyAsync(a => a.Activa && a.SocioId == socioId && a.EntrenadorId == usuario.EntrenadorId);
+    }
+
     public static async Task<int> SiguienteNumeroAsync(GymDbContext db)
     {
         var max = await db.Socios.MaxAsync(s => (int?)(s.NumeroSocio ?? s.Id)) ?? 0;

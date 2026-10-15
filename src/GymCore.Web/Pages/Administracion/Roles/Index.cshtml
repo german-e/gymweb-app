@@ -1,0 +1,87 @@
+@page
+@model GymCore.Web.Pages.Administracion.Roles.IndexModel
+@{
+    ViewData["Title"] = "Roles y permisos";
+}
+
+<section class="page-shell">
+    <div class="page-header">
+        <div>
+            <a class="text-decoration-none small fw-semibold" asp-page="/Administracion/Usuarios/Index"><i class="bi bi-arrow-left"></i> Usuarios</a>
+            <h2>Roles y permisos</h2>
+            <p>Cada rol es un conjunto de permisos. El sistema decide qué mostrar y permitir según los permisos, nunca según el nombre del rol.</p>
+        </div>
+        <div class="header-actions">
+            <a class="primary-btn" asp-page="Editar"><i class="bi bi-plus-lg"></i> Nuevo rol</a>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.Flash))
+    {
+        <div class="flash success" role="status"><i class="bi bi-check-circle-fill"></i> @Model.Flash</div>
+    }
+
+    <div class="role-cards">
+        @foreach (var r in Model.Roles)
+        {
+            var cantidad = r.AccesoTotal ? Permisos.Catalogo.Count : r.Permisos.Count;
+            <a class="role-card" asp-page="Editar" asp-route-id="@r.Id">
+                <div class="d-flex align-items-start justify-content-between gap-2">
+                    <div class="module-icon @(r.AccesoTotal ? "danger" : "primary")"><i class="bi @(r.AccesoTotal ? "bi-stars" : "bi-shield-lock")"></i></div>
+                    @if (r.EsSistema) { <span class="badge-light" data-bs-toggle="tooltip" title="Rol inicial: se puede ajustar sus permisos, no eliminar">Inicial</span> }
+                </div>
+                <h3>@r.Nombre</h3>
+                <p>@r.Descripcion</p>
+                <div class="role-card__meta">
+                    <span><i class="bi bi-people"></i> @r.Usuarios.Count @(r.Usuarios.Count == 1 ? "usuario" : "usuarios")</span>
+                    <span><i class="bi bi-key"></i> @(r.AccesoTotal ? "Acceso total" : $"{cantidad} de {Permisos.Catalogo.Count} permisos")</span>
+                </div>
+            </a>
+        }
+    </div>
+
+    <div class="data-card">
+        <div class="toolbar">
+            <div>
+                <strong>Matriz de permisos</strong>
+                <div class="small text-muted">Pasá el mouse sobre un permiso para ver qué habilita. <i class="bi bi-exclamation-diamond text-danger"></i> = permiso sensible.</div>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="data-table perm-matrix">
+                <thead>
+                    <tr>
+                        <th>Permiso</th>
+                        @foreach (var r in Model.Roles)
+                        {
+                            <th class="text-center"><a class="text-reset text-decoration-none" asp-page="Editar" asp-route-id="@r.Id">@r.Nombre</a></th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var modulo in Permisos.Catalogo.GroupBy(p => p.Modulo))
+                    {
+                        <tr class="perm-matrix__group"><td colspan="@(Model.Roles.Count + 1)">@modulo.Key</td></tr>
+                        @foreach (var p in modulo)
+                        {
+                            <tr>
+                                <td>
+                                    <span data-bs-toggle="tooltip" title="@p.Descripcion">@p.Nombre</span>
+                                    @if (p.Sensible) { <i class="bi bi-exclamation-diamond text-danger ms-1" aria-label="Sensible"></i> }
+                                    <code class="d-block perm-code">@p.Codigo</code>
+                                </td>
+                                @foreach (var r in Model.Roles)
+                                {
+                                    <td class="text-center">
+                                        @if (r.Tiene(p.Codigo)) { <i class="bi bi-check-circle-fill text-success" aria-label="Sí"></i> }
+                                        else { <i class="bi bi-dash text-soft" aria-label="No"></i> }
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>

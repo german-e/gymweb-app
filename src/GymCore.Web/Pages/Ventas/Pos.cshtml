@@ -1,0 +1,161 @@
+@page
+@using GymCore.Dominio.Enums
+@using GymCore.Web.Pages.Socios
+@model GymCore.Web.Pages.Ventas.PosModel
+@inject IUsuarioActual Usuario
+@{
+    ViewData["Title"] = "Punto de Venta";
+    var datos = System.Text.Json.JsonSerializer.Serialize(Model.Productos, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+}
+
+<section class="page-shell pos-shell" data-pos
+         data-socios-url="@Url.Page("Pos", "Socios")" data-socio-url="@Url.Page("Pos", "Socio")"
+         data-socio-inicial="@Model.SocioId" data-lineas-inicial="@Model.Lineas" data-cuota-inicial="@Model.ImporteCuota?.ToString(System.Globalization.CultureInfo.InvariantCulture)">
+    <div class="page-header">
+        <div>
+            <span class="eyebrow"><i class="bi bi-cart3"></i> Ventas e inventario</span>
+            <h2>Punto de Venta</h2>
+            <p>Escaneá o buscá productos, asociá la venta a un socio y cobrá en un solo paso.</p>
+        </div>
+        <div class="header-actions">
+            <span class="pos-today" title="Productos vendidos hoy">
+                <i class="bi bi-graph-up-arrow"></i> Hoy <strong class="num">@SocioPresentacion.Dinero(Model.VentasHoy)</strong>
+                <small>· @Model.TicketsHoy @(Model.TicketsHoy == 1 ? "ticket" : "tickets")</small>
+            </span>
+            @if (Usuario.Puede(Permisos.VentasVer))
+            {
+                <a class="secondary-btn" asp-page="Index"><i class="bi bi-receipt"></i> Ventas</a>
+            }
+        </div>
+    </div>
+
+    @if (Model.Error is not null)
+    {
+        <div class="flash danger" role="alert"><i class="bi bi-exclamation-triangle-fill"></i> @Model.Error</div>
+    }
+
+    <div class="pos-layout">
+        @* ============ CATÁLOGO ============ *@
+        <div class="pos-catalog data-card">
+            <div class="pos-search">
+                <label class="search-input pos-search__input" aria-label="Buscar producto o escanear código">
+                    <i class="bi bi-upc-scan"></i>
+                    <input type="search" placeholder="Escaneá el código o buscá por nombre…" autocomplete="off" data-pos-buscar autofocus />
+                    <kbd>F2</kbd>
+                </label>
+                <div class="filter-chips pos-cats" role="group" aria-label="Categorías" data-pos-categorias>
+                    <button type="button" class="filter-chip active" data-cat="">Todos <span class="count">@Model.Productos.Count</span></button>
+                    @if (Model.Productos.Any(p => p.Destacado))
+                    {
+                        <button type="button" class="filter-chip" data-cat="destacados"><i class="bi bi-star-fill text-warning"></i> Rápidos</button>
+                    }
+                    @foreach (var c in Model.Categorias)
+                    {
+                        <button type="button" class="filter-chip" data-cat="@c.Id"><i class="bi @c.Icono"></i> @c.Nombre <span class="count">@c.Productos</span></button>
+                    }
+                </div>
+            </div>
+
+            @if (Model.Productos.Count == 0)
+            {
+                <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-box2", "No hay productos para vender", "Cargá productos activos con stock para usarlos en el Punto de Venta.", Usuario.Puede(Permisos.ProductosCrear) ? "Nuevo producto" : null, Url.Page("/Ventas/Productos/Editar"))' />
+            }
+            else
+            {
+                <div class="pos-grid" data-pos-grid aria-label="Productos" role="list"></div>
+                <div class="pos-grid__empty" data-pos-sin-resultados hidden>
+                    <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-search", "Sin resultados", "Ningún producto activo coincide con la búsqueda.")' />
+                </div>
+            }
+        </div>
+
+        @* ============ TICKET ============ *@
+        <form method="post" class="pos-ticket data-card" data-pos-form novalidate>
+            <input type="hidden" name="Lineas" data-pos-lineas />
+            <input type="hidden" name="SocioId" data-pos-socio-id />
+            <input type="hidden" name="ImporteCuota" data-pos-cuota-importe />
+
+            <div class="pos-ticket__head">
+                <h3><i class="bi bi-receipt"></i> Ticket</h3>
+                <button type="button" class="link-btn" data-pos-vaciar hidden><i class="bi bi-trash3"></i> Vaciar</button>
+            </div>
+
+            @* Cliente: socio existente u ocasional *@
+            <div class="pos-cliente">
+                <div class="segmented segmented--sm" role="radiogroup" aria-label="Cliente">
+                    <label><input type="radio" name="tipoCliente" value="socio" checked data-pos-tipo-cliente /> <span><i class="bi bi-person-badge"></i> Socio</span></label>
+                    <label><input type="radio" name="tipoCliente" value="ocasional" data-pos-tipo-cliente /> <span><i class="bi bi-person"></i> Cliente ocasional</span></label>
+                </div>
+
+                <div data-pos-bloque-socio>
+                    <div class="pos-socio-buscar" data-pos-socio-buscador>
+                        <label class="search-input" aria-label="Buscar socio">
+                            <i class="bi bi-search"></i>
+                            <input type="search" placeholder="Nombre, DNI o N° de socio (opcional)" autocomplete="off" data-pos-socio-q
+                                   role="combobox" aria-expanded="false" aria-controls="posSocioResultados" />
+                        </label>
+                        <ul class="pos-socio-resultados" id="posSocioResultados" role="listbox" data-pos-socio-resultados hidden></ul>
+                    </div>
+                    <div class="pos-socio-card" data-pos-socio-card hidden>
+                        <div class="avatar-circle" data-pos-socio-avatar></div>
+                        <div class="min-w-0 flex-grow-1">
+                            <strong data-pos-socio-nombre></strong>
+                            <small class="d-block text-soft" data-pos-socio-meta></small>
+                            <dl class="pos-socio-datos">
+                                <div><dt>Plan</dt><dd data-pos-socio-plan>—</dd></div>
+                                <div><dt>Última asistencia</dt><dd data-pos-socio-asistencia>—</dd></div>
+                            </dl>
+                        </div>
+                        <button type="button" class="icon-btn" data-pos-socio-quitar aria-label="Quitar socio" title="Quitar socio"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                    <button type="button" class="pos-cuota-cta" data-pos-cuota-agregar hidden>
+                        <i class="bi bi-card-checklist"></i>
+                        <span><strong>Agregar cuota</strong><small data-pos-cuota-texto></small></span>
+                        <i class="bi bi-plus-lg ms-auto"></i>
+                    </button>
+                </div>
+                <div data-pos-bloque-ocasional hidden>
+                    <input class="form-control" name="ClienteNombre" value="@Model.ClienteNombre" maxlength="120" placeholder="Nombre (opcional)" data-pos-ocasional />
+                </div>
+            </div>
+
+            @* Líneas *@
+            <ol class="pos-lineas" data-pos-carrito aria-live="polite"></ol>
+            <div class="pos-vacio" data-pos-vacio>
+                <i class="bi bi-cart"></i>
+                <p>Escaneá un código o tocá un producto para agregarlo.</p>
+            </div>
+
+            <div class="pos-ticket__foot">
+                <fieldset class="pos-medios">
+                    <legend class="visually-hidden">Medio de pago</legend>
+                    @foreach (var m in Enum.GetValues<MedioPago>())
+                    {
+                        <label class="pos-medio">
+                            <input type="radio" name="Medio" value="@m" checked="@(Model.Medio == m)" />
+                            <span><i class="bi @m.Icono()"></i> @m.Texto()</span>
+                        </label>
+                    }
+                </fieldset>
+                <details class="pos-obs">
+                    <summary>Agregar observación</summary>
+                    <input class="form-control mt-2" name="Observaciones" value="@Model.Observaciones" maxlength="500" placeholder="Ej.: pagó con billete de $ 20.000" />
+                </details>
+                <dl class="pos-totales">
+                    <div data-pos-fila-productos hidden><dt>Productos</dt><dd class="num" data-pos-total-productos>$ 0</dd></div>
+                    <div data-pos-fila-cuota hidden><dt>Cuota</dt><dd class="num" data-pos-total-cuota>$ 0</dd></div>
+                    <div class="pos-totales__total"><dt>TOTAL</dt><dd class="num" data-pos-total>$ 0</dd></div>
+                </dl>
+                <button type="submit" class="primary-btn pos-cobrar border-0" data-pos-cobrar disabled data-loading-text="Cobrando…">
+                    <i class="bi bi-check2-circle"></i> Cobrar <span data-pos-cobrar-total></span> <kbd>F9</kbd>
+                </button>
+            </div>
+        </form>
+    </div>
+</section>
+
+<script type="application/json" id="posProductos">@Html.Raw(datos.Replace("</", "<\\/"))</script>
+
+@section Scripts {
+    <script src="~/js/ventas.js" asp-append-version="true"></script>
+}

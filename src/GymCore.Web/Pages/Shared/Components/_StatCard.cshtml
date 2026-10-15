@@ -1,9 +1,12 @@
 @model GymCore.Web.Componentes.StatCardVm
-<article class="stat-card @Model.Variante">
+@{
+    var accionable = !string.IsNullOrEmpty(Model.AccionTexto) && !string.IsNullOrEmpty(Model.AccionHref);
+}
+<article class="stat-card @Model.Variante @(accionable ? "has-action" : "")">
     <div class="stat-icon"><i class="bi @Model.Icono"></i></div>
     <div class="stat-copy">
         <p>@Model.Titulo</p>
-        <h3>@Model.Valor</h3>
+        <h3 title="@Model.Valor">@Model.Valor</h3>
     </div>
     @if (!string.IsNullOrEmpty(Model.Nota))
     {
@@ -15,5 +18,9 @@
         {
             <span class="badge-light">@Model.Nota</span>
         }
+    }
+    @if (accionable)
+    {
+        <a class="stat-card__action" href="@Model.AccionHref">@Model.AccionTexto <i class="bi bi-arrow-right"></i></a>
     }
 </article>

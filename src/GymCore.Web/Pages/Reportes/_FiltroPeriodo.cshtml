@@ -1,0 +1,19 @@
+@model GymCore.Web.Reportes.Periodo
+@* Filtro único, arriba de todo lo que afecta: todos los gráficos y tablas de la página usan el mismo período *@
+<form method="get" class="bi-filtro" data-filtro-periodo>
+    <span class="bi-filtro__label"><i class="bi bi-calendar-range"></i> Período</span>
+    <div class="filter-chips" role="radiogroup" aria-label="Período">
+        @foreach (var (clave, texto) in GymCore.Web.Reportes.Periodo.Presets)
+        {
+            <button type="submit" name="p" value="@clave" class="filter-chip @(Model.Clave == clave ? "active" : "")" aria-pressed="@(Model.Clave == clave ? "true" : "false")">@texto</button>
+        }
+        <button type="button" class="filter-chip @(Model.Clave == "custom" ? "active" : "")" data-periodo-custom aria-expanded="@(Model.Clave == "custom" ? "true" : "false")">Personalizado</button>
+    </div>
+    <div class="bi-filtro__custom" data-periodo-rango hidden="@(Model.Clave != "custom")">
+        <input type="date" name="desde" value="@Model.Desde.ToString("yyyy-MM-dd")" class="form-control form-control-sm" aria-label="Desde" />
+        <span class="text-soft">a</span>
+        <input type="date" name="hasta" value="@Model.Hasta.ToString("yyyy-MM-dd")" max="@DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd")" class="form-control form-control-sm" aria-label="Hasta" />
+        <button type="submit" name="p" value="custom" class="primary-btn border-0 btn-compact">Aplicar</button>
+    </div>
+    <span class="bi-filtro__rango">@Model.Desde.ToString("dd/MM/yyyy") – @Model.Hasta.ToString("dd/MM/yyyy")</span>
+</form>

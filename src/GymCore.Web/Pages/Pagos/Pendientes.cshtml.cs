@@ -1,9 +1,11 @@
+using GymCore.Web.Seguridad;
 using GymCore.Infraestructura.Persistencia;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymCore.Web.Pages.Pagos;
 
+[RequierePermiso(Permisos.PagosVer)]
 public class PendientesModel : PageModel
 {
     private readonly GymDbContext _db;

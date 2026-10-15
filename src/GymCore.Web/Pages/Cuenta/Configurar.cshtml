@@ -1,0 +1,58 @@
+@page
+@model GymCore.Web.Pages.Cuenta.ConfigurarModel
+@{
+    ViewData["Title"] = "Configuración inicial";
+    Layout = "_LayoutCuenta";
+}
+
+<section class="auth-card wide" aria-labelledby="setupTitle">
+    <header class="auth-card__head">
+        <span class="eyebrow"><i class="bi bi-stars"></i> Primer inicio</span>
+        <h1 id="setupTitle" class="mt-3">Creá el administrador</h1>
+        <p>Será la cuenta con acceso total. Después vas a poder sumar recepcionistas, supervisores y entrenadores.</p>
+    </header>
+
+    <form method="post" novalidate data-submit-loading>
+        <div asp-validation-summary="ModelOnly" class="flash danger"></div>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label asp-for="NombreCompleto" class="form-label"></label>
+                <input asp-for="NombreCompleto" class="form-control" autocomplete="name" autofocus />
+                <span asp-validation-for="NombreCompleto" class="text-danger small"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="NombreUsuario" class="form-label"></label>
+                <input asp-for="NombreUsuario" class="form-control" autocomplete="username" autocapitalize="none" placeholder="ej. admin" />
+                <span asp-validation-for="NombreUsuario" class="text-danger small"></span>
+            </div>
+            <div class="col-12">
+                <label asp-for="Email" class="form-label"></label>
+                <input asp-for="Email" class="form-control" type="email" autocomplete="email" />
+                <span asp-validation-for="Email" class="text-danger small"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="Password" class="form-label"></label>
+                <div class="auth-input no-icon">
+                    <input asp-for="Password" id="password" class="form-control" autocomplete="new-password" data-password-policy="#politica" data-password-user="#NombreUsuario" />
+                    <button type="button" class="auth-input__toggle" data-toggle-password="#password" aria-label="Mostrar contraseña"><i class="bi bi-eye"></i></button>
+                </div>
+                <span asp-validation-for="Password" class="text-danger small"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="Confirmacion" class="form-label"></label>
+                <input asp-for="Confirmacion" class="form-control" autocomplete="new-password" />
+                <span asp-validation-for="Confirmacion" class="text-danger small"></span>
+            </div>
+            <div class="col-12">
+                <partial name="Components/_PoliticaPassword" />
+            </div>
+        </div>
+        <button type="submit" class="primary-btn border-0 w-100 auth-submit mt-4" data-loading-text="Creando…">
+            Crear administrador e ingresar <i class="bi bi-arrow-right"></i>
+        </button>
+    </form>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

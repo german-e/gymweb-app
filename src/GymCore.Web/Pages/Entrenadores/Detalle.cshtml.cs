@@ -1,3 +1,4 @@
+using GymCore.Web.Seguridad;
 using GymCore.Dominio.Entidades;
 using GymCore.Dominio.Enums;
 using GymCore.Infraestructura.Persistencia;
@@ -7,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GymCore.Web.Pages.Entrenadores;
 
+[RequierePermiso(Permisos.EntrenadoresVer)]
 public class DetalleModel : PageModel
 {
     private readonly GymDbContext _db;
@@ -63,6 +65,7 @@ public class DetalleModel : PageModel
     }
 
     // Búsqueda para el modal "Asignar socio" (nombre, DNI o número de socio)
+    [RequierePermiso(Permisos.EntrenadoresEditar)]
     public async Task<IActionResult> OnGetBuscarSociosAsync(string? q)
     {
         q = q?.Trim();
@@ -103,6 +106,7 @@ public class DetalleModel : PageModel
         }));
     }
 
+    [RequierePermiso(Permisos.EntrenadoresEditar)]
     public async Task<IActionResult> OnPostAsignarAsync(int[] socioIds, string? objetivo)
     {
         var e = await _db.Entrenadores.FirstOrDefaultAsync(x => x.Id == Id);
@@ -119,6 +123,7 @@ public class DetalleModel : PageModel
         objetivo = string.IsNullOrWhiteSpace(objetivo) ? null : objetivo.Trim();
 
         var nuevos = new List<string>();
+        var nuevosIds = new List<int>();
         foreach (var s in socios)
         {
             var a = existentes.FirstOrDefault(x => x.SocioId == s.Id);
@@ -136,13 +141,15 @@ public class DetalleModel : PageModel
                 a.Objetivo = objetivo ?? a.Objetivo;
             }
             nuevos.Add($"{s.Apellido}, {s.Nombre}");
+            nuevosIds.Add(s.Id);
         }
 
         if (nuevos.Count > 0)
         {
             _db.RegistrarEvento(e, TipoEventoEntrenador.AsignacionSocio,
                 nuevos.Count == 1 ? "Socio asignado" : $"{nuevos.Count} socios asignados",
-                string.Join("\n", nuevos) + (objetivo is null ? "" : $"\nObjetivo: {objetivo}"));
+                string.Join("\n", nuevos) + (objetivo is null ? "" : $"\nObjetivo: {objetivo}"),
+                nuevosIds.Count == 1 ? nuevosIds[0] : null);
             await _db.SaveChangesAsync();
             Flash = nuevos.Count == 1 ? $"Socio asignado: {nuevos[0]}." : $"Se asignaron {nuevos.Count} socios.";
         }
@@ -153,6 +160,7 @@ public class DetalleModel : PageModel
         return RedirectToPage(null, null, new { id = Id }, "tab-socios");
     }
 
+    [RequierePermiso(Permisos.EntrenadoresEditar)]
     public async Task<IActionResult> OnPostDesasignarAsync(int asignacionId)
     {
         var a = await _db.EntrenadorSocios.Include(x => x.Socio).Include(x => x.Entrenador)
@@ -161,12 +169,13 @@ public class DetalleModel : PageModel
 
         a.Activa = false;
         a.FechaFin = DateTime.UtcNow;
-        _db.RegistrarEvento(a.Entrenador, TipoEventoEntrenador.DesasignacionSocio, "Socio desasignado", $"{a.Socio.Apellido}, {a.Socio.Nombre}");
+        _db.RegistrarEvento(a.Entrenador, TipoEventoEntrenador.DesasignacionSocio, "Socio desasignado", $"{a.Socio.Apellido}, {a.Socio.Nombre}", a.SocioId);
         await _db.SaveChangesAsync();
         Flash = $"Se quitó la asignación de {a.Socio.Apellido}, {a.Socio.Nombre}.";
         return RedirectToPage(null, null, new { id = Id }, "tab-socios");
     }
 
+    [RequierePermiso(Permisos.EntrenadoresEditar)]
     public async Task<IActionResult> OnPostObservacionAsync(string? texto)
     {
         var e = await _db.Entrenadores.FirstOrDefaultAsync(x => x.Id == Id);
@@ -181,12 +190,14 @@ public class DetalleModel : PageModel
         return RedirectToPage(null, null, new { id = Id }, "tab-historial");
     }
 
+    [RequierePermiso(Permisos.EntrenadoresEditar)]
     public async Task<IActionResult> OnPostToggleEstadoAsync()
     {
         Flash = await EntrenadorAcciones.AlternarEstadoAsync(_db, Id);
         return RedirectToPage(new { id = Id });
     }
 
+    [RequierePermiso(Permisos.EntrenadoresEditar)]
     public async Task<IActionResult> OnPostEliminarAsync()
     {
         TempData["Flash"] = await EntrenadorAcciones.EliminarAsync(_db, _env, Id);

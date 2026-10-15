@@ -1,0 +1,124 @@
+@page
+@using GymCore.Dominio.Enums
+@model GymCore.Web.Pages.Administracion.AuditoriaModel
+@{
+    ViewData["Title"] = "Auditoría";
+    var grupos = new (string Nombre, TipoEventoSistema[] Tipos)[]
+    {
+        ("Pagos", Enum.GetValues<TipoEventoSistema>().Where(t => (int)t / 100 == 1).ToArray()),
+        ("Socios", Enum.GetValues<TipoEventoSistema>().Where(t => (int)t / 100 == 2).ToArray()),
+        ("Planes", Enum.GetValues<TipoEventoSistema>().Where(t => (int)t / 100 == 3).ToArray()),
+        ("Entrenadores", Enum.GetValues<TipoEventoSistema>().Where(t => (int)t / 100 == 4).ToArray()),
+        ("Sesiones y seguridad", Enum.GetValues<TipoEventoSistema>().Where(t => (int)t / 100 == 5).ToArray()),
+        ("Usuarios y roles", Enum.GetValues<TipoEventoSistema>().Where(t => (int)t / 100 == 6).ToArray()),
+        ("Inteligencia de negocio", Enum.GetValues<TipoEventoSistema>().Where(t => (int)t / 100 == 7).ToArray()),
+        ("Ventas e inventario", Enum.GetValues<TipoEventoSistema>().Where(t => (int)t / 100 == 8).ToArray()),
+    };
+    var desdeN = (Model.Pagina - 1) * GymCore.Web.Pages.Administracion.AuditoriaModel.PorPagina + 1;
+    var hastaN = desdeN + Model.Eventos.Count - 1;
+}
+
+<section class="page-shell">
+    <div class="page-header">
+        <div>
+            <span class="eyebrow"><i class="bi bi-shield-check"></i> Administración</span>
+            <h2>Auditoría</h2>
+            <p>Quién hizo qué y cuándo: cobros, anulaciones, altas, cambios de estado y asignaciones.</p>
+        </div>
+        <div class="header-actions">
+            <a class="secondary-btn" href="@Url.Page("Auditoria", "Csv", new { Desde = Model.Desde?.ToString("yyyy-MM-dd"), Hasta = Model.Hasta?.ToString("yyyy-MM-dd"), Model.Tipo, Model.Entidad, Model.Usuario, Model.Q })">
+                <i class="bi bi-filetype-csv"></i> Exportar CSV
+            </a>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <partial name="Components/_StatCard" model='new StatCardVm("Eventos de hoy", Model.EventosHoy.ToString(), "bi-lightning", "primary")' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Últimos 7 días", Model.Eventos7Dias.ToString(), "bi-calendar-week", "success")' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Operadores activos", Model.Operadores30Dias.ToString(), "bi-people", "warning", "30 días")' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Anulaciones del mes", Model.AnulacionesMes.ToString(), "bi-x-octagon", "danger", null, null, Model.AnulacionesMes > 0 ? "Ver anulaciones" : null, Model.AnulacionesMes > 0 ? Url.Page("Auditoria", new { Tipo = TipoEventoSistema.PagoAnulado }) : null)' />
+    </div>
+
+    <div class="data-card">
+        <form method="get" class="audit-filters" role="search">
+            <label class="search-input" aria-label="Buscar en la auditoría">
+                <i class="bi bi-search"></i>
+                <input type="search" name="Q" value="@Model.Q" placeholder="Socio, plan, entrenador, importe, motivo…" />
+            </label>
+            <div class="audit-filters__row">
+                <div>
+                    <label class="form-label" for="f-desde">Desde</label>
+                    <input id="f-desde" type="date" name="Desde" value="@Model.Desde?.ToString("yyyy-MM-dd")" class="form-control" />
+                </div>
+                <div>
+                    <label class="form-label" for="f-hasta">Hasta</label>
+                    <input id="f-hasta" type="date" name="Hasta" value="@Model.Hasta?.ToString("yyyy-MM-dd")" class="form-control" />
+                </div>
+                <div>
+                    <label class="form-label" for="f-tipo">Tipo de evento</label>
+                    <select id="f-tipo" name="Tipo" class="form-select">
+                        <option value="">Todos</option>
+                        @foreach (var g in grupos)
+                        {
+                            <optgroup label="@g.Nombre">
+                                @foreach (var t in g.Tipos)
+                                {
+                                    <option value="@t" selected="@(Model.Tipo == t)">@t.Estilo().Texto</option>
+                                }
+                            </optgroup>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="f-entidad">Entidad</label>
+                    <select id="f-entidad" name="Entidad" class="form-select">
+                        <option value="">Todas</option>
+                        @foreach (var en in Enum.GetValues<EntidadAuditada>())
+                        {
+                            <option value="@en" selected="@(Model.Entidad == en)">@en.Texto()</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="f-usuario">Usuario</label>
+                    <select id="f-usuario" name="Usuario" class="form-select">
+                        <option value="">Todos</option>
+                        @foreach (var u in Model.Usuarios)
+                        {
+                            <option value="@u" selected="@(Model.Usuario == u)">@u</option>
+                        }
+                    </select>
+                </div>
+                <div class="audit-filters__actions">
+                    <button type="submit" class="primary-btn border-0"><i class="bi bi-funnel"></i> Filtrar</button>
+                    @if (Model.HayFiltros)
+                    {
+                        <a class="secondary-btn" asp-page="Auditoria"><i class="bi bi-x-lg"></i> Limpiar</a>
+                    }
+                </div>
+            </div>
+        </form>
+
+        <div class="p-4">
+            <partial name="Components/_EventosTimeline" model='new EventosTimelineVm(Model.Eventos, TextoVacio: Model.HayFiltros ? "Ningún evento coincide con los filtros. Probá ampliar el rango de fechas." : "Las acciones que se realicen desde ahora (cobros, anulaciones, altas, cambios de estado) aparecerán acá.")' />
+        </div>
+
+        @if (Model.Total > 0)
+        {
+            <div class="data-card__foot">
+                <span>Mostrando <strong>@desdeN–@hastaN</strong> de @Model.Total eventos</span>
+                <nav class="d-flex gap-2" aria-label="Paginación">
+                    @if (Model.Pagina > 1)
+                    {
+                        <a class="secondary-btn btn-compact" href="@Model.UrlPagina(Model.Pagina - 1)"><i class="bi bi-chevron-left"></i> Anteriores</a>
+                    }
+                    <span class="align-self-center">Página @Model.Pagina de @Model.Paginas</span>
+                    @if (Model.Pagina < Model.Paginas)
+                    {
+                        <a class="secondary-btn btn-compact" href="@Model.UrlPagina(Model.Pagina + 1)">Siguientes <i class="bi bi-chevron-right"></i></a>
+                    }
+                </nav>
+            </div>
+        }
+    </div>
+</section>

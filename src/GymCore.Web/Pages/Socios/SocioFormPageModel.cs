@@ -29,7 +29,8 @@ public abstract class SocioFormPageModel : PageModel
 
     protected async Task CargarListasAsync()
     {
-        Planes = await Db.Planes.AsNoTracking().OrderBy(p => p.Nombre).ToListAsync();
+        // Solo planes activos: un plan inactivo no admite nuevas altas
+        Planes = await Db.Planes.AsNoTracking().Where(p => p.Activo).OrderBy(p => p.Nombre).ToListAsync();
         Entrenadores = await Db.Entrenadores.AsNoTracking().Where(e => e.Activo)
             .OrderBy(e => e.Apellido).ThenBy(e => e.Nombre).ToListAsync();
     }

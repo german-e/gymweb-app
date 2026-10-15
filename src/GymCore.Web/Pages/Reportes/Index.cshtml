@@ -1,0 +1,157 @@
+@page
+@using GymCore.Web.Reportes
+@model GymCore.Web.Pages.Reportes.IndexModel
+@inject IUsuarioActual Usuario
+@{
+    ViewData["Title"] = "Resumen ejecutivo";
+    var r = Model.Resumen;
+    var riesgo = r.Riesgo;
+    var totalRiesgo = Math.Max(1, riesgo.Socios.Count);
+}
+
+<section class="page-shell viz-root">
+    <div class="page-header">
+        <div>
+            <span class="eyebrow"><i class="bi bi-bar-chart-line"></i> Inteligencia de negocio</span>
+            <h2>Resumen ejecutivo</h2>
+            <p>Estado del gimnasio al @r.Hoy.ToDateTime(TimeOnly.MinValue).ToString("dddd d 'de' MMMM", Periodo.Es). Cada indicador se compara con el período anterior equivalente.</p>
+        </div>
+        <div class="header-actions">
+            <a class="secondary-btn" asp-page="Riesgo"><i class="bi bi-exclamation-octagon"></i> Riesgo de abandono</a>
+            @if (Usuario.Puede(Permisos.ReportesExportar))
+            {
+                <a class="primary-btn" asp-page="Exportaciones"><i class="bi bi-download"></i> Exportar</a>
+            }
+        </div>
+    </div>
+
+    <partial name="_Nav" />
+
+    @* ============ Lo que está ocurriendo ============ *@
+    <div class="panel-card insights">
+        <div class="panel-head mb-2">
+            <h3><i class="bi bi-stars text-primary"></i> Lo que está ocurriendo en tu gimnasio</h3>
+            <span class="badge-light" data-bs-toggle="tooltip" title="Mensajes generados automáticamente a partir de los datos actuales">Automático</span>
+        </div>
+        @if (r.Insights.Count == 0)
+        {
+            <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-stars", "Todavía no hay suficiente información", "Con socios, cobros y asistencias registrados vas a ver acá los hechos más relevantes del negocio.")' />
+        }
+        else
+        {
+            <ul class="insight-list">
+                @foreach (var i in r.Insights)
+                {
+                    <li class="insight @i.Tono">
+                        <span class="insight__icon"><i class="bi @i.Icono"></i></span>
+                        <span class="insight__texto">@i.Texto</span>
+                        @if (i.Href is not null) { <a class="insight__link" href="@i.Href" aria-label="Ver detalle"><i class="bi bi-arrow-right"></i></a> }
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+
+    @* ============ KPIs ============ *@
+    <div class="kpi-grid">
+        @foreach (var k in r.Kpis)
+        {
+            <partial name="_KpiTile" model="k" />
+        }
+    </div>
+    <p class="kpi-footnote"><i class="bi bi-info-circle"></i> Flujos (altas, bajas, recaudación, renovaciones, asistencia): mes en curso contra los mismos días del mes anterior. Stocks (activos, morosidad): hoy contra el cierre del mes anterior. Línea: últimos 12 meses.</p>
+
+    <div class="dashboard-grid">
+        @* ============ Alertas gerenciales ============ *@
+        <div class="panel-card">
+            <div class="panel-head mb-3">
+                <h3><i class="bi bi-bell text-primary"></i> Alertas gerenciales</h3>
+                <span class="badge-light">@r.Alertas.Count</span>
+            </div>
+            @if (r.Alertas.Count == 0)
+            {
+                <div class="empty-state py-4">
+                    <div class="empty-state__icon success"><i class="bi bi-shield-check"></i></div>
+                    <h4>Sin alertas</h4>
+                    <p>Ningún indicador cruzó los umbrales de atención.</p>
+                </div>
+            }
+            else
+            {
+                <ul class="mgmt-alerts">
+                    @foreach (var a in r.Alertas)
+                    {
+                        <li class="mgmt-alert @a.Variante">
+                            <span class="mgmt-alert__icon"><i class="bi @a.Icono"></i></span>
+                            <div class="min-w-0">
+                                <strong>@a.Titulo</strong>
+                                <p>@a.Detalle</p>
+                            </div>
+                            @if (a.Href is not null) { <a class="secondary-btn btn-compact" href="@a.Href">@a.Accion</a> }
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+
+        @* ============ Riesgo de abandono ============ *@
+        <div class="panel-card">
+            <div class="panel-head mb-3">
+                <h3><i class="bi bi-exclamation-octagon text-primary"></i> Riesgo de abandono</h3>
+                <a class="muted-link" asp-page="Riesgo">Ver socios</a>
+            </div>
+            <div class="risk-summary">
+                @foreach (var (nivel, cant) in new[] { (NivelRiesgo.Alto, riesgo.Alto), (NivelRiesgo.Medio, riesgo.Medio), (NivelRiesgo.Bajo, riesgo.Bajo) })
+                {
+                    var (texto, icono, variante) = nivel.Estilo();
+                    <a class="risk-count @variante" asp-page="Riesgo" asp-route-nivel="@nivel.ToString().ToLower()">
+                        <i class="bi @icono"></i>
+                        <strong>@cant</strong>
+                        <span>Riesgo @texto.ToLower()</span>
+                    </a>
+                }
+            </div>
+            @* Distribución: barra apilada de 3 estados (parte del todo), con gap de superficie *@
+            <div class="risk-bar" role="img" aria-label="Distribución: @riesgo.Alto alto, @riesgo.Medio medio, @riesgo.Bajo bajo">
+                <span class="danger" style="flex: @riesgo.Alto" data-bs-toggle="tooltip" title="Alto: @riesgo.Alto"></span>
+                <span class="warning" style="flex: @riesgo.Medio" data-bs-toggle="tooltip" title="Medio: @riesgo.Medio"></span>
+                <span class="success" style="flex: @riesgo.Bajo" data-bs-toggle="tooltip" title="Bajo: @riesgo.Bajo"></span>
+            </div>
+            <p class="small text-muted mt-3 mb-0">
+                Evaluados @riesgo.Socios.Count socios (activos y vencidos hace menos de @MetricasNegocio.DiasRiesgoPostVencimiento días)
+                según inasistencia, saldo, frecuencia y renovación.
+            </p>
+            @foreach (var s in riesgo.Socios.Where(x => x.Nivel == NivelRiesgo.Alto).Take(3))
+            {
+                <div class="risk-mini">
+                    <a asp-page="/Socios/Detalle" asp-route-id="@s.Socio.Id">@s.Socio.NombreCompleto</a>
+                    <small>@s.Recomendacion</small>
+                </div>
+            }
+        </div>
+    </div>
+
+    @* ============ Reportes ============ *@
+    <div class="module-grid">
+        @foreach (var (pagina, icono, variante, titulo, texto) in new[]
+        {
+            ("Socios", "bi-people", "primary", "Evolución de socios", "Altas, bajas, crecimiento neto y retención."),
+            ("Ingresos", "bi-cash-stack", "success", "Análisis de ingresos", "Recaudación diaria, mensual y anual, mejores meses."),
+            ("Planes", "bi-box-seam", "warning", "Rendimiento de planes", "Ventas, ingresos y participación por plan."),
+            ("Entrenadores", "bi-person-badge", "info", "Análisis de entrenadores", "Carteras, nuevas asignaciones y participación."),
+        })
+        {
+            <a class="module-card text-decoration-none" asp-page="@pagina">
+                <div class="module-head">
+                    <div class="module-title"><span class="module-icon @variante"><i class="bi @icono"></i></span><h3>@titulo</h3></div>
+                    <i class="bi bi-arrow-right text-soft"></i>
+                </div>
+                <p>@texto</p>
+            </a>
+        }
+    </div>
+</section>
+
+@section Scripts {
+    <script src="~/js/charts.js" asp-append-version="true"></script>
+}

@@ -1,9 +1,11 @@
+using GymCore.Web.Seguridad;
 using GymCore.Infraestructura.Persistencia;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace GymCore.Web.Pages.Socios;
 
+[RequierePermiso(Permisos.CredencialesEmitir)]
 public class TarjetaModel : PageModel
 {
     private readonly GymDbContext _db;

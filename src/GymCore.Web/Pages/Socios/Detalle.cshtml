@@ -4,6 +4,7 @@
 @using GymCore.Dominio.Enums
 @using System.Text.Json
 @model GymCore.Web.Pages.Socios.DetalleModel
+@inject IUsuarioActual Usuario
 @inject Microsoft.Extensions.Configuration.IConfiguration Config
 @{
     var s = Model.Socio;
@@ -45,7 +46,7 @@
     {
         <div class="flash danger" role="alert"><i class="bi bi-exclamation-triangle-fill"></i> @Model.FlashError</div>
     }
-    @if (r.Moroso)
+    @if (r.Moroso && Usuario.Puede(Permisos.PagosVer))
     {
         <div class="flash danger" role="alert">
             <i class="bi bi-exclamation-diamond-fill"></i>
@@ -70,15 +71,38 @@
                         <span><i class="bi bi-calendar-check"></i> Socio desde @s.FechaAlta.ToLocalTime().ToString("dd/MM/yyyy")</span>
                     </div>
                     <div class="d-flex gap-2 flex-wrap mt-3 d-print-none">
+                        @if (Usuario.Puede(Permisos.SociosEditar))
+                        {
                         <a class="secondary-btn" asp-page="Edit" asp-route-id="@s.Id"><i class="bi bi-pencil"></i> Editar</a>
+                        }
+                        @if (Usuario.Puede(Permisos.VentasCrear) && !s.DadoDeBaja)
+                        {
+                        <a class="secondary-btn" asp-page="/Ventas/Pos" asp-route-socioId="@s.Id"><i class="bi bi-cart3"></i> Vender</a>
+                        }
+                        @if (Usuario.Puede(Permisos.PagosCrear))
+                        {
                         <a class="primary-btn" asp-page="/Pagos/Nuevo" asp-route-socioId="@s.Id"><i class="bi bi-cash-coin"></i> Registrar pago</a>
+                        }
+                        @if (Usuario.PuedeAlguno(Permisos.CredencialesEmitir, Permisos.SociosEditar, Permisos.SociosEliminar))
+                        {
                         <div class="dropdown">
                             <button class="secondary-btn px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Más acciones"><i class="bi bi-three-dots"></i></button>
                             <ul class="dropdown-menu">
+                                @if (Usuario.Puede(Permisos.CredencialesEmitir))
+                                {
                                 <li><button type="button" class="dropdown-item" data-open-tab="#tab-credencial"><i class="bi bi-person-vcard"></i> Ver credencial</button></li>
+                                }
+                                @if (Usuario.Puede(Permisos.SociosEditar))
+                                {
                                 <li><button type="button" class="dropdown-item" data-open-tab="#tab-entrenador"><i class="bi bi-person-badge"></i> Asignar entrenador</button></li>
+                                }
+                                @if (Usuario.Puede(Permisos.SociosEditar))
+                                {
                                 <li><a class="dropdown-item" asp-page="/Suscripciones/Nueva" asp-route-socioId="@s.Id"><i class="bi bi-arrow-repeat"></i> Nueva suscripción</a></li>
+                                }
                                 <li><hr class="dropdown-divider" /></li>
+                                @if (Usuario.Puede(Permisos.SociosEliminar))
+                                {
                                 <li>
                                     <button type="button" class="dropdown-item @(s.DadoDeBaja ? "" : "text-danger")"
                                             data-confirm-action="@Url.Page("Detalle", "ToggleBaja", new { id = s.Id })"
@@ -89,15 +113,20 @@
                                         <i class="bi @(s.DadoDeBaja ? "bi-arrow-counterclockwise" : "bi-person-x")"></i> @(s.DadoDeBaja ? "Reactivar" : "Dar de baja")
                                     </button>
                                 </li>
+                                }
                             </ul>
                         </div>
+                        }
                     </div>
                 </div>
             </div>
             @* Credencial destacada (arriba a la derecha) *@
+            @if (Usuario.Puede(Permisos.CredencialesEmitir))
+            {
             <button type="button" class="border-0 bg-transparent p-0 text-start d-none d-md-block" data-open-tab="#tab-credencial" title="Ver credencial" style="width: 300px">
                 <partial name="Components/_Credencial" model="CredencialFactory.Desde(r, mini: true)" />
             </button>
+            }
         </div>
         <dl class="member-strip m-0">
             <div><dt>N° de socio</dt><dd class="num">@numero</dd></div>
@@ -130,7 +159,10 @@
         </div>
         <div class="summary-card">
             <div class="module-icon success"><i class="bi bi-receipt"></i></div>
+            @if (Usuario.Puede(Permisos.PagosVer))
+            {
             <div><p>Cuotas pagadas</p><h4>@Model.CuotasPagadas</h4></div>
+            }
         </div>
         <div class="summary-card">
             <div class="module-icon warning"><i class="bi bi-graph-up"></i></div>
@@ -142,13 +174,32 @@
     <div class="data-card">
         <nav class="tabs-underline px-3 d-print-none" role="tablist">
             <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-datos" type="button" role="tab"><i class="bi bi-person-lines-fill"></i> Datos</button>
+            @if (Usuario.Puede(Permisos.SociosVer))
+            {
             <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-membresia" type="button" role="tab"><i class="bi bi-card-checklist"></i> Membresía</button>
+            }
+            @if (Usuario.Puede(Permisos.PagosVer))
+            {
             <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-pagos" type="button" role="tab"><i class="bi bi-cash-coin"></i> Pagos <span class="count">@Model.Pagos.Count</span></button>
+            }
+            @if (Model.Compras is not null)
+            {
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-compras" type="button" role="tab"><i class="bi bi-bag"></i> Compras <span class="count">@Model.Compras.Tickets</span></button>
+            }
             <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-asistencia" type="button" role="tab"><i class="bi bi-door-open"></i> Asistencia</button>
             <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-entrenador" type="button" role="tab"><i class="bi bi-person-badge"></i> Entrenador</button>
+            @if (Usuario.PuedeAlguno(Permisos.EvolucionVer, Permisos.EvolucionRegistrar))
+            {
             <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-evolucion" type="button" role="tab"><i class="bi bi-activity"></i> Evolución física</button>
+            }
+            @if (Usuario.Puede(Permisos.CredencialesEmitir))
+            {
             <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-credencial" type="button" role="tab"><i class="bi bi-person-vcard"></i> Credencial</button>
-            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-actividad" type="button" role="tab"><i class="bi bi-clock-history"></i> Actividad</button>
+            }
+            @if (Usuario.Puede(Permisos.SociosVer))
+            {
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-actividad" type="button" role="tab"><i class="bi bi-clock-history"></i> Historial</button>
+            }
             @* Módulos futuros *@
             <span class="nav-link disabled" aria-disabled="true"><i class="bi bi-journal-text"></i> Rutinas <span class="soon-badge">Pronto</span></span>
             <span class="nav-link disabled" aria-disabled="true"><i class="bi bi-calendar3"></i> Clases <span class="soon-badge">Pronto</span></span>
@@ -170,7 +221,10 @@
                         </dl>
                         @if (s.Telefono is null && s.Email is null && s.FechaNacimiento is null)
                         {
+                            @if (Usuario.Puede(Permisos.SociosEditar))
+                            {
                             <p class="small text-muted mt-3 mb-0"><i class="bi bi-info-circle"></i> Faltan datos de contacto. <a asp-page="Edit" asp-route-id="@s.Id">Completar ficha</a></p>
+                            }
                         }
                     </div>
                     <div class="col-lg-5">
@@ -203,6 +257,8 @@
             </div>
 
             @* ---------- MEMBRESÍA ---------- *@
+            @if (Usuario.Puede(Permisos.SociosVer))
+            {
             <div class="tab-pane fade p-4" id="tab-membresia" role="tabpanel">
                 <div class="row g-4">
                     <div class="col-lg-6">
@@ -248,13 +304,19 @@
                             <div class="d-flex gap-2 flex-wrap mt-3">
                                 @if (vigente is null)
                                 {
+                                    @if (Usuario.Puede(Permisos.SociosEditar))
+                                    {
                                     <a class="primary-btn" asp-page="/Suscripciones/Nueva" asp-route-socioId="@s.Id"><i class="bi bi-arrow-repeat"></i> Renovar membresía</a>
+                                    }
                                 }
                                 else
                                 {
                                     <span class="secondary-btn opacity-75" title="Se puede renovar cuando la suscripción actual venza"><i class="bi bi-arrow-repeat"></i> Renovar al vencer</span>
                                 }
+                                @if (Usuario.Puede(Permisos.PagosCrear))
+                                {
                                 <a class="secondary-btn" asp-page="/Pagos/Nuevo" asp-route-socioId="@s.Id"><i class="bi bi-cash-coin"></i> Registrar pago</a>
+                                }
                             </div>
                         }
                     </div>
@@ -290,15 +352,21 @@
                     </div>
                 </div>
             </div>
+            }
 
             @* ---------- PAGOS ---------- *@
+            @if (Usuario.Puede(Permisos.PagosVer))
+            {
             <div class="tab-pane fade" id="tab-pagos" role="tabpanel">
                 <div class="toolbar">
                     <div class="d-flex gap-4 flex-wrap">
                         <div><small class="text-muted d-block">Total pagado</small><strong class="fs-5">@SocioPresentacion.Dinero(Model.TotalPagado)</strong></div>
                         <div><small class="text-muted d-block">Saldo pendiente</small><strong class="fs-5 @(r.Moroso ? "text-danger" : "text-success")">@SocioPresentacion.Dinero(r.Saldo)</strong></div>
                     </div>
+                    @if (Usuario.Puede(Permisos.PagosCrear))
+                    {
                     <a class="primary-btn" asp-page="/Pagos/Nuevo" asp-route-socioId="@s.Id"><i class="bi bi-plus-lg"></i> Registrar pago</a>
+                    }
                 </div>
                 @if (Model.Pagos.Count == 0)
                 {
@@ -306,27 +374,46 @@
                 }
                 else
                 {
+                    <div class="p-4">
+                        <partial name="Components/_PagosTimeline" model='new PagosTimelineVm(Model.Pagos, Model.PagadoPorSub)' />
+                    </div>
+                }
+            </div>
+            }
+
+            @* ---------- COMPRAS (Punto de Venta) ---------- *@
+            @if (Model.Compras is { } compras)
+            {
+            <div class="tab-pane fade" id="tab-compras" role="tabpanel">
+                <div class="toolbar">
+                    <div class="d-flex gap-4 flex-wrap">
+                        <div><small class="text-muted d-block">Total comprado</small><strong class="fs-5">@SocioPresentacion.Dinero(compras.Total)</strong></div>
+                        <div><small class="text-muted d-block">Última compra</small><strong class="fs-5">@(compras.Ultima is { } uc ? uc.ToLocalTime().ToString("dd/MM/yyyy") : "—")</strong></div>
+                        <div><small class="text-muted d-block">Ticket promedio</small><strong class="fs-5">@SocioPresentacion.Dinero(compras.TicketPromedio)</strong></div>
+                    </div>
+                    @if (Usuario.Puede(Permisos.VentasCrear) && !s.DadoDeBaja)
+                    {
+                    <a class="primary-btn" asp-page="/Ventas/Pos" asp-route-socioId="@s.Id"><i class="bi bi-cart3"></i> Nueva venta</a>
+                    }
+                </div>
+                @if (compras.Lineas.Count == 0)
+                {
+                    <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-bag", "Sin compras", "Los productos que el socio compre en el Punto de Venta aparecerán acá.")' />
+                }
+                else
+                {
                     <div class="table-responsive">
                         <table class="data-table stack-sm">
-                            <thead><tr><th>Fecha</th><th>Concepto</th><th class="text-end">Importe</th><th>Método</th><th>Estado</th><th class="text-end"><span class="visually-hidden">Acciones</span></th></tr></thead>
+                            <thead><tr><th>Fecha</th><th>Producto</th><th class="text-end">Cantidad</th><th class="text-end">Importe</th><th>Ticket</th></tr></thead>
                             <tbody>
-                                @foreach (var p in Model.Pagos)
+                                @foreach (var c in compras.Lineas)
                                 {
-                                    <tr>
-                                        <td class="cell-main num" data-label="Fecha">@p.FechaPago.ToLocalTime().ToString("dd/MM/yyyy") <small class="text-soft">@p.FechaPago.ToLocalTime().ToString("HH:mm")</small></td>
-                                        <td data-label="Concepto">
-                                            @(p.SocioPlan?.Plan is { } pl ? $"Cuota {pl.Nombre}" : "Pago a cuenta")
-                                            @if (p.SocioPlan is { } spp) { <div class="small text-soft">Período @spp.FechaInicio.ToString("dd/MM") – @spp.FechaFin.ToString("dd/MM/yyyy")</div> }
-                                        </td>
-                                        <td data-label="Importe" class="text-end num fw-semibold">@SocioPresentacion.Dinero(p.Importe, p.Moneda)</td>
-                                        <td data-label="Método"><i class="bi @p.Medio.Icono() text-soft"></i> @p.Medio.Texto()</td>
-                                        <td data-label="Estado"><span class="status-pill success">Acreditado</span></td>
-                                        <td class="cell-actions text-end">
-                                            <div class="row-actions">
-                                                <a class="icon-btn" asp-page="/Pagos/Recibo" asp-route-id="@p.Id" title="Ver / descargar comprobante"><i class="bi bi-file-earmark-arrow-down"></i></a>
-                                                <a class="icon-btn" asp-page="/Pagos/Recibo" asp-route-id="@p.Id" asp-route-imprimir="true" target="_blank" title="Reimprimir recibo"><i class="bi bi-printer"></i></a>
-                                            </div>
-                                        </td>
+                                    <tr class="@(c.Anulada ? "row-inactive" : "")">
+                                        <td data-label="Fecha" class="num text-soft">@c.Fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                        <td data-label="Producto" class="fw-semibold">@c.Producto</td>
+                                        <td data-label="Cantidad" class="text-end num">@c.Cantidad</td>
+                                        <td data-label="Importe" class="text-end num">@SocioPresentacion.Dinero(c.Importe)</td>
+                                        <td data-label="Ticket" class="num"><a asp-page="/Ventas/Ticket" asp-route-id="@c.VentaId">@c.Numero</a> @if (c.Anulada) { <span class="status-pill void">ANULADA</span> }</td>
                                     </tr>
                                 }
                             </tbody>
@@ -334,6 +421,7 @@
                     </div>
                 }
             </div>
+            }
 
             @* ---------- ASISTENCIA ---------- *@
             <div class="tab-pane fade p-4" id="tab-asistencia" role="tabpanel">
@@ -396,7 +484,10 @@
                                 <div class="empty-state__icon"><i class="bi bi-person-badge"></i></div>
                                 <h4>Sin entrenador asignado</h4>
                                 <p>Asigná un entrenador para hacer seguimiento de objetivos, rutinas y evolución.</p>
+                                @if (Usuario.Puede(Permisos.SociosEditar))
+                                {
                                 <button type="button" class="primary-btn border-0" data-bs-toggle="modal" data-bs-target="#entrenadorModal"><i class="bi bi-person-plus"></i> Asignar entrenador</button>
+                                }
                             </div>
                         }
                         else
@@ -423,9 +514,14 @@
                                     <div><dt>Contacto</dt><dd>@(ent.Celular ?? ent.Telefono ?? ent.Email ?? "—")</dd></div>
                                 </dl>
                                 <div class="d-flex gap-2 flex-wrap">
+                                    @if (Usuario.Puede(Permisos.SociosEditar))
+                                    {
                                     <button type="button" class="primary-btn border-0" data-bs-toggle="modal" data-bs-target="#entrenadorModal"><i class="bi bi-arrow-left-right"></i> Cambiar entrenador</button>
+                                    }
                                     @if (asignacionActual is not null)
                                     {
+                                        @if (Usuario.Puede(Permisos.SociosEditar))
+                                        {
                                         <button type="button" class="secondary-btn"
                                                 data-confirm-action="@Url.Page("Detalle", "QuitarEntrenador", new { id = s.Id, asignacionId = asignacionActual.Id })"
                                                 data-confirm-title="¿Quitar a @ent.NombreCompleto?"
@@ -433,6 +529,7 @@
                                                 data-confirm-label="Quitar" data-confirm-variant="warning">
                                             <i class="bi bi-person-dash"></i> Quitar
                                         </button>
+                                        }
                                     }
                                 </div>
                             </div>
@@ -465,13 +562,18 @@
             </div>
 
             @* ---------- EVOLUCIÓN FÍSICA ---------- *@
+            @if (Usuario.PuedeAlguno(Permisos.EvolucionVer, Permisos.EvolucionRegistrar))
+            {
             <div class="tab-pane fade p-4" id="tab-evolucion" role="tabpanel">
                 <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
                     <div>
                         <h6 class="fw-bold mb-0">Evolución física</h6>
                         <small class="text-muted">Base para evaluaciones físicas y seguimiento de objetivos.</small>
                     </div>
+                    @if (Usuario.Puede(Permisos.EvolucionRegistrar))
+                    {
                     <button type="button" class="primary-btn border-0" data-bs-toggle="modal" data-bs-target="#medicionModal"><i class="bi bi-plus-lg"></i> Nueva medición</button>
+                    }
                 </div>
                 @if (Model.Mediciones.Count == 0)
                 {
@@ -516,12 +618,15 @@
                                         <td class="num text-end">@(m.PorcentajeGraso is { } pg ? $"{pg:0.#}%" : "—")</td>
                                         <td class="small text-soft">@m.Observaciones</td>
                                         <td class="text-end">
+                                            @if (Usuario.Puede(Permisos.EvolucionRegistrar))
+                                            {
                                             <button type="button" class="icon-btn danger" title="Eliminar medición"
                                                     data-confirm-action="@Url.Page("Detalle", "EliminarMedicion", new { id = s.Id, medicionId = m.Id })"
                                                     data-confirm-title="¿Eliminar la medición del @m.Fecha.ToLocalTime().ToString("dd/MM/yyyy")?"
                                                     data-confirm-text="Esta acción no se puede deshacer." data-confirm-label="Eliminar" data-confirm-variant="danger">
                                                 <i class="bi bi-trash"></i>
                                             </button>
+                                            }
                                         </td>
                                     </tr>
                                 }
@@ -530,8 +635,11 @@
                     </div>
                 }
             </div>
+            }
 
             @* ---------- CREDENCIAL ---------- *@
+            @if (Usuario.Puede(Permisos.CredencialesEmitir))
+            {
             <div class="tab-pane fade p-4" id="tab-credencial" role="tabpanel">
                 <div class="credencial-panel">
                     <div>
@@ -570,8 +678,11 @@
                     </div>
                 </div>
             </div>
+            }
 
-            @* ---------- ACTIVIDAD ---------- *@
+            @* ---------- HISTORIAL (datos + acciones auditadas) ---------- *@
+            @if (Usuario.Puede(Permisos.SociosVer))
+            {
             <div class="tab-pane fade p-4" id="tab-actividad" role="tabpanel">
                 <ol class="timeline">
                     @foreach (var grupo in Model.Actividad.GroupBy(e => new DateTime(e.FechaUtc.ToLocalTime().Year, e.FechaUtc.ToLocalTime().Month, 1)))
@@ -585,13 +696,18 @@
                                     <h5>@ev.Titulo</h5>
                                     <time>@ev.FechaUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</time>
                                     @if (!string.IsNullOrEmpty(ev.Detalle)) { <p>@ev.Detalle</p> }
+                                    @if (ev.Usuario is { } quien)
+                                    {
+                                        <span class="audit-user mt-1"><span class="avatar-circle sm">@UsuarioActual.InicialesDe(quien)</span> @quien</span>
+                                    }
                                 </div>
                             </li>
                         }
                     }
                 </ol>
-                <p class="small text-muted mt-3 mb-0"><i class="bi bi-info-circle"></i> Los ingresos diarios se ven en la pestaña Asistencia.</p>
+                <p class="small text-muted mt-3 mb-0"><i class="bi bi-info-circle"></i> Los ingresos diarios se ven en la pestaña Asistencia. Las acciones administrativas muestran a su responsable desde que se habilitó la auditoría.</p>
             </div>
+            }
         </div>
     </div>
 </section>

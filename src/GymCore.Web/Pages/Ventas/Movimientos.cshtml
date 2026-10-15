@@ -1,0 +1,100 @@
+@page
+@using GymCore.Dominio.Entidades
+@model GymCore.Web.Pages.Ventas.MovimientosModel
+@{
+    ViewData["Title"] = "Movimientos de stock";
+}
+
+<section class="page-shell">
+    <div class="page-header">
+        <div>
+            <span class="eyebrow"><i class="bi bi-cart3"></i> Ventas e inventario</span>
+            <h2>Movimientos de stock</h2>
+            <p>El libro de inventario: cada compra, venta, ajuste y corrección con fecha, usuario, motivo y stock resultante. Los movimientos no se editan ni se borran.</p>
+        </div>
+        <div class="header-actions">
+            <a class="secondary-btn" asp-page="Inventario"><i class="bi bi-clipboard-data"></i> Inventario</a>
+        </div>
+    </div>
+
+    <div class="summary-grid">
+        <div class="summary-card">
+            <div class="module-icon primary"><i class="bi bi-list-ol"></i></div>
+            <div><p>Movimientos</p><h4>@Model.Total.ToString("N0")</h4></div>
+        </div>
+        <div class="summary-card">
+            <div class="module-icon success"><i class="bi bi-box-arrow-in-down"></i></div>
+            <div><p>Unidades que entraron</p><h4>@Model.Entradas.ToString("N0")</h4></div>
+        </div>
+        <div class="summary-card">
+            <div class="module-icon danger"><i class="bi bi-box-arrow-up"></i></div>
+            <div><p>Unidades que salieron</p><h4>@Model.Salidas.ToString("N0")</h4></div>
+        </div>
+        <div class="summary-card">
+            <div class="module-icon info"><i class="bi bi-arrow-down-up"></i></div>
+            <div><p>Variación neta</p><h4>@InventarioPresentacion.ConSigno(Model.Entradas - Model.Salidas)</h4></div>
+        </div>
+    </div>
+
+    <div class="data-card">
+        <form method="get" class="audit-filters" role="search">
+            <div class="audit-filters__row">
+                <div>
+                    <label class="form-label" for="f-producto">Producto</label>
+                    <select id="f-producto" name="Producto" class="form-select">
+                        <option value="">Todos</option>
+                        @foreach (var (id, nombre) in Model.Productos)
+                        {
+                            <option value="@id" selected="@(Model.Producto == id)">@nombre</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="f-tipo">Tipo</label>
+                    <select id="f-tipo" name="Tipo" class="form-select">
+                        <option value="">Todos</option>
+                        @foreach (var t in Enum.GetValues<TipoMovimientoStock>())
+                        {
+                            <option value="@t" selected="@(Model.Tipo == t)">@InventarioPresentacion.Texto(t)</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="f-desde">Desde</label>
+                    <input id="f-desde" type="date" name="Desde" value="@Model.Desde?.ToString("yyyy-MM-dd")" class="form-control" />
+                </div>
+                <div>
+                    <label class="form-label" for="f-hasta">Hasta</label>
+                    <input id="f-hasta" type="date" name="Hasta" value="@Model.Hasta?.ToString("yyyy-MM-dd")" class="form-control" />
+                </div>
+                <div>
+                    <label class="form-label" for="f-usuario">Usuario</label>
+                    <select id="f-usuario" name="Usuario" class="form-select">
+                        <option value="">Todos</option>
+                        @foreach (var u in Model.Usuarios)
+                        {
+                            <option value="@u" selected="@(Model.Usuario == u)">@u</option>
+                        }
+                    </select>
+                </div>
+                <div class="audit-filters__actions">
+                    <button type="submit" class="primary-btn border-0"><i class="bi bi-funnel"></i> Filtrar</button>
+                    @if (Model.HayFiltros)
+                    {
+                        <a class="secondary-btn" asp-page="Movimientos"><i class="bi bi-x-lg"></i> Limpiar</a>
+                    }
+                </div>
+            </div>
+        </form>
+
+        <div class="p-4">
+            <partial name="_Movimientos" model='new MovimientosVm(Model.Movimientos, true, Model.HayFiltros ? "Ningún movimiento coincide con los filtros." : "Las compras, ventas y ajustes de stock aparecerán acá.")' />
+        </div>
+        @if (Model.Total > Model.Movimientos.Count)
+        {
+            <div class="data-card__foot">
+                <span>Mostrando los <strong>@Model.Movimientos.Count</strong> más recientes de @Model.Total.ToString("N0"). Acotá con los filtros para ver los anteriores.</span>
+            </div>
+        }
+    </div>
+</section>

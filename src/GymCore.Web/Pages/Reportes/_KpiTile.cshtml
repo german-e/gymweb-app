@@ -1,0 +1,28 @@
+@using GymCore.Web.Reportes
+@model GymCore.Web.Reportes.Kpi
+@{
+    var k = Model;
+    var variacion = Presentacion.Variacion(k);
+}
+@* Tarjeta KPI: valor, variación coloreada según sea buena o mala, comparación nombrada y tendencia de 12 meses *@
+<article class="kpi-tile @k.Variante">
+    <header class="kpi-tile__head">
+        <span class="kpi-tile__icon"><i class="bi @k.Icono"></i></span>
+        <span class="kpi-tile__titulo">@k.Titulo</span>
+        <i class="bi bi-info-circle kpi-tile__info" tabindex="0" data-bs-toggle="tooltip" title="@k.Definicion" aria-label="Cómo se calcula: @k.Definicion"></i>
+    </header>
+    <div class="kpi-tile__valor">@Presentacion.Valor(k.Valor, k.Formato)</div>
+    <div class="kpi-tile__comparacion">
+        @if (variacion is not null)
+        {
+            <span class="delta @Presentacion.ClaseVariacion(k)">@variacion</span>
+        }
+        <small>@(k.Anterior is { } a ? $"{k.Comparacion} ({Presentacion.Valor(a, k.Formato)})" : "sin datos del período anterior")</small>
+    </div>
+    <svg class="kpi-tile__spark" data-spark="@Presentacion.Config(k.Tendencia)" role="img"
+         aria-label="Tendencia de 12 meses: de @Presentacion.Valor(k.Tendencia.FirstOrDefault(), k.Formato) en @k.TendenciaEtiquetas.FirstOrDefault() a @Presentacion.Valor(k.Tendencia.LastOrDefault(), k.Formato) en @k.TendenciaEtiquetas.LastOrDefault()"></svg>
+    @if (k.Href is not null)
+    {
+        <a class="kpi-tile__link stretched-link" href="@k.Href" aria-label="Ver detalle de @k.Titulo"></a>
+    }
+</article>

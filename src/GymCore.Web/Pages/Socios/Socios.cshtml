@@ -1,9 +1,10 @@
 @page
 @using GymCore.Web.Pages.Socios
 @model GymCore.Web.Pages.Socios.SociosModel
+@inject IUsuarioActual Usuario
 @{
 	ViewData["Title"] = "Socios";
-	var filtroInicial = (Model.F ?? "").ToLowerInvariant() is var f && new[] { "activo", "moroso", "porvencer", "conentrenador", "sinentrenador", "baja" }.Contains(f) ? f : "vigentes";
+	var filtroInicial = (Model.F ?? "").ToLowerInvariant() is var f && new[] { "activo", "moroso", "porvencer", "vencido", "nuevo", "conentrenador", "sinentrenador", "baja" }.Contains(f) ? f : "vigentes";
 	string Chip(string valor) => filtroInicial == valor ? "active" : "";
 }
 
@@ -11,12 +12,18 @@
 	<div class="page-header">
 		<div>
 			<span class="eyebrow"><i class="bi bi-people"></i> Comunidad</span>
-			<h2>Socios</h2>
+			<h2>@(Model.SoloAsignados ? "Mis socios" : "Socios")</h2>
 			<p>Membresías, pagos, asistencia y entrenadores de cada socio en un solo lugar.</p>
 		</div>
 		<div class="header-actions">
+			@if (Usuario.Puede(Permisos.PagosVer))
+			{
 			<a class="secondary-btn" asp-page="/Pagos/Pendientes"><i class="bi bi-exclamation-diamond"></i> Ver deudas</a>
+			}
+			@if (Usuario.Puede(Permisos.SociosCrear))
+			{
 			<a class="primary-btn" asp-page="/Socios/Create"><i class="bi bi-person-plus"></i> Nuevo socio</a>
+			}
 		</div>
 	</div>
 
@@ -28,7 +35,10 @@
 	<div class="stats-grid cols-5">
 		<partial name="Components/_StatCard" model='new StatCardVm("Total de socios", Model.Total.ToString(), "bi-people", "primary", Model.Bajas > 0 ? $"{Model.Bajas} bajas" : null)' />
 		<partial name="Components/_StatCard" model='new StatCardVm("Socios activos", Model.Activos.ToString(), "bi-person-check", "success", Model.Total > 0 ? $"{Model.Activos * 100 / Model.Total}%" : null)' />
+		@if (Usuario.Puede(Permisos.PagosVer))
+		{
 		<partial name="Components/_StatCard" model='new StatCardVm("Socios morosos", Model.Morosos.ToString(), "bi-exclamation-diamond", "danger", Model.Morosos > 0 ? "Ver" : null, Model.Morosos > 0 ? "?f=moroso" : null)' />
+		}
 		<partial name="Components/_StatCard" model='new StatCardVm("Nuevos del mes", Model.NuevosMes.ToString(), "bi-stars", "primary")' />
 		<partial name="Components/_StatCard" model='new StatCardVm("Próximos vencimientos", Model.PorVencer.ToString(), "bi-hourglass-split", "warning", $"{SociosConsultas.DiasAvisoVencimiento} días")' />
 	</div>
@@ -59,6 +69,8 @@
 				<button type="button" class="filter-chip @Chip("activo")" data-value="activo"><i class="bi bi-circle-fill text-success" style="font-size:.45rem"></i> Activos <span class="count">@Model.Activos</span></button>
 				<button type="button" class="filter-chip @Chip("moroso")" data-value="moroso"><i class="bi bi-circle-fill text-danger" style="font-size:.45rem"></i> Morosos <span class="count">@Model.Morosos</span></button>
 				<button type="button" class="filter-chip @Chip("porvencer")" data-value="porvencer"><i class="bi bi-circle-fill text-warning" style="font-size:.45rem"></i> Próximos a vencer <span class="count">@Model.PorVencer</span></button>
+				<button type="button" class="filter-chip @Chip("vencido")" data-value="vencido"><i class="bi bi-circle-fill text-danger" style="font-size:.45rem"></i> Vencidos <span class="count">@Model.Vencidos</span></button>
+				<button type="button" class="filter-chip @Chip("nuevo")" data-value="nuevo"><i class="bi bi-stars text-success" style="font-size:.7rem"></i> Nuevos del mes <span class="count">@Model.NuevosMes</span></button>
 				<button type="button" class="filter-chip @Chip("conentrenador")" data-value="conentrenador">Con entrenador <span class="count">@Model.ConEntrenador</span></button>
 				<button type="button" class="filter-chip @Chip("sinentrenador")" data-value="sinentrenador">Sin entrenador <span class="count">@(Model.Total - Model.ConEntrenador)</span></button>
 				@if (Model.Bajas > 0)
@@ -144,17 +156,28 @@
 								<td class="cell-actions text-end">
 									<div class="row-actions">
 										<a class="icon-btn d-none d-md-inline-grid" asp-page="/Socios/Detalle" asp-route-id="@s.Id" title="Ver ficha"><i class="bi bi-eye"></i></a>
+										@if (Usuario.Puede(Permisos.PagosCrear))
+										{
 										<a class="icon-btn d-none d-md-inline-grid" asp-page="/Pagos/Nuevo" asp-route-socioId="@s.Id" title="Registrar pago"><i class="bi bi-cash-coin"></i></a>
+										}
 										<div class="dropdown">
 											<button class="icon-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Más acciones"><i class="bi bi-three-dots-vertical"></i></button>
 											<ul class="dropdown-menu dropdown-menu-end">
 												<li><a class="dropdown-item" asp-page="/Socios/Detalle" asp-route-id="@s.Id"><i class="bi bi-eye"></i> Ver detalle</a></li>
 												<li><a class="dropdown-item" asp-page="/Socios/Edit" asp-route-id="@s.Id"><i class="bi bi-pencil"></i> Editar</a></li>
+												@if (Usuario.Puede(Permisos.PagosCrear))
+												{
 												<li><a class="dropdown-item" asp-page="/Pagos/Nuevo" asp-route-socioId="@s.Id"><i class="bi bi-cash-coin"></i> Registrar pago</a></li>
+												}
 												<li><a class="dropdown-item" asp-page="/Socios/Detalle" asp-route-id="@s.Id" asp-fragment="tab-actividad"><i class="bi bi-clock-history"></i> Ver historial</a></li>
 												<li><a class="dropdown-item" asp-page="/Socios/Detalle" asp-route-id="@s.Id" asp-fragment="tab-entrenador"><i class="bi bi-person-badge"></i> Asignar entrenador</a></li>
+												@if (Usuario.Puede(Permisos.CredencialesEmitir))
+												{
 												<li><a class="dropdown-item" asp-page="/Socios/Tarjeta" asp-route-id="@s.Id"><i class="bi bi-person-vcard"></i> Credencial</a></li>
+												}
 												<li><hr class="dropdown-divider" /></li>
+												@if (Usuario.Puede(Permisos.SociosEliminar))
+												{
 												<li>
 													<button type="button" class="dropdown-item @(s.DadoDeBaja ? "" : "text-danger")"
 															data-confirm-action="@Url.Page("/Socios/Socios", "ToggleBaja", new { id = s.Id })"
@@ -165,6 +188,7 @@
 														<i class="bi @(s.DadoDeBaja ? "bi-arrow-counterclockwise" : "bi-person-x")"></i> @(s.DadoDeBaja ? "Reactivar" : "Dar de baja")
 													</button>
 												</li>
+												}
 											</ul>
 										</div>
 									</div>

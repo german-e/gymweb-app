@@ -1,7 +1,18 @@
 @page "/panel"
+@using GymCore.Web.Pages.Pagos
+@using GymCore.Web.Pages.Socios
 @model GymCore.Web.Pages.PanelModel
+@inject IUsuarioActual Usuario
 @{
     ViewData["Title"] = "Panel de gestión";
+    var c = Model.Cobranza;
+    var m = Model.Membresias;
+    var top = Model.PlanMasContratado;
+    var es = new System.Globalization.CultureInfo("es-AR");
+    var variacion = c.VariacionMes is int v ? $"{(v >= 0 ? "▲" : "▼")} {Math.Abs(v)}% vs. mes ant." : null;
+    var maxMes = Model.RecaudacionMensual.Count > 0 ? Model.RecaudacionMensual.Max(x => x.Total) : 0m;
+    var pctAlDia = m.Activos > 0 ? m.AlDia * 100 / m.Activos : 0;
+    string Mes(DateTime d) { var t = d.ToString("MMM", es).TrimEnd('.'); return char.ToUpper(t[0]) + t[1..]; }
 }
 
 <section class="page-shell">
@@ -9,190 +20,330 @@
         <div>
             <span class="eyebrow"><i class="bi bi-graph-up-arrow"></i> Gestión general</span>
             <h2>Panel de gestión</h2>
-            <p>Accedé rápido a los indicadores clave, alertas y acciones frecuentes del gimnasio.</p>
+            <p>Indicadores del día, cobranza y vencimientos, calculados con los datos actuales del gimnasio.</p>
         </div>
 
         <div class="header-actions">
-            <a class="primary-btn" asp-page="/Socios/Socios"><i class="bi bi-person-plus"></i> Agregar socio</a>
-            <a class="secondary-btn" asp-page="/Pagos/Index"><i class="bi bi-wallet2"></i> Registrar pago</a>
+            @if (Usuario.Puede(Permisos.SociosCrear))
+            {
+            <a class="secondary-btn" asp-page="/Socios/Create"><i class="bi bi-person-plus"></i> Agregar socio</a>
+            }
+            @if (Usuario.Puede(Permisos.PagosCrear))
+            {
+            <a class="primary-btn" asp-page="/Pagos/Nuevo"><i class="bi bi-wallet2"></i> Registrar pago</a>
+            }
         </div>
     </div>
 
-    <div class="stats-grid">
-        <article class="stat-card primary">
-            <div class="stat-icon"><i class="bi bi-people-fill"></i></div>
-            <div class="stat-copy">
-                <p>Socios activos</p>
-                <h3>@Model.SociosActivos</h3>
-            </div>
-            <span class="trend positive">+12.4%</span>
-        </article>
+    @if (TempData["Flash"] is string flash)
+    {
+        <div class="flash success" role="status"><i class="bi bi-check-circle-fill"></i> @flash</div>
+    }
 
-        <article class="stat-card warning">
-            <div class="stat-icon"><i class="bi bi-exclamation-triangle"></i></div>
-            <div class="stat-copy">
-                <p>Cuotas vencidas</p>
-                <h3>@Model.SuscripcionesVencidas</h3>
+    @* ============ Entrenador: solo sus socios asignados ============ *@
+    @if (Model.MisSocios is { } mios)
+    {
+        <div class="panel-card">
+            <div class="panel-head">
+                <h3><i class="bi bi-people text-primary"></i> Mis socios asignados <span class="badge-light ms-1">@mios.Count</span></h3>
+                <a class="muted-link" asp-page="/Socios/Socios">Ver todos</a>
             </div>
-            <span class="trend negative">-2.1%</span>
-        </article>
+            @if (mios.Count == 0)
+            {
+                <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-person-badge", "Todavía no tenés socios asignados", Usuario.EntrenadorId is null ? "Tu usuario no está vinculado a una ficha de entrenador. Pedíselo a un administrador." : "Cuando te asignen socios vas a verlos acá con su próxima medición.")' />
+            }
+            else
+            {
+                <ul class="list-rows">
+                    @foreach (var r in mios.Take(8))
+                    {
+                        <li class="list-row">
+                            <div class="list-copy">
+                                <h4><a class="text-reset text-decoration-none" asp-page="/Socios/Detalle" asp-route-id="@r.Socio.Id" asp-fragment="tab-evolucion">@r.Socio.NombreCompleto</a></h4>
+                                <p>@(r.PlanNombre ?? "Sin plan") • Última asistencia: @SocioPresentacion.Relativo(r.UltimaAsistencia)</p>
+                            </div>
+                            <span class="status-pill @r.Estado.Variante()">@r.Estado.Texto()</span>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    }
 
-        <article class="stat-card success">
-            <div class="stat-icon"><i class="bi bi-cash-stack"></i></div>
-            <div class="stat-copy">
-                <p>Ingresos del mes</p>
-                <h3>$@Model.IngresosDelMes</h3>
-            </div>
-            <span class="trend positive">+8.7%</span>
-        </article>
-
-        <article class="stat-card danger">
-            <div class="stat-icon"><i class="bi bi-geo-alt"></i></div>
-            <div class="stat-copy">
-                <p>Asistencias hoy</p>
-                <h3>@Model.AsistenciasHoy</h3>
-            </div>
-            <span class="trend positive">+5.0%</span>
-        </article>
+    @* ============ KPIs ============ *@
+    <div class="stats-grid cols-3">
+        @if (Usuario.Puede(Permisos.SociosVer))
+        {
+        <partial name="Components/_StatCard" model='new StatCardVm("Socios activos", m.Activos.ToString(), "bi-people-fill", "primary", $"{pctAlDia}% al día", null, "Ver socios", Url.Page("/Socios/Socios", new { f = "activo" }))' />
+        }
+        @if (Usuario.Puede(Permisos.PagosVer))
+        {
+        <partial name="Components/_StatCard" model='new StatCardVm("Socios morosos", m.Morosos.ToString(), "bi-exclamation-diamond", "danger", m.Morosos > 0 ? SocioPresentacion.Dinero(m.SaldoPendiente) : null, null, "Ver listado", Url.Page("/Pagos/Pendientes"))' />
+        }
+        @if (Usuario.Puede(Permisos.PagosVer))
+        {
+        <partial name="Components/_StatCard" model='new StatCardVm("Pagos del día", c.PagosHoy.ToString(), "bi-calendar-check", "primary", c.PagosHoy > 0 ? SocioPresentacion.Dinero(c.Hoy) : null, null, "Registrar pago", Url.Page("/Pagos/Nuevo"))' />
+        }
+        @if (Usuario.Puede(Permisos.PagosVer))
+        {
+        <partial name="Components/_StatCard" model='new StatCardVm("Cobranza del mes", SocioPresentacion.Dinero(c.Mes), "bi-cash-stack", "success", variacion, null, "Ver pagos", Url.Page("/Pagos/Index"))' />
+        }
+        @if (Usuario.Puede(Permisos.PlanesVer))
+        {
+        <partial name="Components/_StatCard" model='new StatCardVm("Plan más contratado", top?.Plan.Nombre ?? "—", "bi-trophy", "warning", top is null ? null : $"{top.Value.Altas} {(top.Value.Altas == 1 ? "alta" : "altas")}", null, top is null ? "Crear plan" : "Ver plan", top is null ? Url.Page("/Planes/Create") : Url.Page("/Planes/Detalle", new { id = top.Value.Plan.Id }))' />
+        }
+        @if (Usuario.Puede(Permisos.SociosVer))
+        {
+        <partial name="Components/_StatCard" model='new StatCardVm("Próximos vencimientos", m.PorVencer.Count.ToString(), "bi-hourglass-split", "warning", $"{SociosConsultas.DiasAvisoVencimiento} días", null, "Gestionar vencimientos", Url.Page("/Socios/Socios", new { f = "porvencer" }))' />
+        }
     </div>
+    @if (variacion is not null && Usuario.Puede(Permisos.PagosVer))
+    {
+        <p class="kpi-footnote"><i class="bi bi-info-circle"></i> La variación compara la recaudación del mes con el mismo tramo del mes anterior.</p>
+    }
 
     <div class="shortcuts-row">
-        <a class="shortcut-pill" asp-page="/Socios/Socios"><i class="bi bi-person-plus"></i> Nuevo socio</a>
-        <a class="shortcut-pill" asp-page="/Asistencias/Ingreso"><i class="bi bi-door-open"></i> Control de ingreso</a>
+        @if (Usuario.Puede(Permisos.SociosCrear))
+        {
+        <a class="shortcut-pill" asp-page="/Socios/Create"><i class="bi bi-person-plus"></i> Nuevo socio</a>
+        }
+        @if (Usuario.Puede(Permisos.AsistenciasRegistrar))
+        {
+        <a class="shortcut-pill" asp-page="/Asistencias/Ingreso"><i class="bi bi-door-open"></i> Control de ingreso <span class="badge-light ms-1">@Model.AsistenciasHoy hoy</span></a>
+        }
+        @if (Usuario.Puede(Permisos.PagosVer))
+        {
         <a class="shortcut-pill" asp-page="/Pagos/Index"><i class="bi bi-receipt"></i> Últimos pagos</a>
+        }
+        @if (Usuario.Puede(Permisos.PlanesVer))
+        {
         <a class="shortcut-pill" asp-page="/Planes/Planes"><i class="bi bi-card-list"></i> Ver planes</a>
+        }
+        @if (Usuario.Puede(Permisos.VentasCrear))
+        {
+        <a class="shortcut-pill" asp-page="/Ventas/Pos"><i class="bi bi-cart3"></i> Punto de Venta @if (Model.VentasHoy is { } vh) { <span class="badge-light ms-1">@SocioPresentacion.Dinero(vh.Importe) hoy</span> }</a>
+        }
     </div>
 
     <div class="dashboard-grid">
+        @* ---------- Recaudación por mes ---------- *@
+        @if (Usuario.Puede(Permisos.PagosVer))
+        {
         <div class="panel-card">
             <div class="panel-head">
-                <h3>Evolución de socios</h3>
-                <a class="muted-link" href="#">Ver detalle</a>
+                <h3>Recaudación de los últimos 6 meses</h3>
+                <a class="muted-link" asp-page="/Pagos/Index">Ver pagos</a>
             </div>
 
-            <div class="mini-chart" aria-label="Gráfico de evolución de socios">
-                <div class="chart-bar" style="height: 38%;"><span>Ene</span></div>
-                <div class="chart-bar" style="height: 48%;"><span>Feb</span></div>
-                <div class="chart-bar" style="height: 55%;"><span>Mar</span></div>
-                <div class="chart-bar" style="height: 62%;"><span>Abr</span></div>
-                <div class="chart-bar" style="height: 70%;"><span>May</span></div>
-                <div class="chart-bar" style="height: 82%;"><span>Jun</span></div>
-                <div class="chart-bar" style="height: 90%;"><span>Jul</span></div>
-            </div>
+            @if (maxMes == 0)
+            {
+                <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-bar-chart", "Sin cobros en el período", "Cuando registres pagos vas a ver acá la evolución mensual.")' />
+            }
+            else
+            {
+                <div class="mini-chart real" role="img" aria-label="Recaudación mensual de los últimos 6 meses">
+                    @foreach (var (mes, total) in Model.RecaudacionMensual)
+                    {
+                        var alto = total == 0 ? 0 : Math.Max(4, (int)(total * 100 / maxMes));
+                        var actual = mes.Year == DateTime.Today.Year && mes.Month == DateTime.Today.Month;
+                        <div class="chart-bar @(actual ? "cur" : "") @(total == 0 ? "is-zero" : "")" style="height: @alto%;"
+                             data-bs-toggle="tooltip" title="@Mes(mes) @mes.Year: @SocioPresentacion.Dinero(total)">
+                            <span>@Mes(mes)</span>
+                        </div>
+                    }
+                </div>
+            }
         </div>
+        }
 
+        @* ---------- Alertas ---------- *@
+        @if (Usuario.Puede(Permisos.SociosVer))
+        {
         <div class="panel-card">
             <div class="panel-head">
                 <h3>Alertas importantes</h3>
-                <a class="muted-link" href="#">Ver todo</a>
+                <a class="muted-link" asp-page="/Socios/Socios" asp-route-f="vencido">Ver vencidos</a>
             </div>
 
             <ul class="alert-list">
                 <li class="alert-item">
                     <div class="alert-guide">
-                        <span class="status-bubble danger"></span>
+                        <span class="status-bubble @(m.Vencidos.Count > 0 ? "danger" : "success")"></span>
                         <div class="alert-copy">
-                            <h4>Cuota vencida</h4>
-                            <p>3 socios requieren seguimiento hoy</p>
+                            <h4>Cuotas vencidas</h4>
+                            <p>@(m.Vencidos.Count == 0 ? "No hay membresías vencidas sin renovar" : $"{m.Vencidos.Count} {(m.Vencidos.Count == 1 ? "socio necesita" : "socios necesitan")} renovar")</p>
                         </div>
                     </div>
-                    <span class="badge-soft danger">Urgente</span>
+                    <span class="badge-soft @(m.Vencidos.Count > 0 ? "danger" : "success")">@(m.Vencidos.Count > 0 ? "Urgente" : "OK")</span>
                 </li>
+                @if (Usuario.Puede(Permisos.PagosVer))
+                {
                 <li class="alert-item">
                     <div class="alert-guide">
-                        <span class="status-bubble warning"></span>
+                        <span class="status-bubble @(m.Morosos > 0 ? "warning" : "success")"></span>
                         <div class="alert-copy">
-                            <h4>Inventario bajo</h4>
-                            <p>Mat. para entrenamiento en stock crítico</p>
+                            <h4><a class="text-reset text-decoration-none" asp-page="/Pagos/Pendientes">Pagos pendientes</a></h4>
+                            <p>@(m.Morosos == 0 ? "Ninguna membresía vigente tiene saldo" : $"{m.Morosos} con saldo · {SocioPresentacion.Dinero(m.SaldoPendiente)} a cobrar")</p>
                         </div>
                     </div>
-                    <span class="badge-soft warning">Aviso</span>
+                    <span class="badge-soft @(m.Morosos > 0 ? "warning" : "success")">@(m.Morosos > 0 ? "Aviso" : "OK")</span>
                 </li>
+                }
+                @if (Usuario.Puede(Permisos.PagosVer))
+                {
                 <li class="alert-item">
                     <div class="alert-guide">
                         <span class="status-bubble success"></span>
                         <div class="alert-copy">
-                            <h4>Meta mensual</h4>
-                            <p>Estás al 82% de tu objetivo de ingresos</p>
+                            <h4>Pagos al día</h4>
+                            <p>@(m.Activos == 0 ? "Todavía no hay membresías vigentes" : $"{pctAlDia}% de las membresías vigentes ({m.AlDia} de {m.Activos})")</p>
                         </div>
                     </div>
-                    <span class="badge-soft success">OK</span>
+                    <span class="badge-soft success">@pctAlDia%</span>
                 </li>
+                }
             </ul>
         </div>
+        }
     </div>
 
+    @* ---------- Inventario: 🔴 sin stock · 🟠 crítico · 🟡 próximo al mínimo ---------- *@
+    @if (Model.Stock is { } stock)
+    {
+        <div class="panel-card" style="margin-top: 20px;">
+            <div class="panel-head">
+                <h3><i class="bi bi-clipboard-data text-primary"></i> Alertas de inventario</h3>
+                <a class="muted-link" asp-page="/Ventas/Inventario">Ver inventario</a>
+            </div>
+            @if (stock.Alertas.Count == 0)
+            {
+                <p class="text-muted mb-0"><i class="bi bi-check2-circle text-success"></i> Todos los productos activos tienen stock por encima del mínimo.</p>
+            }
+            else
+            {
+                <div class="stock-alerts compact mb-3">
+                    <a class="stock-alert sin @(stock.SinStock == 0 ? "is-zero" : "")" asp-page="/Ventas/Inventario" asp-route-f="sinstock">
+                        <span class="stock-alert__icon"><i class="bi bi-x-octagon-fill"></i></span>
+                        <span class="stock-alert__copy"><strong>@stock.SinStock</strong><small>Sin stock</small></span>
+                    </a>
+                    <a class="stock-alert critico @(stock.Criticos == 0 ? "is-zero" : "")" asp-page="/Ventas/Inventario" asp-route-f="critico">
+                        <span class="stock-alert__icon"><i class="bi bi-exclamation-triangle-fill"></i></span>
+                        <span class="stock-alert__copy"><strong>@stock.Criticos</strong><small>Stock crítico</small></span>
+                    </a>
+                    <a class="stock-alert proximo @(stock.Proximos == 0 ? "is-zero" : "")" asp-page="/Ventas/Inventario" asp-route-f="proximo">
+                        <span class="stock-alert__icon"><i class="bi bi-exclamation-circle-fill"></i></span>
+                        <span class="stock-alert__copy"><strong>@stock.Proximos</strong><small>Próximos al mínimo</small></span>
+                    </a>
+                </div>
+                <ul class="list-rows">
+                    @foreach (var a in stock.Alertas.Take(5))
+                    {
+                        var (texto, icono, variante) = a.Estado.Estilo();
+                        <li class="list-row">
+                            <span class="@a.Estado.Punto()" aria-hidden="true"></span>
+                            <div class="min-w-0 flex-grow-1">
+                                <a class="fw-semibold" asp-page="/Ventas/Productos/Detalle" asp-route-id="@a.Id">@a.Nombre</a>
+                                <small class="d-block text-soft">@a.Categoria · quedan @a.Stock (mín. @a.Minimo)</small>
+                            </div>
+                            <span class="status-pill @variante"><i class="bi @icono"></i> @texto</span>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    }
+
     <div class="dashboard-grid" style="margin-top: 20px;">
+        @* ---------- Próximos vencimientos ---------- *@
+        @if (Usuario.Puede(Permisos.SociosVer))
+        {
         <div class="panel-card">
             <div class="panel-head">
                 <h3>Próximos vencimientos</h3>
-                <a class="muted-link" href="#">Agenda</a>
+                <a class="muted-link" asp-page="/Socios/Socios" asp-route-f="porvencer">Ver todos</a>
             </div>
 
-            <ul class="list-rows">
-                <li class="list-row">
-                    <div class="list-copy">
-                        <h4>María López</h4>
-                        <p>Plan mensual • vence en 2 días</p>
-                    </div>
-                    <span class="list-value warning">Recordar</span>
-                </li>
-                <li class="list-row">
-                    <div class="list-copy">
-                        <h4>Diego Torres</h4>
-                        <p>Plan trimestral • vence en 4 días</p>
-                    </div>
-                    <span class="list-value warning">Pendiente</span>
-                </li>
-                <li class="list-row">
-                    <div class="list-copy">
-                        <h4>Lucía Gómez</h4>
-                        <p>Plan anual • vence en 7 días</p>
-                    </div>
-                    <span class="list-value success">Activo</span>
-                </li>
-            </ul>
+            @if (m.PorVencer.Count == 0)
+            {
+                <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-calendar-check", "Sin vencimientos cercanos", $"Ninguna membresía vence en los próximos {SociosConsultas.DiasAvisoVencimiento} días.")' />
+            }
+            else
+            {
+                <ul class="list-rows">
+                    @foreach (var r in m.PorVencer.Take(5))
+                    {
+                        <li class="list-row">
+                            <div class="list-copy">
+                                <h4><a class="text-reset text-decoration-none" asp-page="/Socios/Detalle" asp-route-id="@r.Socio.Id">@r.Socio.NombreCompleto</a></h4>
+                                <p>@r.PlanNombre • @SocioPresentacion.Vencimiento(r.Vencimiento).ToLowerInvariant()</p>
+                            </div>
+                            @if (r.Moroso)
+                            {
+                                <span class="list-value warning">Debe @SocioPresentacion.Dinero(r.Saldo)</span>
+                            }
+                            else
+                            {
+                                <span class="list-value success">Al día</span>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
         </div>
+        }
 
+        @* ---------- Últimos pagos ---------- *@
+        @if (Usuario.Puede(Permisos.PagosVer))
+        {
         <div class="panel-card">
             <div class="panel-head">
                 <h3>Últimos pagos</h3>
-                <a class="muted-link" href="#">Ver historial</a>
+                <a class="muted-link" asp-page="/Pagos/Index">Ver historial</a>
             </div>
 
-            <ul class="payments-list">
-                <li class="payment-row">
-                    <div class="payment-copy">
-                        <h4>Carla Ruiz</h4>
-                        <p>Transferencia • 12 jul</p>
-                    </div>
-                    <span class="amount">$12.500</span>
-                </li>
-                <li class="payment-row">
-                    <div class="payment-copy">
-                        <h4>Agustín Díaz</h4>
-                        <p>Tarjeta • 12 jul</p>
-                    </div>
-                    <span class="amount">$15.000</span>
-                </li>
-                <li class="payment-row">
-                    <div class="payment-copy">
-                        <h4>Paula Silva</h4>
-                        <p>Efectivo • 11 jul</p>
-                    </div>
-                    <span class="amount">$8.300</span>
-                </li>
-            </ul>
+            @if (Model.UltimosPagos.Count == 0)
+            {
+                <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-cash-coin", "Todavía no hay pagos", "Los cobros que registres aparecerán acá.", "Registrar pago", Url.Page("/Pagos/Nuevo"))' />
+            }
+            else
+            {
+                <ul class="payments-list">
+                    @foreach (var p in Model.UltimosPagos)
+                    {
+                        <li class="payment-row">
+                            <div class="payment-copy">
+                                <h4><a class="text-reset text-decoration-none" asp-page="/Pagos/Recibo" asp-route-id="@p.Id">@(p.Socio?.NombreCompleto ?? "—")</a></h4>
+                                <p>@p.Medio.Texto() • @SocioPresentacion.Relativo(p.FechaPago)@(p.UsuarioCajero is null ? "" : $" • {p.UsuarioCajero}")</p>
+                            </div>
+                            <span class="amount">@SocioPresentacion.Dinero(p.Importe, p.Moneda)</span>
+                        </li>
+                    }
+                </ul>
+            }
         </div>
+        }
     </div>
+
+    @* ---------- Actividad reciente (auditoría) ---------- *@
+    @if (Usuario.Puede(Permisos.AuditoriaVer))
+    {
+    <div class="panel-card" style="margin-top: 20px;">
+        <div class="panel-head">
+            <h3><i class="bi bi-clock-history text-primary"></i> Actividad reciente</h3>
+            <a class="muted-link" asp-page="/Administracion/Auditoria">Ver auditoría completa</a>
+        </div>
+        <partial name="Components/_EventosTimeline" model='new EventosTimelineVm(Model.Actividad, Compacto: true, TextoVacio: "Los cobros, altas y cambios que se registren aparecerán acá en tiempo real.")' />
+    </div>
+    }
 
     <div class="module-section" style="margin-top: 24px;">
         <div class="section-heading">
             <h2>Módulos principales</h2>
-            <a class="muted-link" href="#">Todos los módulos</a>
         </div>
 
         <div class="module-grid">
+            @if (Usuario.Puede(Permisos.SociosVer))
+            {
             <article class="module-card">
                 <div class="module-head">
                     <div class="module-title">
@@ -204,10 +355,16 @@
                 <p>Altas, fichas, seguimiento de membresías y estado de suscripciones.</p>
                 <div class="module-actions">
                     <a class="btn btn-primary btn-sm" asp-page="/Socios/Socios">Abrir</a>
-                    <a class="btn btn-outline-secondary btn-sm" href="#">Nuevo</a>
+                    @if (Usuario.Puede(Permisos.SociosCrear))
+                    {
+                    <a class="btn btn-outline-secondary btn-sm" asp-page="/Socios/Create">Nuevo</a>
+                    }
                 </div>
             </article>
+            }
 
+            @if (Usuario.Puede(Permisos.PlanesVer))
+            {
             <article class="module-card">
                 <div class="module-head">
                     <div class="module-title">
@@ -219,10 +376,16 @@
                 <p>Definición de planes, cuotas, beneficios y condiciones por membresía.</p>
                 <div class="module-actions">
                     <a class="btn btn-outline-primary btn-sm" asp-page="/Planes/Planes">Ver</a>
-                    <a class="btn btn-outline-secondary btn-sm" href="#">Crear</a>
+                    @if (Usuario.Puede(Permisos.PlanesEditar))
+                    {
+                    <a class="btn btn-outline-secondary btn-sm" asp-page="/Planes/Create">Crear</a>
+                    }
                 </div>
             </article>
+            }
 
+            @if (Usuario.Puede(Permisos.PagosVer))
+            {
             <article class="module-card">
                 <div class="module-head">
                     <div class="module-title">
@@ -234,10 +397,16 @@
                 <p>Control de pagos, cuotas pendientes, historial y métodos de cobro.</p>
                 <div class="module-actions">
                     <a class="btn btn-outline-primary btn-sm" asp-page="/Pagos/Index">Historial</a>
-                    <a class="btn btn-outline-secondary btn-sm" href="#">Cobrar</a>
+                    @if (Usuario.Puede(Permisos.PagosCrear))
+                    {
+                    <a class="btn btn-outline-secondary btn-sm" asp-page="/Pagos/Nuevo">Cobrar</a>
+                    }
                 </div>
             </article>
+            }
 
+            @if (Usuario.Puede(Permisos.AsistenciasRegistrar))
+            {
             <article class="module-card">
                 <div class="module-head">
                     <div class="module-title">
@@ -249,10 +418,13 @@
                 <p>Acceso, registro de entradas y seguimiento de hábitos de cada socio.</p>
                 <div class="module-actions">
                     <a class="btn btn-outline-primary btn-sm" asp-page="/Asistencias/Ingreso">Ingresar</a>
-                    <a class="btn btn-outline-secondary btn-sm" href="#">Reporte</a>
+                    <a class="btn btn-outline-secondary btn-sm" asp-page="/Asistencias/Semanal">Semanal</a>
                 </div>
             </article>
+            }
 
+            @if (Usuario.Puede(Permisos.EntrenadoresVer))
+            {
             <article class="module-card">
                 <div class="module-head">
                     <div class="module-title">
@@ -263,54 +435,56 @@
                 </div>
                 <p>Horarios, asignaciones y gestión del cuerpo técnico del club.</p>
                 <div class="module-actions">
-                    <a class="btn btn-outline-primary btn-sm" href="#">Listar</a>
-                    <a class="btn btn-outline-secondary btn-sm" href="#">Nuevo</a>
+                    <a class="btn btn-outline-primary btn-sm" asp-page="/Entrenadores/Index">Listar</a>
+                    @if (Usuario.Puede(Permisos.EntrenadoresEditar))
+                    {
+                    <a class="btn btn-outline-secondary btn-sm" asp-page="/Entrenadores/Create">Nuevo</a>
+                    }
                 </div>
             </article>
+            }
 
+            @if (Usuario.Puede(Permisos.ReportesVer))
+            {
             <article class="module-card">
                 <div class="module-head">
                     <div class="module-title">
                         <span class="module-icon primary"><i class="bi bi-bar-chart"></i></span>
                         <h3>Reportes</h3>
                     </div>
-                    <span class="badge-light">Análisis</span>
+                    <span class="soon-badge">Próximamente</span>
                 </div>
                 <p>Indicadores de finanzas, socios, asistencias y morosidad del negocio.</p>
-                <div class="module-actions">
-                    <a class="btn btn-outline-primary btn-sm" href="#">Ver</a>
-                    <a class="btn btn-outline-secondary btn-sm" href="#">Exportar</a>
-                </div>
             </article>
+            }
 
+            @if (Usuario.Puede(Permisos.ConfiguracionAdministrar))
+            {
             <article class="module-card">
                 <div class="module-head">
                     <div class="module-title">
                         <span class="module-icon danger"><i class="bi bi-box2-heart"></i></span>
                         <h3>Insumos</h3>
                     </div>
-                    <span class="badge-light">Stock</span>
+                    <span class="soon-badge">Próximamente</span>
                 </div>
                 <p>Inventario de materiales, compras, stock mínimo y control de productos.</p>
-                <div class="module-actions">
-                    <a class="btn btn-outline-primary btn-sm" href="#">Inventario</a>
-                    <a class="btn btn-outline-secondary btn-sm" href="#">Compras</a>
-                </div>
             </article>
+            }
 
+            @if (Usuario.Puede(Permisos.ConfiguracionAdministrar))
+            {
             <article class="module-card">
                 <div class="module-head">
                     <div class="module-title">
                         <span class="module-icon muted"><i class="bi bi-sliders"></i></span>
                         <h3>Configuración</h3>
                     </div>
-                    <span class="badge-light">Sistema</span>
+                    <span class="soon-badge">Próximamente</span>
                 </div>
                 <p>Usuarios, permisos, parámetros generales y perfil del gimnasio.</p>
-                <div class="module-actions">
-                    <a class="btn btn-outline-primary btn-sm" href="#">Ajustes</a>
-                </div>
             </article>
+            }
         </div>
     </div>
 </section>

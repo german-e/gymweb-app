@@ -1,3 +1,4 @@
+using GymCore.Web.Seguridad;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -6,6 +7,7 @@ using GymCore.Dominio.Enums;
 
 namespace GymCore.Web.Pages.Asistencias;
 
+[RequierePermiso(Permisos.AsistenciasRegistrar)]
 public class SemanalModel : PageModel
 {
     private readonly GymDbContext _db;

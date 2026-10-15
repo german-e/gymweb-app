@@ -22,6 +22,14 @@
                             <div class="col-md-6">
                                 <label asp-for="PlanId" class="form-label">Plan</label>
                                 <select asp-for="PlanId" class="form-select" asp-items="Model.Planes"></select>
+                                @if (Model.Planes.Count == 0)
+                                {
+                                    <div class="form-text text-danger">No hay planes activos. <a asp-page="/Planes/Planes">Activá o creá uno</a>.</div>
+                                }
+                                else
+                                {
+                                    <div class="form-text">Solo se muestran los planes activos.</div>
+                                }
                                 <span asp-validation-for="PlanId" class="text-danger"></span>
                             </div>
                             <div class="col-md-6">

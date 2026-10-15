@@ -1,3 +1,4 @@
+using GymCore.Web.Seguridad;
 using System.ComponentModel.DataAnnotations;
 using GymCore.Dominio.Entidades;
 using GymCore.Dominio.Enums;
@@ -5,13 +6,21 @@ using GymCore.Infraestructura.Persistencia;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
+using GymCore.Web.Componentes;
+using GymCore.Web.Comercial;
 
 namespace GymCore.Web.Pages.Pagos;
 
+[RequierePermiso(Permisos.PagosCrear)]
 public class NuevoModel : PageModel
 {
     private readonly GymDbContext _db;
-    public NuevoModel(GymDbContext db) => _db = db;
+    private readonly IUsuarioActual _usuario;
+    private readonly ServicioCobranza _cobranza;
+    public NuevoModel(GymDbContext db, IUsuarioActual usuario, ServicioCobranza cobranza) { _db = db; _usuario = usuario; _cobranza = cobranza; }
+
+    // Operador que quedará registrado como responsable del cobro
+    public string Operador => _usuario.Nombre;
 
     [BindProperty]
     public InputModel Input { get; set; } = new();
@@ -94,28 +103,8 @@ public class NuevoModel : PageModel
             return Page();
         }
 
-        // Buscar suscripción activa (opcional)
-        var ahora = DateTime.Now;
-        var activa = socio.Suscripciones
-            .Where(sp => sp.Estado == EstadoSuscripcion.Activo
-                       && sp.FechaInicio <= ahora
-                       && sp.FechaFin >= ahora)
-            .OrderByDescending(sp => sp.FechaFin)
-            .FirstOrDefault();
-
-        var pago = new Pago
-        {
-            SocioId = socio.Id,
-            SocioPlanId = activa?.Id,
-            Importe = Input.Importe,
-            Moneda = string.IsNullOrWhiteSpace(Input.Moneda) ? "ARS" : Input.Moneda.Trim().ToUpperInvariant(),
-            Medio = Input.Medio,
-            ReferenciaExterna = Input.ReferenciaExterna,
-            Observaciones = Input.Observaciones,
-            FechaPago = DateTime.UtcNow
-        };
-
-        _db.Pagos.Add(pago);
+        // Se asocia a la suscripción vigente si la hay (si no, queda como pago a cuenta)
+        var pago = _cobranza.CrearPago(socio, Input.Importe, Input.Medio, Input.Moneda, Input.ReferenciaExterna, Input.Observaciones);
         await _db.SaveChangesAsync();
 
         if (VolverAFicha)
@@ -149,39 +138,23 @@ public class NuevoModel : PageModel
 
     public async Task<IActionResult> OnGetSaldoSocioAsync(int socioId)
     {
-        var socio = await _db.Socios
-            .Include(s => s.Suscripciones)
-                .ThenInclude(sp => sp.Plan)
-            .FirstOrDefaultAsync(s => s.Id == socioId);
+        var socio = await _cobranza.SocioConSuscripcionesAsync(socioId);
         if (socio == null)
             return new JsonResult(new { ok = false, mensaje = "Socio no encontrado" });
 
-        var ahora = DateTime.Now;
-        var activa = socio.Suscripciones
-            .Where(sp => sp.Estado == EstadoSuscripcion.Activo
-                       && sp.FechaInicio <= ahora
-                       && sp.FechaFin >= ahora)
-            .OrderByDescending(sp => sp.FechaFin)
-            .FirstOrDefault();
-
-        if (activa == null)
+        var saldo = await _cobranza.SaldoAsync(socio);
+        if (saldo is null)
             return new JsonResult(new { ok = true, sinPlan = true, faltante = (decimal?)null });
 
-        var totalPagado = await _db.Pagos
-            .Where(p => p.SocioId == socioId && p.SocioPlanId == activa.Id)
-            .SumAsync(p => (decimal?)p.Importe) ?? 0m;
-
-        var precio = activa.Plan.Precio;
-        var faltante = Math.Max(0m, precio - totalPagado);
-
+        var activa = saldo.Suscripcion;
         return new JsonResult(new
         {
             ok = true,
             sinPlan = false,
             plan = activa.Plan.Nombre,
-            precio,
-            pagado = totalPagado,
-            faltante,
+            precio = saldo.Precio,
+            pagado = saldo.Pagado,
+            faltante = saldo.Faltante,
             periodo = new { desde = activa.FechaInicio, hasta = activa.FechaFin },
             socioPlanId = activa.Id
         });

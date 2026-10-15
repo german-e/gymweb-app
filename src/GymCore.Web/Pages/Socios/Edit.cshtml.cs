@@ -1,9 +1,13 @@
+using GymCore.Web.Seguridad;
+using GymCore.Dominio.Enums;
+using GymCore.Web.Componentes;
 using GymCore.Infraestructura.Persistencia;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymCore.Web.Pages.Socios;
 
+[RequierePermiso(Permisos.SociosEditar)]
 public class EditModel : SocioFormPageModel
 {
     public EditModel(GymDbContext db, IWebHostEnvironment env) : base(db, env) { }
@@ -38,6 +42,10 @@ public class EditModel : SocioFormPageModel
 
         Input.AplicarA(s);
         await ProcesarFotoAsync(s);
+        var campos = Db.CamposModificados(s, Auditoria.CamposSocio);
+        if (campos.Count > 0)
+            Db.Auditar(TipoEventoSistema.SocioEditado, EntidadAuditada.Socio, s.Id, $"{s.Apellido}, {s.Nombre}",
+                "Cambió: " + string.Join(", ", campos), socioId: s.Id);
         await Db.SaveChangesAsync();
         TempData["Flash"] = "Cambios guardados.";
         return RedirectToPage("Detalle", new { id = s.Id });

@@ -1,79 +1,275 @@
 @page "{id:int}"
+@using GymCore.Web.Pages.Pagos
 @using GymCore.Web.Pages.Socios
 @model GymCore.Web.Pages.Pagos.ReciboModel
+@inject IUsuarioActual Usuario
 @inject Microsoft.Extensions.Configuration.IConfiguration Config
 @{
     var p = Model.Pago;
     var s = p.Socio;
-    var numero = $"R-{p.Id:D6}";
-    ViewData["Title"] = $"Recibo {numero}";
+    var numero = p.Numero();
+    ViewData["Title"] = $"Pago {numero}";
     var gimnasio = Config["Gimnasio:Nombre"] ?? "GymCore";
     var plan = p.SocioPlan?.Plan;
+    var local = p.FechaPago.ToLocalTime();
+    var estado = p.Estado(Model.PagadoPorPeriodo);
+    var r = Model.Resumen;
+    var anuladoLocal = p.FechaAnulacion?.ToLocalTime();
+
+    // Texto para reenviar el comprobante por WhatsApp / email / portapapeles
+    var textoComprobante = $"¡Hola {s.Nombre}! Te enviamos el comprobante {numero} de {gimnasio}.\n" +
+                           $"Concepto: {p.Concepto()}\nImporte: {SocioPresentacion.Dinero(p.Importe, p.Moneda)}\n" +
+                           $"Fecha: {local:dd/MM/yyyy HH:mm}\nMedio: {p.Medio.Texto()}\n¡Gracias!";
+    var waTel = SocioPresentacion.WhatsApp(s.Telefono);
+    var waUrl = waTel is null ? null : $"https://wa.me/{waTel}?text={Uri.EscapeDataString(textoComprobante)}";
+    var mailUrl = string.IsNullOrEmpty(s.Email) ? null
+        : $"mailto:{s.Email}?subject={Uri.EscapeDataString($"Comprobante {numero} - {gimnasio}")}&body={Uri.EscapeDataString(textoComprobante)}";
 }
 
 <section class="page-shell">
     <div class="page-header d-print-none">
         <div>
             <a class="text-decoration-none small fw-semibold" asp-page="/Socios/Detalle" asp-route-id="@s.Id" asp-fragment="tab-pagos"><i class="bi bi-arrow-left"></i> Pagos de @s.NombreCompleto</a>
-            <h2>Comprobante de pago</h2>
-            <p>Recibo @numero · @p.FechaPago.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</p>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <h2>Pago @numero</h2>
+                <span class="status-pill @estado.Variante() mt-2">@(p.Anulado ? "ANULADO" : estado.Texto())</span>
+            </div>
+            <p>@p.Concepto() · @local.ToString("dd/MM/yyyy HH:mm")</p>
         </div>
         <div class="header-actions">
             <button type="button" class="secondary-btn" id="btnPdf"><i class="bi bi-file-earmark-arrow-down"></i> Descargar PDF</button>
-            <button type="button" class="primary-btn border-0" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir</button>
+            <button type="button" class="primary-btn border-0" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir recibo</button>
+            @if (Model.PuedeAnular)
+            {
+                <button type="button" class="danger-btn" data-bs-toggle="modal" data-bs-target="#anularModal"><i class="bi bi-x-octagon"></i> Anular</button>
+            }
         </div>
     </div>
 
-    <article class="receipt" id="recibo">
-        <header class="receipt__head">
-            <div class="d-flex gap-3 align-items-center">
-                <div class="brand-mark"><i class="bi bi-lightning-charge-fill"></i></div>
-                <div>
-                    <strong class="fs-5">@gimnasio</strong>
-                    <div class="small text-muted">Comprobante de pago · no válido como factura</div>
-                </div>
-            </div>
-            <div class="text-end">
-                <div class="small text-muted">Recibo</div>
-                <strong class="num">@numero</strong>
-                <div class="small text-muted">@p.FechaPago.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
-            </div>
-        </header>
-        <div class="receipt__body">
-            <dl class="info-list">
-                <div><dt>Socio</dt><dd>@s.Apellido, @s.Nombre</dd></div>
-                <div><dt>DNI · N° socio</dt><dd>@s.Dni · @SocioPresentacion.Numero(s.NumeroVisible)</dd></div>
-                <div class="full">
-                    <dt>Concepto</dt>
-                    <dd>
-                        @(plan is null ? "Pago a cuenta" : $"Cuota {plan.Nombre}")
-                        @if (p.SocioPlan is { } sp) { <span class="text-muted">· período @sp.FechaInicio.ToString("dd/MM/yyyy") al @sp.FechaFin.ToString("dd/MM/yyyy")</span> }
-                    </dd>
-                </div>
-                <div><dt>Medio de pago</dt><dd><i class="bi @p.Medio.Icono()"></i> @p.Medio.Texto()</dd></div>
-                <div><dt>Referencia</dt><dd>@(p.ReferenciaExterna ?? "—")</dd></div>
-                @if (plan is not null && Model.PagadoPeriodo is { } pagado)
-                {
-                    <div><dt>Pagado del período</dt><dd>@SocioPresentacion.Dinero(pagado) de @SocioPresentacion.Dinero(plan.Precio)</dd></div>
-                    <div><dt>Saldo</dt><dd class="@(pagado < plan.Precio ? "text-danger" : "text-success") fw-semibold">@SocioPresentacion.Dinero(Math.Max(0, plan.Precio - pagado))</dd></div>
-                }
-                @if (!string.IsNullOrEmpty(p.Observaciones))
-                {
-                    <div class="full"><dt>Observaciones</dt><dd>@p.Observaciones</dd></div>
-                }
-            </dl>
+    @if (!string.IsNullOrEmpty(Model.Flash))
+    {
+        <div class="flash success d-print-none" role="status"><i class="bi bi-check-circle-fill"></i> @Model.Flash</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.FlashError))
+    {
+        <div class="flash danger d-print-none" role="alert"><i class="bi bi-exclamation-triangle-fill"></i> @Model.FlashError</div>
+    }
+    @if (p.Anulado)
+    {
+        <div class="flash void-flash d-print-none" role="status">
+            <i class="bi bi-x-octagon-fill"></i>
+            <span>Pago anulado el <strong>@anuladoLocal?.ToString("dd/MM/yyyy HH:mm")</strong> por <strong>@p.UsuarioAnulo</strong>. Motivo: @p.MotivoAnulacion. No impacta en saldos ni recaudación.</span>
         </div>
-        <footer class="receipt__total">
-            <span class="text-muted fw-semibold">Total abonado</span>
-            <strong class="num">@SocioPresentacion.Dinero(p.Importe, p.Moneda)</strong>
-        </footer>
-    </article>
+    }
+
+    <div class="receipt-layout">
+        @* ============ COMPROBANTE ============ *@
+        <article class="receipt @(p.Anulado ? "is-anulado" : "")" id="recibo">
+            @if (p.Anulado) { <div class="receipt__void" aria-hidden="true">ANULADO</div> }
+            <header class="receipt__head">
+                <div class="d-flex gap-3 align-items-center">
+                    <div class="brand-mark"><i class="bi bi-lightning-charge-fill"></i></div>
+                    <div>
+                        <strong class="fs-5">@gimnasio</strong>
+                        <div class="small text-muted">Comprobante de pago · no válido como factura</div>
+                    </div>
+                </div>
+                <div class="text-end">
+                    <div class="small text-muted">Recibo</div>
+                    <strong class="num">@numero</strong>
+                    <div class="small text-muted">@local.ToString("dd/MM/yyyy HH:mm")</div>
+                </div>
+            </header>
+            <div class="receipt__body">
+                <dl class="info-list">
+                    <div><dt>Socio</dt><dd>@s.Apellido, @s.Nombre</dd></div>
+                    <div><dt>DNI · N° socio</dt><dd>@s.Dni · @SocioPresentacion.Numero(s.NumeroVisible)</dd></div>
+                    <div class="full">
+                        <dt>Concepto</dt>
+                        <dd>
+                            @p.Concepto()
+                            @if (p.SocioPlan is { } sp) { <span class="text-muted">· período @sp.FechaInicio.ToString("dd/MM/yyyy") al @sp.FechaFin.ToString("dd/MM/yyyy")</span> }
+                        </dd>
+                    </div>
+                    <div><dt>Medio de pago</dt><dd><i class="bi @p.Medio.Icono()"></i> @p.Medio.Texto()</dd></div>
+                    <div><dt>Referencia</dt><dd>@(p.ReferenciaExterna ?? "—")</dd></div>
+                    @if (plan is not null && Model.PagadoPeriodo is { } pagado)
+                    {
+                        <div><dt>Pagado del período</dt><dd>@SocioPresentacion.Dinero(pagado) de @SocioPresentacion.Dinero(plan.Precio)</dd></div>
+                        <div><dt>Saldo</dt><dd class="@(pagado < plan.Precio ? "text-danger" : "text-success") fw-semibold">@SocioPresentacion.Dinero(Math.Max(0, plan.Precio - pagado))</dd></div>
+                    }
+                    @if (!string.IsNullOrEmpty(p.UsuarioCajero))
+                    {
+                        <div><dt>Atendido por</dt><dd>@p.UsuarioCajero</dd></div>
+                    }
+                    @if (!string.IsNullOrEmpty(p.Observaciones))
+                    {
+                        <div class="full"><dt>Observaciones</dt><dd>@p.Observaciones</dd></div>
+                    }
+                    @if (p.Anulado)
+                    {
+                        <div class="full"><dt>Anulación</dt><dd class="text-danger">@anuladoLocal?.ToString("dd/MM/yyyy HH:mm") · @p.UsuarioAnulo · @p.MotivoAnulacion</dd></div>
+                    }
+                </dl>
+            </div>
+            <footer class="receipt__total">
+                <span class="text-muted fw-semibold">@(p.Anulado ? "Total (anulado)" : "Total abonado")</span>
+                <strong class="num">@SocioPresentacion.Dinero(p.Importe, p.Moneda)</strong>
+            </footer>
+        </article>
+
+        @* ============ PANEL LATERAL ============ *@
+        <aside class="receipt-aside d-print-none">
+            <div class="panel-card">
+                <div class="person-cell">
+                    <partial name="Components/_Avatar" model='new AvatarVm(s.FotoUrl, s.Iniciales, "lg", s.NombreCompleto)' />
+                    <div class="person-cell__copy">
+                        <a class="fw-semibold" asp-page="/Socios/Detalle" asp-route-id="@s.Id">@s.NombreCompleto</a>
+                        <small>DNI @s.Dni · N° @SocioPresentacion.Numero(s.NumeroVisible)</small>
+                        @if (r is not null) { <span class="status-pill @r.Estado.Variante() mt-1 align-self-start">@r.Estado.Texto()</span> }
+                    </div>
+                </div>
+                <dl class="saldo-list mt-3">
+                    <div><dt>Plan asociado</dt><dd>@(plan?.Nombre ?? "Pago a cuenta")</dd></div>
+                    @if (r?.Vencimiento is { } vence)
+                    {
+                        <div><dt>Vencimiento</dt><dd>@vence.ToString("dd/MM/yyyy") <small class="text-soft">· @SocioPresentacion.Vencimiento(vence)</small></dd></div>
+                    }
+                    @if (r is not null && r.Moroso)
+                    {
+                        <div><dt>Saldo actual</dt><dd class="text-danger fw-semibold">@SocioPresentacion.Dinero(r.Saldo)</dd></div>
+                    }
+                </dl>
+            </div>
+
+            <div class="panel-card audit-card">
+                <div class="panel-head mb-3">
+                    <h3><i class="bi bi-shield-check"></i> Auditoría del cobro</h3>
+                    @if (p.Anulado) { <span class="status-pill void">Anulado</span> }
+                    else { <span class="status-pill @(p.UsuarioCajero is null ? "muted" : "success")">@(p.UsuarioCajero is null ? "Sin trazabilidad" : "Trazable")</span> }
+                </div>
+                <dl class="audit-list">
+                    <div><dt><i class="bi bi-hash"></i> Operación</dt><dd class="font-monospace">@numero</dd></div>
+                    <div><dt><i class="bi bi-calendar3"></i> Fecha</dt><dd class="num">@local.ToString("dd/MM/yyyy")</dd></div>
+                    <div><dt><i class="bi bi-clock"></i> Hora</dt><dd class="num">@local.ToString("HH:mm:ss")</dd></div>
+                    <div>
+                        <dt><i class="bi bi-person-check"></i> Usuario responsable</dt>
+                        <dd>
+                            @if (p.UsuarioCajero is { } cajero) { <span class="audit-user"><span class="avatar-circle sm">@UsuarioActual.InicialesDe(cajero)</span> @cajero</span> }
+                            else { <span class="text-soft" data-bs-toggle="tooltip" title="El pago se registró antes de que el sistema guardara el usuario responsable">No registrado</span> }
+                        </dd>
+                    </div>
+                    @if (p.Anulado)
+                    {
+                        <div class="audit-void"><dt><i class="bi bi-x-octagon"></i> Anulado el</dt><dd class="num">@anuladoLocal?.ToString("dd/MM/yyyy HH:mm:ss")</dd></div>
+                        <div class="audit-void"><dt><i class="bi bi-person-x"></i> Anuló</dt><dd><span class="audit-user"><span class="avatar-circle sm">@UsuarioActual.InicialesDe(p.UsuarioAnulo ?? "?")</span> @p.UsuarioAnulo</span></dd></div>
+                        <div class="audit-void"><dt><i class="bi bi-chat-left-text"></i> Motivo</dt><dd>@p.MotivoAnulacion</dd></div>
+                    }
+                </dl>
+                <p class="audit-stamp mb-0" data-bs-toggle="tooltip" title="Marca de tiempo original en UTC">
+                    <i class="bi bi-fingerprint"></i> @p.FechaPago.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")
+                </p>
+            </div>
+
+            <div class="panel-card">
+                <div class="panel-head mb-3"><h3>Acciones</h3></div>
+                <div class="quick-actions single">
+                    <button type="button" class="quick-action" onclick="window.print()">
+                        <i class="bi bi-printer"></i><span>Imprimir recibo<small>Formato A5 listo para entregar</small></span>
+                    </button>
+                    <button type="button" class="quick-action" data-pdf-trigger>
+                        <i class="bi bi-file-earmark-pdf"></i><span>Descargar PDF<small>@(numero).pdf</small></span>
+                    </button>
+                    @if (!p.Anulado)
+                    {
+                    <div class="dropdown">
+                        <button type="button" class="quick-action success w-100" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-send"></i><span>Reenviar comprobante<small>WhatsApp, email o copiar texto</small></span>
+                        </button>
+                        <ul class="dropdown-menu w-100">
+                            <li>
+                                @if (waUrl is not null) { <a class="dropdown-item" href="@waUrl" target="_blank" rel="noopener"><i class="bi bi-whatsapp"></i> WhatsApp <small class="ms-auto text-muted">@s.Telefono</small></a> }
+                                else { <span class="dropdown-item disabled"><i class="bi bi-whatsapp"></i> WhatsApp <small class="ms-auto">sin teléfono</small></span> }
+                            </li>
+                            <li>
+                                @if (mailUrl is not null) { <a class="dropdown-item" href="@mailUrl"><i class="bi bi-envelope"></i> Email <small class="ms-auto text-muted text-truncate">@s.Email</small></a> }
+                                else { <span class="dropdown-item disabled"><i class="bi bi-envelope"></i> Email <small class="ms-auto">sin email</small></span> }
+                            </li>
+                            <li><hr class="dropdown-divider" /></li>
+                            <li><button type="button" class="dropdown-item" data-copy="@textoComprobante"><i class="bi bi-clipboard"></i> Copiar texto</button></li>
+                        </ul>
+                    </div>
+                    }
+                    @if (Model.PuedeAnular)
+                    {
+                        <button type="button" class="quick-action danger" data-bs-toggle="modal" data-bs-target="#anularModal">
+                            <i class="bi bi-x-octagon"></i><span>Anular pago<small>Se conserva con su motivo y deja de sumar</small></span>
+                        </button>
+                    }
+                    @if (Usuario.Puede(Permisos.PagosCrear))
+                    {
+                    <a class="quick-action warning" asp-page="Nuevo" asp-route-socioId="@s.Id">
+                        <i class="bi bi-cash-coin"></i><span>Registrar otro pago<small>Para @s.Nombre</small></span>
+                    </a>
+                    }
+                </div>
+                <p class="small text-muted mt-3 mb-0"><i class="bi bi-info-circle"></i> Tip: adjuntá el PDF al mensaje de WhatsApp o email.</p>
+            </div>
+
+            <div class="panel-card">
+                <div class="panel-head mb-3">
+                    <h3>Historial del socio</h3>
+                    <a class="muted-link" asp-page="/Socios/Detalle" asp-route-id="@s.Id" asp-fragment="tab-pagos">Ver todo (@Model.TotalPagosSocio)</a>
+                </div>
+                <partial name="Components/_PagosTimeline" model='new PagosTimelineVm(Model.Historial, Model.PagadoPorPeriodo, p.Id)' />
+            </div>
+        </aside>
+    </div>
 </section>
+
+@if (Model.PuedeAnular)
+{
+    @* ============ MODAL DE ANULACIÓN ============ *@
+    <div class="modal fade" id="anularModal" tabindex="-1" aria-labelledby="anularModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="post" asp-page-handler="Anular" asp-route-id="@p.Id" class="modal-content" data-submit-loading data-anular-form>
+                <div class="modal-body p-4">
+                    <div class="d-flex gap-3 mb-3">
+                        <div class="module-icon danger"><i class="bi bi-exclamation-triangle"></i></div>
+                        <div>
+                            <h5 class="mb-1" id="anularModalTitle">Confirmar anulación del pago</h5>
+                            <p class="text-muted small mb-0">
+                                @numero · @SocioPresentacion.Dinero(p.Importe, p.Moneda) · @s.NombreCompleto.
+                                El pago no se borra: queda en el historial como <strong>anulado</strong> y deja de contar en saldos, recaudación e indicadores.
+                            </p>
+                        </div>
+                    </div>
+                    <label class="form-label fw-semibold small">Motivo de anulación<span class="text-danger">*</span></label>
+                    <div class="motivo-picker" role="radiogroup" aria-label="Motivo de anulación">
+                        @for (var i = 0; i < PagoPresentacion.MotivosAnulacion.Length; i++)
+                        {
+                            var motivo = PagoPresentacion.MotivosAnulacion[i];
+                            <input type="radio" id="motivo-@i" name="motivo" value="@motivo" required />
+                            <label for="motivo-@i">@motivo</label>
+                        }
+                    </div>
+                    <label class="form-label fw-semibold small mt-3" for="anularDetalle">Detalle <span class="text-muted fw-normal" data-detalle-hint>(opcional)</span></label>
+                    <textarea id="anularDetalle" name="detalle" class="form-control" rows="2" maxlength="250" placeholder="Ej.: se cobró dos veces la cuota de octubre"></textarea>
+                    <div class="form-text"><i class="bi bi-person-check"></i> Quedará registrado a nombre de <strong>@Model.OperadorNombre</strong>.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="secondary-btn" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger px-3" disabled data-anular-submit data-loading-text="Anulando…">Confirmar anulación</button>
+                </div>
+            </form>
+        </div>
+    </div>
+}
 
 @section Scripts {
     <script>
-        document.getElementById('btnPdf').addEventListener('click', async (e) => {
-            const btn = e.currentTarget; btn.disabled = true;
+        async function descargarPdf(btn) {
+            btn.disabled = true;
             try {
                 await GymUi.cargarScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
                 await GymUi.cargarScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
@@ -82,9 +278,30 @@
                 const w = 128, h = canvas.height * w / canvas.width;
                 doc.addImage(canvas.toDataURL('image/png'), 'PNG', 10, 10, w, h);
                 doc.save('@(numero).pdf');
-            } catch { alert('No se pudo generar el PDF. Probá con Imprimir → Guardar como PDF.'); }
+                GymUi.toast('PDF descargado.');
+            } catch { GymUi.toast('No se pudo generar el PDF. Probá con Imprimir → Guardar como PDF.', 'danger'); }
             finally { btn.disabled = false; }
-        });
+        }
+        document.getElementById('btnPdf').addEventListener('click', (e) => descargarPdf(e.currentTarget));
+        document.querySelector('[data-pdf-trigger]').addEventListener('click', (e) => descargarPdf(e.currentTarget));
+
+        // Modal de anulación: motivo obligatorio; "Otro" exige detalle
+        (function () {
+            const form = document.querySelector('[data-anular-form]');
+            if (!form) return;
+            const submit = form.querySelector('[data-anular-submit]');
+            const detalle = form.querySelector('#anularDetalle');
+            const hint = form.querySelector('[data-detalle-hint]');
+            const validar = () => {
+                const m = form.querySelector('input[name="motivo"]:checked');
+                const otro = m && m.value === 'Otro';
+                hint.textContent = otro ? '(obligatorio)' : '(opcional)';
+                detalle.required = !!otro;
+                submit.disabled = !m || (otro && !detalle.value.trim());
+            };
+            form.addEventListener('change', validar);
+            detalle.addEventListener('input', validar);
+        })();
     </script>
     @if (Model.Imprimir)
     {

@@ -1,0 +1,200 @@
+@page "{id:int?}"
+@model GymCore.Web.Pages.Ventas.Productos.EditarModel
+@{
+    ViewData["Title"] = Model.EsEdicion ? "Editar producto" : "Nuevo producto";
+    var es = new System.Globalization.CultureInfo("es-AR");
+}
+
+<section class="page-shell">
+    <div class="page-header">
+        <div>
+            @if (Model.EsEdicion)
+            {
+                <a class="text-decoration-none small fw-semibold" asp-page="Detalle" asp-route-id="@Model.Id"><i class="bi bi-arrow-left"></i> @Model.Input.Nombre</a>
+            }
+            else
+            {
+                <a class="text-decoration-none small fw-semibold" asp-page="Index"><i class="bi bi-arrow-left"></i> Productos</a>
+            }
+            <h2>@(Model.EsEdicion ? "Editar producto" : "Nuevo producto")</h2>
+            <p>Los campos con <span class="text-danger">*</span> son obligatorios. El precio de cada venta queda congelado en el ticket: cambiarlo no altera ventas anteriores.</p>
+        </div>
+    </div>
+
+    <form method="post" novalidate class="form-layout" data-submit-loading>
+        <aside class="form-aside">
+            <nav class="section-nav" data-section-nav aria-label="Secciones del formulario">
+                <a href="#sec-general" class="active"><i class="bi bi-card-text"></i> Información general</a>
+                <a href="#sec-precio"><i class="bi bi-currency-dollar"></i> Precios y margen</a>
+                <a href="#sec-stock"><i class="bi bi-boxes"></i> Stock</a>
+            </nav>
+
+            <div class="plan-preview d-none d-lg-block" aria-hidden="true">
+                <span class="plan-preview__label">Vista previa en el POS</span>
+                <div class="module-icon primary" data-pv-icono><i class="bi @(Model.Input.CategoriaId is { } ci && Model.IconosCategoria.TryGetValue(ci, out var ico) ? ico : "bi-box")"></i></div>
+                <strong class="plan-preview__name" data-pv-nombre>@(string.IsNullOrWhiteSpace(Model.Input.Nombre) ? "Nuevo producto" : Model.Input.Nombre)</strong>
+                <span class="plan-preview__type" data-pv-marca>@(Model.Input.Marca ?? "Sin marca")</span>
+                <div class="plan-preview__price"><span data-pv-precio>$ @Model.Input.PrecioVenta.ToString("N0", es)</span></div>
+                <dl class="margin-preview">
+                    <div><dt>Margen por unidad</dt><dd data-pv-margen>—</dd></div>
+                    <div><dt>Margen %</dt><dd data-pv-margen-pct>—</dd></div>
+                </dl>
+            </div>
+        </aside>
+
+        <div class="form-stack">
+            <div asp-validation-summary="ModelOnly" class="flash danger mb-0"></div>
+
+            <section class="form-section" id="sec-general">
+                <header class="form-section__head">
+                    <div class="module-icon primary"><i class="bi bi-card-text"></i></div>
+                    <div>
+                        <h3>Información general</h3>
+                        <p>Cómo se identifica el producto en el mostrador y en el lector de códigos.</p>
+                    </div>
+                </header>
+                <div class="form-section__body">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label asp-for="Input.Nombre" class="form-label"></label><span class="req text-danger">*</span>
+                            <input asp-for="Input.Nombre" class="form-control" placeholder="Ej.: Agua mineral 500 ml" autofocus data-pv="nombre" />
+                            <span asp-validation-for="Input.Nombre" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="Input.CategoriaId" class="form-label"></label><span class="req text-danger">*</span>
+                            <select asp-for="Input.CategoriaId" class="form-select" asp-items="Model.Categorias" data-pv="categoria"
+                                    data-iconos="@System.Text.Json.JsonSerializer.Serialize(Model.IconosCategoria)">
+                                <option value="">Elegí…</option>
+                            </select>
+                            <span asp-validation-for="Input.CategoriaId" class="text-danger"></span>
+                            @if (Model.Categorias.Count == 0)
+                            {
+                                <div class="form-text"><a asp-page="/Ventas/Categorias">Creá una categoría</a> primero.</div>
+                            }
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="Input.Codigo" class="form-label"></label>
+                            <input asp-for="Input.Codigo" class="form-control text-uppercase num" placeholder="Automático" />
+                            <div class="form-text">Si lo dejás vacío se genera (ej. BEB-001).</div>
+                            <span asp-validation-for="Input.Codigo" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="Input.CodigoBarras" class="form-label"></label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
+                                <input asp-for="Input.CodigoBarras" class="form-control num" placeholder="Escaneá o escribí" inputmode="numeric" data-enter-no-submit />
+                            </div>
+                            <span asp-validation-for="Input.CodigoBarras" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="Input.Marca" class="form-label"></label>
+                            <input asp-for="Input.Marca" class="form-control" placeholder="Opcional" data-pv="marca" />
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="Input.Descripcion" class="form-label"></label>
+                            <textarea asp-for="Input.Descripcion" class="form-control" rows="2" placeholder="Sabor, tamaño, presentación…"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="form-section" id="sec-precio">
+                <header class="form-section__head">
+                    <div class="module-icon success"><i class="bi bi-currency-dollar"></i></div>
+                    <div>
+                        <h3>Precios y margen</h3>
+                        <p>El precio de compra se usa para estimar margen y rentabilidad.</p>
+                    </div>
+                </header>
+                <div class="form-section__body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label asp-for="Input.PrecioCompra" class="form-label"></label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input asp-for="Input.PrecioCompra" class="form-control num" inputmode="decimal" step="0.01" min="0" data-pv="compra" />
+                            </div>
+                            <span asp-validation-for="Input.PrecioCompra" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="Input.PrecioVenta" class="form-label"></label><span class="req text-danger">*</span>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input asp-for="Input.PrecioVenta" class="form-control num" inputmode="decimal" step="0.01" min="0" data-pv="venta" />
+                            </div>
+                            <span asp-validation-for="Input.PrecioVenta" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <div class="margin-badge" data-pv-margen-badge aria-live="polite">Margen —</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="form-section" id="sec-stock">
+                <header class="form-section__head">
+                    <div class="module-icon warning"><i class="bi bi-boxes"></i></div>
+                    <div>
+                        <h3>Stock</h3>
+                        <p>Con el stock mínimo el sistema avisa cuándo reponer.</p>
+                    </div>
+                </header>
+                <div class="form-section__body">
+                    <div class="row g-3">
+                        @if (Model.EsEdicion)
+                        {
+                            <div class="col-md-4">
+                                <span class="form-label d-block">Stock actual</span>
+                                <div class="stock-readonly"><strong class="num">@Model.StockActual</strong> <small>unidades</small></div>
+                                <div class="form-text">Se modifica con compras, ajustes o correcciones desde la ficha, para que quede registrado.</div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="col-md-4">
+                                <label asp-for="Input.StockInicial" class="form-label"></label>
+                                <input asp-for="Input.StockInicial" class="form-control num" min="0" step="1" />
+                                <div class="form-text">Queda registrado como movimiento “Stock inicial”.</div>
+                                <span asp-validation-for="Input.StockInicial" class="text-danger"></span>
+                            </div>
+                        }
+                        <div class="col-md-4">
+                            <label asp-for="Input.StockMinimo" class="form-label"></label>
+                            <input asp-for="Input.StockMinimo" class="form-control num" min="0" step="1" />
+                            <div class="form-text">0 = sin alerta de mínimo (solo avisa al agotarse).</div>
+                            <span asp-validation-for="Input.StockMinimo" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-4">
+                            <span class="form-label d-block">Punto de Venta</span>
+                            <div class="form-check form-switch">
+                                <input asp-for="Input.Destacado" class="form-check-input" role="switch" />
+                                <label asp-for="Input.Destacado" class="form-check-label small"></label>
+                            </div>
+                            <div class="form-text">Aparece como botón rápido para vender con un clic.</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="form-actions-bar">
+                <span class="hint d-none d-md-inline"><i class="bi bi-shield-check"></i> Cada cambio queda registrado en la auditoría.</span>
+                @if (Model.EsEdicion)
+                {
+                    <a class="secondary-btn" asp-page="Detalle" asp-route-id="@Model.Id">Cancelar</a>
+                }
+                else
+                {
+                    <a class="secondary-btn" asp-page="Index">Cancelar</a>
+                }
+                <button type="submit" class="primary-btn border-0" data-loading-text="Guardando…">
+                    <i class="bi bi-check2"></i> @(Model.EsEdicion ? "Guardar cambios" : "Crear producto")
+                </button>
+            </div>
+        </div>
+    </form>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/ventas.js" asp-append-version="true"></script>
+}

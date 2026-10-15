@@ -181,7 +181,7 @@
                                     <option value="@p.Id">@p.Nombre · @SocioPresentacion.Dinero(p.Precio, p.Moneda) · @p.DuracionDias días</option>
                                 }
                             </select>
-                            <div class="form-text">Crea la suscripción desde la fecha de alta. El pago se registra aparte.</div>
+                            <div class="form-text">Solo planes activos. Crea la suscripción desde la fecha de alta; el pago se registra aparte.</div>
                             <span asp-validation-for="Input.PlanId" class="text-danger"></span>
                         </div>
                         <div class="col-md-6">

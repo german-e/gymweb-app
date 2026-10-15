@@ -1,0 +1,36 @@
+/* Vista de impresión de reportes (PDF): misma identidad visual que la app, optimizada para A4 horizontal. */
+@page { size: A4 landscape; margin: 14mm 12mm; }
+:root { --ink: #0f172a; --soft: #64748b; --line: #e2e8f0; --brand: #2563eb; --brand-2: #4f46e5; --tint: #eef4ff; }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px; font-family: Inter, "Segoe UI", system-ui, sans-serif; color: var(--ink); background: #fff; font-size: 11px; }
+
+.acciones { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; padding: 10px 14px; background: var(--tint); border-radius: 12px; font-size: 12px; color: var(--soft); }
+.acciones button { border: 0; border-radius: 10px; padding: 8px 14px; font: 600 12px Inter, sans-serif; color: #fff; background: linear-gradient(135deg, var(--brand), var(--brand-2)); cursor: pointer; }
+
+.cabecera { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; padding-bottom: 12px; margin-bottom: 14px; border-bottom: 2px solid var(--ink); }
+.marca { display: flex; align-items: center; gap: 10px; }
+.marca__icono { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg, var(--brand), var(--brand-2)); font-size: 16px; }
+.marca strong { display: block; font-size: 14px; }
+.marca small { color: var(--soft); }
+.meta { text-align: right; }
+.meta h1 { margin: 0; font-size: 18px; letter-spacing: -0.02em; }
+.meta p { margin: 2px 0 0; color: var(--soft); }
+
+table { width: 100%; border-collapse: collapse; }
+thead th { text-align: left; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--brand); background: var(--tint); padding: 7px 8px; border-bottom: 1px solid var(--line); }
+tbody td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tbody tr:nth-child(even) td { background: #fafbfd; }
+tfoot td { padding: 7px 8px; font-weight: 700; border-top: 2px solid var(--ink); }
+.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.vacio { text-align: center; color: var(--soft); padding: 24px; }
+thead { display: table-header-group; }   /* el encabezado se repite en cada hoja */
+tr { page-break-inside: avoid; }
+
+.pie { display: flex; justify-content: space-between; margin-top: 14px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--soft); font-size: 9.5px; }
+
+@media print {
+  body { padding: 0; }
+  .no-print { display: none !important; }
+  tbody tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  thead th, .marca__icono { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

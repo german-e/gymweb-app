@@ -1,0 +1,111 @@
+@page "{id:int?}"
+@model GymCore.Web.Pages.Administracion.Roles.EditarModel
+@{
+    ViewData["Title"] = Model.EsEdicion ? $"Rol {Model.Nombre}" : "Nuevo rol";
+    var total = Model.Existente?.AccesoTotal == true;
+    var sistema = Model.Existente?.EsSistema == true;
+}
+
+<section class="page-shell">
+    <div class="page-header">
+        <div>
+            <a class="text-decoration-none small fw-semibold" asp-page="Index"><i class="bi bi-arrow-left"></i> Roles y permisos</a>
+            <h2>@ViewData["Title"]</h2>
+            <p>@(Model.EsEdicion ? $"Los cambios se aplican de inmediato a {Model.Existente!.Usuarios.Count} usuario(s) con este rol." : "Elegí los permisos que componen el rol.")</p>
+        </div>
+    </div>
+
+    <form method="post" novalidate data-submit-loading>
+        <div asp-validation-summary="All" class="flash danger"></div>
+
+        <section class="form-section mb-4">
+            <header class="form-section__head">
+                <div class="module-icon primary"><i class="bi bi-shield-lock"></i></div>
+                <div><h3>Identificación</h3><p>Cómo se ve el rol al asignarlo.</p></div>
+            </header>
+            <div class="form-section__body">
+                <div class="row g-3">
+                    <div class="col-md-5">
+                        <label asp-for="Nombre" class="form-label"></label>
+                        @if (sistema)
+                        {
+                            <div class="form-control bg-light">@Model.Nombre</div>
+                            <input type="hidden" asp-for="Nombre" />
+                            <div class="form-text">Rol inicial: se pueden ajustar sus permisos pero no renombrarlo.</div>
+                        }
+                        else
+                        {
+                            <input asp-for="Nombre" class="form-control" autofocus placeholder="ej. Recepción turno noche" />
+                        }
+                    </div>
+                    <div class="col-md-7">
+                        <label asp-for="Descripcion" class="form-label"></label>
+                        <input asp-for="Descripcion" class="form-control" placeholder="Para qué tareas está pensado" />
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="form-section">
+            <header class="form-section__head">
+                <div class="module-icon warning"><i class="bi bi-key"></i></div>
+                <div class="flex-grow-1"><h3>Permisos</h3><p>Ocultan o muestran menús, botones y acciones; el servidor también los exige.</p></div>
+                @if (!total) { <span class="badge-light" data-perm-count></span> }
+            </header>
+            <div class="form-section__body">
+                @if (total)
+                {
+                    <div class="flash info-flash mb-0"><i class="bi bi-stars"></i> <span>Este rol tiene <strong>acceso total</strong>: incluye todos los permisos, también los futuros. No se edita para que siempre exista un administrador.</span></div>
+                }
+                else
+                {
+                    <div class="perm-editor">
+                        @foreach (var modulo in Permisos.Catalogo.GroupBy(p => p.Modulo))
+                        {
+                            <fieldset class="perm-editor__group" data-perm-group>
+                                <legend>
+                                    <span>@modulo.Key</span>
+                                    <button type="button" class="btn btn-link btn-sm p-0" data-perm-all>Todos</button>
+                                </legend>
+                                @foreach (var p in modulo)
+                                {
+                                    <label class="perm-option">
+                                        <input type="checkbox" class="form-check-input" name="Seleccionados" value="@p.Codigo" checked="@Model.Seleccionados.Contains(p.Codigo)" />
+                                        <span>
+                                            <strong>@p.Nombre @if (p.Sensible) { <i class="bi bi-exclamation-diamond text-danger" data-bs-toggle="tooltip" title="Permiso sensible"></i> }</strong>
+                                            <small>@p.Descripcion</small>
+                                        </span>
+                                    </label>
+                                }
+                            </fieldset>
+                        }
+                    </div>
+                }
+            </div>
+        </section>
+
+        <div class="form-actions-bar mt-4">
+            <span class="hint d-none d-md-inline"><i class="bi bi-shield-check"></i> Cada cambio de permisos queda en la auditoría con el detalle.</span>
+            <a class="secondary-btn" asp-page="Index">Cancelar</a>
+            <button type="submit" class="primary-btn border-0" data-loading-text="Guardando…"><i class="bi bi-check2"></i> @(Model.EsEdicion ? "Guardar rol" : "Crear rol")</button>
+        </div>
+    </form>
+</section>
+
+@section Scripts {
+    <script>
+        (function () {
+            const cont = document.querySelector('[data-perm-count]');
+            const checks = () => Array.from(document.querySelectorAll('input[name="Seleccionados"]'));
+            const contar = () => { if (cont) cont.textContent = checks().filter(c => c.checked).length + ' de ' + checks().length + ' permisos'; };
+            document.addEventListener('change', (e) => { if (e.target.name === 'Seleccionados') contar(); });
+            document.querySelectorAll('[data-perm-all]').forEach((b) => b.addEventListener('click', () => {
+                const grupo = Array.from(b.closest('[data-perm-group]').querySelectorAll('input[type=checkbox]'));
+                const marcar = grupo.some(c => !c.checked);
+                grupo.forEach(c => c.checked = marcar);
+                contar();
+            }));
+            contar();
+        })();
+    </script>
+}

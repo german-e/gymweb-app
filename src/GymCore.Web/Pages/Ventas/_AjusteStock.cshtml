@@ -1,0 +1,69 @@
+@model string
+@*
+    Modal de movimiento de stock (Compra / Ajuste / Corrección). Un solo modal por página; lo abren botones con
+    data-ajuste-stock="<productoId>" data-nombre data-stock data-costo [data-tipo="Compra|Ajuste|Correccion"].
+    El modelo es la URL local a la que se vuelve después de guardar.
+*@
+<div class="modal fade" id="ajusteStockModal" tabindex="-1" aria-labelledby="ajusteStockTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="post" action="@Url.Page("/Ventas/Inventario", "Ajustar")" class="modal-content" data-submit-loading data-ajuste-form>
+            <input type="hidden" name="ProductoId" data-ajuste-id />
+            <input type="hidden" name="Volver" value="@Model" />
+            <div class="modal-header">
+                <div class="d-flex gap-3 align-items-center">
+                    <div class="module-icon warning"><i class="bi bi-arrow-left-right"></i></div>
+                    <div>
+                        <h5 class="modal-title mb-0" id="ajusteStockTitulo">Movimiento de stock</h5>
+                        <small class="text-muted"><span data-ajuste-nombre>Producto</span> · stock actual <strong data-ajuste-stock-actual>0</strong></small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="segmented mb-3" role="radiogroup" aria-label="Tipo de movimiento">
+                    <label><input type="radio" name="Tipo" value="Compra" checked data-ajuste-tipo /> <span><i class="bi bi-truck"></i> Compra</span></label>
+                    <label><input type="radio" name="Tipo" value="Ajuste" data-ajuste-tipo /> <span><i class="bi bi-sliders"></i> Ajuste</span></label>
+                    <label><input type="radio" name="Tipo" value="Correccion" data-ajuste-tipo /> <span><i class="bi bi-clipboard-check"></i> Corrección</span></label>
+                </div>
+                <p class="small text-muted mb-3" data-ajuste-ayuda>Ingreso de mercadería del proveedor.</p>
+
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <label class="form-label" for="ajusteCantidad" data-ajuste-label-cantidad>Unidades que entran</label><span class="req text-danger">*</span>
+                        <input type="number" class="form-control num" id="ajusteCantidad" name="Cantidad" step="1" required data-ajuste-cantidad />
+                    </div>
+                    <div class="col-sm-6" data-solo-compra>
+                        <label class="form-label" for="ajusteCosto">Costo unitario</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" class="form-control num" id="ajusteCosto" name="CostoUnitario" min="0" step="0.01" data-ajuste-costo />
+                        </div>
+                    </div>
+                    <div class="col-12" data-solo-compra>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="ajusteActualizarCosto" name="ActualizarCosto" value="true" checked />
+                            <label class="form-check-label small" for="ajusteActualizarCosto">Actualizar el precio de compra del producto con este costo</label>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="ajusteMotivo">Motivo</label><span class="req text-danger" data-ajuste-motivo-req hidden>*</span>
+                        <input class="form-control" id="ajusteMotivo" name="Motivo" maxlength="300" list="motivosAjuste" placeholder="Ej.: factura 0001-00012345" data-ajuste-motivo />
+                        <datalist id="motivosAjuste">
+                            @foreach (var m in InventarioPresentacion.MotivosAjuste)
+                            {
+                                <option value="@m"></option>
+                            }
+                        </datalist>
+                    </div>
+                </div>
+                <div class="ajuste-preview" aria-live="polite">
+                    Stock resultante: <strong data-ajuste-resultante>—</strong>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="secondary-btn" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="primary-btn"><i class="bi bi-check2"></i> Registrar movimiento</button>
+            </div>
+        </form>
+    </div>
+</div>

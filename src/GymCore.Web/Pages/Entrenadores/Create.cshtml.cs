@@ -1,3 +1,4 @@
+using GymCore.Web.Seguridad;
 using GymCore.Dominio.Entidades;
 using GymCore.Dominio.Enums;
 using GymCore.Infraestructura.Persistencia;
@@ -5,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace GymCore.Web.Pages.Entrenadores;
 
+[RequierePermiso(Permisos.EntrenadoresEditar)]
 public class CreateModel : EntrenadorFormPageModel
 {
     public CreateModel(GymDbContext db, IWebHostEnvironment env) : base(db, env) { }

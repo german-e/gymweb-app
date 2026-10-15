@@ -4,69 +4,18 @@
     ViewData["Title"] = "Editar plan";
 }
 
-<section class="container py-4">
-    <div class="row justify-content-center">
-        <div class="col-12 col-lg-8">
-            <div class="card shadow-sm">
-                <div class="card-body p-4">
-                    <h1 class="h4 mb-3">Editar plan</h1>
-                    <form method="post">
-                        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-                        <input type="hidden" asp-for="Id" />
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label asp-for="Nombre" class="form-label"></label>
-                                <input asp-for="Nombre" class="form-control" />
-                                <span asp-validation-for="Nombre" class="text-danger"></span>
-                            </div>
-                            <div class="col-md-6">
-                                <label asp-for="Tipo" class="form-label"></label>
-                                <select asp-for="Tipo" class="form-select" asp-items="Model.Tipos"></select>
-                                <span asp-validation-for="Tipo" class="text-danger"></span>
-                            </div>
-                            <div class="col-12">
-                                <label asp-for="Descripcion" class="form-label"></label>
-                                <textarea asp-for="Descripcion" class="form-control" rows="2"></textarea>
-                            </div>
-                            <div class="col-md-4">
-                                <label asp-for="Precio" class="form-label"></label>
-                                <input asp-for="Precio" class="form-control" />
-                                <span asp-validation-for="Precio" class="text-danger"></span>
-                            </div>
-                            <div class="col-md-4">
-                                <label asp-for="Moneda" class="form-label"></label>
-                                <input asp-for="Moneda" class="form-control" />
-                                <span asp-validation-for="Moneda" class="text-danger"></span>
-                            </div>
-                            <div class="col-md-4">
-                                <label asp-for="DuracionDias" class="form-label"></label>
-                                <input asp-for="DuracionDias" class="form-control" />
-                                <span asp-validation-for="DuracionDias" class="text-danger"></span>
-                            </div>
-                            <div class="col-md-6">
-                                <label asp-for="MaxDiasPorSemana" class="form-label"></label>
-                                <input asp-for="MaxDiasPorSemana" class="form-control" />
-                            </div>
-                            <div class="col-md-3 form-check mt-4">
-                                <input class="form-check-input" asp-for="PermiteAccesoSabado" />
-                                <label class="form-check-label" asp-for="PermiteAccesoSabado"></label>
-                            </div>
-                            <div class="col-md-3 form-check mt-4">
-                                <input class="form-check-input" asp-for="PermiteAccesoDomingo" />
-                                <label class="form-check-label" asp-for="PermiteAccesoDomingo"></label>
-                            </div>
-                        </div>
-                        <div class="mt-4 d-flex gap-2">
-                            <button type="submit" class="btn btn-primary">Guardar cambios</button>
-                            <a asp-page="/Planes/Planes" class="btn btn-outline-secondary">Cancelar</a>
-                        </div>
-                    </form>
-                </div>
-            </div>
+<section class="page-shell">
+    <div class="page-header">
+        <div>
+            <a class="text-decoration-none small fw-semibold" asp-page="Detalle" asp-route-id="@Model.Id"><i class="bi bi-arrow-left"></i> @Model.Nombre</a>
+            <h2>Editar plan</h2>
+            <p>Actualizá los datos del plan. Las suscripciones existentes conservan sus fechas.</p>
         </div>
     </div>
+
+    <partial name="_PlanForm" model="Model" />
 </section>
 
-@section Scripts{
+@section Scripts {
     <partial name="_ValidationScriptsPartial" />
 }

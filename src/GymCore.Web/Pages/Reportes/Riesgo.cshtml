@@ -1,0 +1,143 @@
+@page
+@using GymCore.Web.Reportes
+@using GymCore.Web.Pages.Socios
+@model GymCore.Web.Pages.Reportes.RiesgoModel
+@inject Microsoft.Extensions.Configuration.IConfiguration Config
+@{
+    ViewData["Title"] = "Riesgo de abandono";
+    var r = Model.Reporte;
+    var inicial = Model.Nivel?.ToLowerInvariant() is "alto" or "medio" or "bajo" ? Model.Nivel.ToLowerInvariant() : (r.Alto > 0 ? "alto" : "");
+    string Chip(string v) => inicial == v ? "active" : "";
+    var gimnasio = Config["Gimnasio:Nombre"] ?? "el gimnasio";
+}
+
+<section class="page-shell viz-root">
+    <div class="page-header">
+        <div>
+            <span class="eyebrow"><i class="bi bi-bar-chart-line"></i> Inteligencia de negocio</span>
+            <h2>Riesgo de abandono</h2>
+            <p>¿Quiénes corren riesgo de dejar el gimnasio? Socios ordenados por puntaje, con la acción recomendada.</p>
+        </div>
+    </div>
+
+    <partial name="_Nav" />
+
+    <div class="risk-summary lg">
+        @foreach (var (nivel, cant, texto) in new[] { (NivelRiesgo.Alto, r.Alto, "Contactar esta semana"), (NivelRiesgo.Medio, r.Medio, "Hacer seguimiento"), (NivelRiesgo.Bajo, r.Bajo, "Socios comprometidos") })
+        {
+            var (nombre, icono, variante) = nivel.Estilo();
+            <div class="risk-count @variante">
+                <i class="bi @icono"></i>
+                <strong>@cant</strong>
+                <span>Riesgo @nombre.ToLower()</span>
+                <small>@texto</small>
+            </div>
+        }
+    </div>
+
+    <details class="panel-card metodo">
+        <summary><i class="bi bi-info-circle"></i> Cómo se calcula el riesgo</summary>
+        <div class="metodo__cuerpo">
+            <p>Se evalúan los socios activos y los que vencieron hace menos de @MetricasNegocio.DiasRiesgoPostVencimiento días (todavía recuperables). Cada factor suma puntos (máximo 100):</p>
+            <ul>
+                <li><strong>Inasistencia:</strong> 8–13 días sin venir +10 · 14–20 días +25 · 21 o más +40 · nunca registró un ingreso +35</li>
+                <li><strong>Membresía vencida sin renovar:</strong> +30</li>
+                <li><strong>Saldo pendiente:</strong> +20</li>
+                <li><strong>Frecuencia en baja</strong> (últimas 4 semanas vs. las 4 anteriores, con al menos 4 ingresos previos): caída de 25–50% +10 · más de 50% +20</li>
+                <li><strong>Vence en 7 días o menos sin renovación:</strong> +10</li>
+            </ul>
+            <p class="mb-0">Nivel: <strong>alto</strong> 50 o más · <strong>medio</strong> 25 a 49 · <strong>bajo</strong> menos de 25.</p>
+        </div>
+    </details>
+
+    <div class="data-card">
+        <div class="toolbar">
+            <label class="search-input" aria-label="Buscar socios">
+                <i class="bi bi-search"></i>
+                <input type="search" placeholder="Nombre o DNI…" data-table-filter="#tablaRiesgo" />
+                <kbd>/</kbd>
+            </label>
+            <div class="filter-chips" role="group" aria-label="Filtrar por nivel" data-table-facet="#tablaRiesgo" data-facet="nivel">
+                <button type="button" class="filter-chip @Chip("")" data-value="">Todos <span class="count">@r.Socios.Count</span></button>
+                <button type="button" class="filter-chip @Chip("alto")" data-value="alto"><i class="bi bi-exclamation-octagon-fill text-danger"></i> Alto <span class="count">@r.Alto</span></button>
+                <button type="button" class="filter-chip @Chip("medio")" data-value="medio"><i class="bi bi-exclamation-triangle-fill text-warning"></i> Medio <span class="count">@r.Medio</span></button>
+                <button type="button" class="filter-chip @Chip("bajo")" data-value="bajo"><i class="bi bi-check-circle-fill text-success"></i> Bajo <span class="count">@r.Bajo</span></button>
+            </div>
+        </div>
+
+        @if (r.Socios.Count == 0)
+        {
+            <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-shield-check", "Sin socios para evaluar", "Cuando haya socios con membresía se calculará su riesgo de abandono.")' />
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="data-table stack-sm" id="tablaRiesgo" data-sortable>
+                    <thead>
+                        <tr>
+                            <th data-sort="text">Socio</th>
+                            <th data-sort="num" class="text-end">Días sin asistir</th>
+                            <th>Membresía</th>
+                            <th>Factores</th>
+                            <th data-sort="num">Riesgo</th>
+                            <th>Recomendación</th>
+                            <th class="text-end"><span class="visually-hidden">Acciones</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var s in r.Socios)
+                        {
+                            var (nombre, icono, variante) = s.Nivel.Estilo();
+                            var wa = SocioPresentacion.WhatsApp(s.Socio.Telefono);
+                            var mensaje = Uri.EscapeDataString($"¡Hola {s.Socio.Nombre}! Te escribimos de {gimnasio}. Te extrañamos por acá, ¿cómo venís? Si necesitás cambiar de horario o de rutina, avisanos y lo vemos juntos.");
+                            <tr data-search="@($"{s.Socio.NombreCompleto} {s.Socio.Dni}")" data-nivel="@s.Nivel.ToString().ToLower()">
+                                <td class="cell-main" data-label="Socio" data-sort-value="@s.Socio.Apellido">
+                                    <div class="person-cell">
+                                        <span class="avatar-circle sm">@UsuarioActual.InicialesDe(s.Socio.NombreCompleto)</span>
+                                        <div class="person-cell__copy">
+                                            <a asp-page="/Socios/Detalle" asp-route-id="@s.Socio.Id">@s.Socio.Apellido, @s.Socio.Nombre</a>
+                                            <small>@(s.Plan ?? "Sin plan")</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td data-label="Días sin asistir" class="text-end num" data-sort-value="@(s.DiasSinAsistir ?? 9999)">@(s.DiasSinAsistir is { } d ? d.ToString() : "Nunca")</td>
+                                <td data-label="Membresía">
+                                    @if (s.Vigente) { <span class="text-soft">Vence @s.Vence?.ToString("dd/MM/yyyy")</span> }
+                                    else { <span class="status-pill danger">Vencida</span> }
+                                </td>
+                                <td data-label="Factores">
+                                    @if (s.Factores.Count == 0) { <span class="text-soft">—</span> }
+                                    <ul class="factor-list">
+                                        @foreach (var f in s.Factores)
+                                        {
+                                            <li><span class="factor-pts">+@f.Puntos</span> @f.Texto</li>
+                                        }
+                                    </ul>
+                                </td>
+                                <td data-label="Riesgo" data-sort-value="@s.Puntaje">
+                                    <span class="risk-pill @variante"><i class="bi @icono"></i> @nombre</span>
+                                    <div class="risk-meter @variante" role="meter" aria-valuenow="@s.Puntaje" aria-valuemin="0" aria-valuemax="100" aria-label="Puntaje @s.Puntaje de 100"><span style="width: @s.Puntaje%"></span></div>
+                                    <small class="text-soft num">@s.Puntaje / 100</small>
+                                </td>
+                                <td data-label="Recomendación" class="small">@s.Recomendacion</td>
+                                <td class="cell-actions text-end">
+                                    <div class="row-actions">
+                                        <a class="icon-btn" asp-page="/Socios/Detalle" asp-route-id="@s.Socio.Id" data-bs-toggle="tooltip" title="Ver ficha"><i class="bi bi-person"></i></a>
+                                        @if (wa is not null)
+                                        {
+                                            <a class="icon-btn" href="https://wa.me/@wa?text=@mensaje" target="_blank" rel="noopener" data-bs-toggle="tooltip" title="Contactar por WhatsApp"><i class="bi bi-whatsapp"></i></a>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        <tr data-filter-empty hidden><td colspan="7"><partial name="Components/_EmptyState" model='new EmptyStateVm("bi-search", "Sin resultados", "Probá con otro término o nivel.")' /></td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="data-card__foot">
+                <span>Mostrando <strong data-filter-count="#tablaRiesgo">@r.Socios.Count</strong> de @r.Socios.Count socios evaluados</span>
+            </div>
+        }
+    </div>
+</section>

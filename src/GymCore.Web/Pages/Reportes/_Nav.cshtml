@@ -1,0 +1,24 @@
+@inject IUsuarioActual Usuario
+@{
+    var actual = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
+    var items = new (string Pagina, string Icono, string Texto)[]
+    {
+        ("/Reportes/Index", "bi-speedometer2", "Resumen ejecutivo"),
+        ("/Reportes/Socios", "bi-people", "Socios"),
+        ("/Reportes/Ingresos", "bi-cash-stack", "Ingresos"),
+        ("/Reportes/Planes", "bi-box-seam", "Planes"),
+        ("/Reportes/Entrenadores", "bi-person-badge", "Entrenadores"),
+        ("/Reportes/Riesgo", "bi-exclamation-octagon", "Riesgo de abandono"),
+    };
+}
+<nav class="bi-subnav" aria-label="Secciones de Inteligencia de negocio">
+    @foreach (var (pagina, icono, texto) in items)
+    {
+        <a class="@(actual == pagina ? "active" : "")" aria-current="@(actual == pagina ? "page" : null)" asp-page="@pagina"
+           asp-route-p="@Context.Request.Query["p"]" asp-route-desde="@Context.Request.Query["desde"]" asp-route-hasta="@Context.Request.Query["hasta"]"><i class="bi @icono"></i> @texto</a>
+    }
+    @if (Usuario.Puede(Permisos.ReportesExportar))
+    {
+        <a class="@(actual == "/Reportes/Exportaciones" ? "active" : "") ms-lg-auto" asp-page="/Reportes/Exportaciones"><i class="bi bi-download"></i> Exportaciones</a>
+    }
+</nav>

@@ -1,0 +1,273 @@
+@page "{id:int}"
+@using GymCore.Web.Pages.Planes
+@using GymCore.Web.Pages.Socios
+@model GymCore.Web.Pages.Planes.DetalleModel
+@inject IUsuarioActual Usuario
+@{
+    var p = Model.Plan;
+    ViewData["Title"] = p.Nombre;
+    var (estadoTexto, estadoVariante) = PlanPresentacion.Estado(p);
+    var textoToggle = PlanPresentacion.TextoCambioEstado(p, Model.SociosActivos);
+    var vigentes = Model.Socios.Count(f => f.Vigente);
+}
+
+<section class="page-shell">
+    <a class="text-decoration-none small fw-semibold" asp-page="Planes"><i class="bi bi-arrow-left"></i> Planes</a>
+
+    @if (!string.IsNullOrEmpty(Model.Flash))
+    {
+        <div class="flash success" role="status"><i class="bi bi-check-circle-fill"></i> @Model.Flash</div>
+    }
+
+    @if (!p.Activo)
+    {
+        <div class="flash muted-flash" role="status">
+            <i class="bi bi-pause-circle-fill"></i>
+            Plan inactivo: no se puede elegir en nuevas altas ni renovaciones.@(Model.SociosActivos > 0 ? " " + PlanPresentacion.Conservan(Model.SociosActivos) : "")
+            @if (Usuario.Puede(Permisos.PlanesEditar))
+            {
+            <button type="button" class="ms-auto fw-semibold text-reset bg-transparent border-0 p-0 text-decoration-underline"
+                    data-confirm-action="@Url.Page("Detalle", "ToggleEstado", new { id = p.Id })"
+                    data-confirm-title="¿Activar @p.Nombre?" data-confirm-text="@textoToggle"
+                    data-confirm-label="Activar plan" data-confirm-variant="success">Activar</button>
+            }
+        </div>
+    }
+
+    @* ============ CABECERA ============ *@
+    <header class="data-card">
+        <div class="member-hero">
+            <div class="member-hero__main">
+                <div class="module-icon xl @p.Tipo.Variante()"><i class="bi @p.Tipo.Icono()"></i></div>
+                <div class="member-hero__info">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <h2>@p.Nombre</h2>
+                        <span class="status-pill @estadoVariante">@estadoTexto</span>
+                    </div>
+                    <div class="profile-hero__meta">
+                        <span><i class="bi @p.Tipo.Icono()"></i> @p.Tipo.Texto()</span>
+                        <span><i class="bi bi-arrow-repeat"></i> Ciclo de @PlanPresentacion.Duracion(p.DuracionDias)</span>
+                        <span><i class="bi bi-people"></i> @Model.SociosActivos @(Model.SociosActivos == 1 ? "socio adherido" : "socios adheridos")</span>
+                        <span><i class="bi bi-calendar-plus"></i> @PlanPresentacion.Creado(p)</span>
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap mt-3">
+                        @if (Usuario.Puede(Permisos.PlanesEditar))
+                        {
+                        <a class="primary-btn" asp-page="Edit" asp-route-id="@p.Id"><i class="bi bi-pencil"></i> Editar plan</a>
+                        }
+                        @if (Usuario.Puede(Permisos.PlanesEditar))
+                        {
+                        <a class="secondary-btn" asp-page="Create" asp-route-duplicar="@p.Id"><i class="bi bi-copy"></i> Duplicar</a>
+                        }
+                        <div class="dropdown">
+                            <button class="secondary-btn px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Más acciones"><i class="bi bi-three-dots"></i></button>
+                            <ul class="dropdown-menu">
+                                <li><button type="button" class="dropdown-item" data-open-tab="#tab-socios"><i class="bi bi-people"></i> Ver socios</button></li>
+                                @if (Usuario.Puede(Permisos.PlanesEditar))
+                                {
+                                <li><hr class="dropdown-divider" /></li>
+                                <li>
+                                    <button type="button" class="dropdown-item"
+                                            data-confirm-action="@Url.Page("Detalle", "ToggleEstado", new { id = p.Id })"
+                                            data-confirm-title="@(p.Activo ? "¿Desactivar " : "¿Activar ")@p.Nombre?"
+                                            data-confirm-text="@textoToggle"
+                                            data-confirm-label="@(p.Activo ? "Desactivar plan" : "Activar plan")"
+                                            data-confirm-variant="@(p.Activo ? "warning" : "success")">
+                                        <i class="bi @(p.Activo ? "bi-toggle-off" : "bi-toggle-on")"></i> @(p.Activo ? "Desactivar" : "Activar")
+                                    </button>
+                                </li>
+                                <li>
+                                    @if (Model.TotalSuscripciones > 0)
+                                    {
+                                        <span class="dropdown-item disabled"><i class="bi bi-trash"></i> Eliminar <small class="ms-auto text-muted">en uso</small></span>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" class="dropdown-item text-danger"
+                                                data-confirm-action="@Url.Page("Delete", new { id = p.Id })"
+                                                data-confirm-title="¿Eliminar el plan @p.Nombre?"
+                                                data-confirm-text="El plan se borrará del catálogo de forma permanente. Si solo dejaste de ofrecerlo, preferí desactivarlo."
+                                                data-confirm-label="Eliminar plan"
+                                                data-confirm-variant="danger">
+                                            <i class="bi bi-trash"></i> Eliminar
+                                        </button>
+                                    }
+                                </li>
+                                }
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="price-block">
+                <small>Precio por ciclo</small>
+                <strong class="num">@SocioPresentacion.Dinero(p.Precio, p.Moneda)</strong>
+                <span>/ @PlanPresentacion.Duracion(p.DuracionDias)</span>
+            </div>
+        </div>
+        <dl class="member-strip m-0">
+            <div><dt>Días por semana</dt><dd>@(p.MaxDiasPorSemana?.ToString() ?? "Sin límite")</dd></div>
+            <div><dt>Sábados</dt><dd>@(p.PermiteAccesoSabado ? "Incluidos" : "Sin acceso")</dd></div>
+            <div><dt>Domingos</dt><dd>@(p.PermiteAccesoDomingo ? "Incluidos" : "Sin acceso")</dd></div>
+            <div><dt>Creado el</dt><dd class="num">@PlanPresentacion.FechaAlta(p)</dd></div>
+            <div><dt>Antigüedad del plan</dt><dd class="num" title="@(p.FechaAlta is null ? "El plan se creó antes de que se registrara la fecha" : null)">@PlanPresentacion.Antiguedad(p)</dd></div>
+        </dl>
+    </header>
+
+    @* ============ KPIs ============ *@
+    <div class="summary-grid">
+        <div class="summary-card" data-bs-toggle="tooltip" title="Suma de los pagos asociados a suscripciones de este plan">
+            <div class="module-icon success"><i class="bi bi-cash-stack"></i></div>
+            @if (Usuario.Puede(Permisos.PagosVer))
+            {
+            <div><p>Ingresos generados</p><h4>@SocioPresentacion.Dinero(Model.IngresosGenerados, p.Moneda)</h4></div>
+            }
+        </div>
+        <div class="summary-card">
+            <div class="module-icon primary"><i class="bi bi-person-check"></i></div>
+            <div><p>Socios activos</p><h4>@Model.SociosActivos</h4></div>
+        </div>
+        <div class="summary-card" data-bs-toggle="tooltip" title="Suscripciones de socios que ya habían tenido este plan">
+            <div class="module-icon info"><i class="bi bi-arrow-repeat"></i></div>
+            <div><p>Renovaciones</p><h4>@Model.Renovaciones <small>de @Model.TotalSuscripciones altas</small></h4></div>
+        </div>
+        <div class="summary-card" data-bs-toggle="tooltip" title="Socios activos × precio del plan">
+            <div class="module-icon warning"><i class="bi bi-graph-up-arrow"></i></div>
+            <div><p>Ingreso mensual estimado</p><h4>@SocioPresentacion.Dinero(Model.IngresoMensualEstimado, p.Moneda)</h4></div>
+        </div>
+    </div>
+
+    @* ============ PESTAÑAS ============ *@
+    <div class="data-card">
+        <nav class="tabs-underline px-3" role="tablist">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-info" type="button" role="tab"><i class="bi bi-card-text"></i> Información</button>
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-socios" type="button" role="tab"><i class="bi bi-people"></i> Socios <span class="count">@Model.Socios.Count</span></button>
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-historial" type="button" role="tab"><i class="bi bi-clock-history"></i> Historial <span class="count">@Model.Historial.Count</span></button>
+        </nav>
+
+        <div class="tab-content">
+            @* ---------- INFORMACIÓN ---------- *@
+            <div class="tab-pane fade show active p-4" id="tab-info" role="tabpanel">
+                <div class="row g-4">
+                    <div class="col-lg-7">
+                        <h6 class="section-label">Descripción</h6>
+                        @if (string.IsNullOrWhiteSpace(p.Descripcion))
+                        {
+                            <p class="text-muted mb-0">Este plan no tiene descripción. <a hidden="@(!Usuario.Puede(Permisos.PlanesEditar))" asp-page="Edit" asp-route-id="@p.Id">Agregar una</a></p>
+                        }
+                        else
+                        {
+                            <p class="mb-0 text-prewrap">@p.Descripcion</p>
+                        }
+                    </div>
+                    <div class="col-lg-5">
+                        <h6 class="section-label">Beneficios incluidos</h6>
+                        <ul class="benefit-list">
+                            @foreach (var b in PlanPresentacion.Beneficios(p))
+                            {
+                                <li class="@(b.Incluido ? "" : "off")">
+                                    <i class="bi @(b.Incluido ? "bi-check-circle-fill" : "bi-x-circle")"></i>
+                                    <span><i class="bi @b.Icono text-soft me-1"></i> @b.Texto</span>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            @* ---------- SOCIOS ---------- *@
+            <div class="tab-pane fade" id="tab-socios" role="tabpanel">
+                @if (Model.Socios.Count == 0)
+                {
+                    <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-people", "Sin socios suscriptos", "Cuando un socio contrate este plan aparecerá acá con su vencimiento y saldo.")' />
+                }
+                else
+                {
+                    <div class="toolbar">
+                        <label class="search-input" aria-label="Buscar socios del plan">
+                            <i class="bi bi-search"></i>
+                            <input type="search" placeholder="Nombre o DNI…" data-table-filter="#tablaSociosPlan" />
+                            <kbd>/</kbd>
+                        </label>
+                        <div class="filter-chips" role="group" aria-label="Filtrar" data-table-facet="#tablaSociosPlan" data-facet="tags" data-facet-mode="tokens">
+                            <button type="button" class="filter-chip active" data-value="vigente">Vigentes <span class="count">@vigentes</span></button>
+                            <button type="button" class="filter-chip" data-value="todos">Todos <span class="count">@Model.Socios.Count</span></button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table stack-sm" id="tablaSociosPlan" data-sortable>
+                            <thead>
+                                <tr>
+                                    <th data-sort="text">Socio</th>
+                                    <th data-sort="num">Vence</th>
+                                    <th data-sort="num" class="text-center">Períodos</th>
+                                    <th>Saldo del período</th>
+                                    <th>Estado</th>
+                                    <th class="text-end"><span class="visually-hidden">Acciones</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var f in Model.Socios)
+                                {
+                                    var s = f.Socio;
+                                    var sp = f.Suscripcion;
+                                    var (txt, variante) = PlanPresentacion.Estado(sp);
+                                    var saldo = Math.Max(0m, p.Precio - f.PagadoPeriodo);
+                                    <tr data-search="@($"{s.Nombre} {s.Apellido} {s.Dni}")" data-tags="todos @(f.Vigente ? "vigente" : "")">
+                                        <td class="cell-main" data-label="Socio" data-sort-value="@($"{s.Apellido} {s.Nombre}")">
+                                            <div class="person-cell">
+                                                <partial name="Components/_Avatar" model='new AvatarVm(s.FotoUrl, s.Iniciales, "sm", s.NombreCompleto)' />
+                                                <div class="person-cell__copy">
+                                                    <a asp-page="/Socios/Detalle" asp-route-id="@s.Id">@s.Apellido, @s.Nombre</a>
+                                                    <small>DNI @s.Dni</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td data-label="Vence" class="num" data-sort-value="@sp.FechaFin.Ticks">
+                                            @sp.FechaFin.ToString("dd/MM/yyyy")
+                                            <small class="d-block text-soft">@SocioPresentacion.Vencimiento(sp.FechaFin)</small>
+                                        </td>
+                                        <td data-label="Períodos" class="text-center num" data-sort-value="@f.Periodos">@f.Periodos</td>
+                                        <td data-label="Saldo">
+                                            @if (!f.Vigente) { <span class="text-soft">—</span> }
+                                            else if (saldo > 0) { <span class="text-danger fw-semibold">Debe @SocioPresentacion.Dinero(saldo, p.Moneda)</span> }
+                                            else { <span class="text-success fw-semibold"><i class="bi bi-check2"></i> Al día</span> }
+                                        </td>
+                                        <td data-label="Estado"><span class="status-pill @variante">@txt</span></td>
+                                        <td class="cell-actions text-end">
+                                            <div class="row-actions">
+                                                <a class="icon-btn" asp-page="/Socios/Detalle" asp-route-id="@s.Id" data-bs-toggle="tooltip" title="Ver ficha"><i class="bi bi-person"></i></a>
+                                                @if (f.Vigente && saldo > 0)
+                                                {
+                                                    @if (Usuario.Puede(Permisos.PagosCrear))
+                                                    {
+                                                    <a class="icon-btn" asp-page="/Pagos/Nuevo" asp-route-socioId="@s.Id" data-bs-toggle="tooltip" title="Registrar pago"><i class="bi bi-cash-coin"></i></a>
+                                                    }
+                                                }
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                                <tr data-filter-empty hidden>
+                                    <td colspan="6">
+                                        <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-search", "Sin resultados", "Probá con otro término o elegí “Todos”.")' />
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="data-card__foot">
+                        <span>Mostrando <strong data-filter-count="#tablaSociosPlan">@vigentes</strong> de @Model.Socios.Count</span>
+                    </div>
+                }
+            </div>
+
+            @* ---------- HISTORIAL ---------- *@
+            <div class="tab-pane fade p-4" id="tab-historial" role="tabpanel">
+                <partial name="Components/_EventosTimeline" model='new EventosTimelineVm(Model.Historial, MostrarEntidad: false, TextoVacio: p.FechaAlta is null ? "Los cambios de precio, estado y reglas que se hagan desde ahora quedarán registrados acá." : $"Plan creado el {PlanPresentacion.FechaAlta(p)}. Los cambios que se hagan quedarán registrados acá.")' />
+            </div>
+        </div>
+    </div>
+</section>
+
+<partial name="Components/_ConfirmModal" />

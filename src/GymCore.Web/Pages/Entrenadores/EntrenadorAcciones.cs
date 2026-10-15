@@ -28,6 +28,8 @@ public static class EntrenadorAcciones
         if (e is null) return null;
 
         var foto = e.FotoUrl;
+        // El historial propio se borra en cascada; la auditoría del sistema conserva el registro
+        db.Auditar(TipoEventoSistema.EntrenadorEliminado, EntidadAuditada.Entrenador, e.Id, e.NombreCompleto, $"DNI {e.Dni}");
         db.Entrenadores.Remove(e); // asignaciones e historial se eliminan en cascada
         await db.SaveChangesAsync();
 

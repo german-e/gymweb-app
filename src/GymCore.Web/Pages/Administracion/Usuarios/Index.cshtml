@@ -1,0 +1,126 @@
+@page
+@using GymCore.Web.Pages.Administracion.Usuarios
+@using GymCore.Web.Pages.Socios
+@model GymCore.Web.Pages.Administracion.Usuarios.IndexModel
+@{
+    ViewData["Title"] = "Usuarios";
+    var ultimo = Model.UltimoEnIngresar;
+}
+
+<section class="page-shell">
+    <div class="page-header">
+        <div>
+            <span class="eyebrow"><i class="bi bi-people"></i> Administración</span>
+            <h2>Usuarios</h2>
+            <p>Quiénes acceden al sistema, con qué rol y cuándo ingresaron por última vez.</p>
+        </div>
+        <div class="header-actions">
+            <a class="secondary-btn" asp-page="/Administracion/Roles/Index"><i class="bi bi-shield-lock"></i> Roles y permisos</a>
+            <a class="primary-btn" asp-page="Editar"><i class="bi bi-person-plus"></i> Nuevo usuario</a>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.Flash))
+    {
+        <div class="flash success" role="status"><i class="bi bi-check-circle-fill"></i> @Model.Flash</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.PasswordTemporal))
+    {
+        <partial name="_PasswordTemporal" model="Model.PasswordTemporal" />
+    }
+    @if (!string.IsNullOrEmpty(Model.FlashError))
+    {
+        <div class="flash danger" role="alert"><i class="bi bi-exclamation-triangle-fill"></i> @Model.FlashError</div>
+    }
+
+    <div class="stats-grid">
+        <partial name="Components/_StatCard" model='new StatCardVm("Usuarios activos", Model.Activos.ToString(), "bi-person-check", "success")' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Usuarios inactivos", Model.Inactivos.ToString(), "bi-person-dash", "warning")' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Accesos en 24 h", Model.Accesos24h.ToString(), "bi-box-arrow-in-right", "primary", ultimo is null ? null : $"Último: {ultimo.NombreCompleto.Split()[0]}")' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Bloqueados ahora", Model.Bloqueados.ToString(), "bi-lock", "danger", Model.Bloqueados > 0 ? "Revisar" : null)' />
+    </div>
+
+    <div class="data-card">
+        <div class="toolbar">
+            <label class="search-input" aria-label="Buscar usuarios">
+                <i class="bi bi-search"></i>
+                <input type="search" placeholder="Nombre, usuario o email…" data-table-filter="#tablaUsuarios" />
+                <kbd>/</kbd>
+            </label>
+            <div class="toolbar-group">
+                <div class="filter-chips" role="group" aria-label="Filtrar por estado" data-table-facet="#tablaUsuarios" data-facet="estado" data-facet-mode="tokens">
+                    <button type="button" class="filter-chip active" data-value="">Todos <span class="count">@Model.Usuarios.Count</span></button>
+                    <button type="button" class="filter-chip" data-value="activo">Activos <span class="count">@Model.Activos</span></button>
+                    <button type="button" class="filter-chip" data-value="inactivo">Inactivos <span class="count">@Model.Inactivos</span></button>
+                    @if (Model.Bloqueados > 0)
+                    {
+                        <button type="button" class="filter-chip" data-value="bloqueado">Bloqueados <span class="count">@Model.Bloqueados</span></button>
+                    }
+                </div>
+                <select class="form-select" aria-label="Filtrar por rol" data-table-facet="#tablaUsuarios" data-facet="rol">
+                    <option value="">Todos los roles</option>
+                    @foreach (var r in Model.Roles)
+                    {
+                        <option value="@r.Nombre">@r.Nombre</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="data-table stack-sm" id="tablaUsuarios" data-sortable>
+                <thead>
+                    <tr>
+                        <th data-sort="text">Usuario</th>
+                        <th data-sort="text">Email</th>
+                        <th data-sort="text">Rol</th>
+                        <th>Estado</th>
+                        <th data-sort="num">Último acceso</th>
+                        <th class="text-end"><span class="visually-hidden">Acciones</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var u in Model.Usuarios)
+                    {
+                        var (estado, variante) = UsuarioAcciones.Estado(u);
+                        var tokens = (u.Activo ? "activo" : "inactivo") + (u.Activo && u.EstaBloqueado(DateTime.UtcNow) ? " bloqueado" : "");
+                        var esYo = u.Id == Model.MiId;
+                        <tr data-search="@($"{u.NombreCompleto} {u.NombreUsuario} {u.Email}")" data-estado="@tokens" data-rol="@u.Rol.Nombre" class="@(u.Activo ? "" : "row-inactive")">
+                            <td class="cell-main" data-label="Usuario" data-sort-value="@u.NombreCompleto">
+                                <div class="person-cell">
+                                    <span class="avatar-circle sm">@UsuarioActual.InicialesDe(u.NombreCompleto)</span>
+                                    <div class="person-cell__copy">
+                                        <a asp-page="Detalle" asp-route-id="@u.Id">@u.NombreCompleto @if (esYo) { <span class="badge-light ms-1">Vos</span> }</a>
+                                        <small>@@@u.NombreUsuario@(u.Entrenador is null ? "" : $" · {u.Entrenador.NombreCompleto}")</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td data-label="Email" class="text-soft">@(u.Email ?? "—")</td>
+                            <td data-label="Rol"><span class="role-chip @(u.Rol.AccesoTotal ? "total" : "")">@u.Rol.Nombre</span></td>
+                            <td data-label="Estado"><span class="status-pill @variante">@estado</span></td>
+                            <td data-label="Último acceso" class="text-soft num" data-sort-value="@(u.UltimoAcceso?.Ticks ?? 0)">@(u.UltimoAcceso is null ? "Nunca ingresó" : SocioPresentacion.Relativo(u.UltimoAcceso))</td>
+                            <td class="cell-actions text-end">
+                                <div class="row-actions">
+                                    <a class="icon-btn d-none d-md-inline-grid" asp-page="Editar" asp-route-id="@u.Id" data-bs-toggle="tooltip" title="Editar"><i class="bi bi-pencil"></i></a>
+                                    <div class="dropdown">
+                                        <button class="icon-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Más acciones"><i class="bi bi-three-dots-vertical"></i></button>
+                                        <partial name="_AccionesUsuario" model='(u, esYo, "/Administracion/Usuarios/Index")' />
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    <tr data-filter-empty hidden>
+                        <td colspan="6"><partial name="Components/_EmptyState" model='new EmptyStateVm("bi-search", "Sin resultados", "Probá con otro término o quitá los filtros.")' /></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="data-card__foot">
+            <span>Mostrando <strong data-filter-count="#tablaUsuarios">@Model.Usuarios.Count</strong> de @Model.Usuarios.Count</span>
+            <span class="d-none d-md-inline"><i class="bi bi-shield-check"></i> Cada alta, cambio de rol o reseteo queda en la auditoría</span>
+        </div>
+    </div>
+</section>
+
+<partial name="Components/_ConfirmModal" />

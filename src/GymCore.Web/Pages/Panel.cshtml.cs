@@ -1,63 +1,67 @@
+using GymCore.Dominio.Entidades;
 using GymCore.Infraestructura.Persistencia;
+using GymCore.Web.Componentes;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymCore.Web.Pages;
 
+// Panel de gestión: todos los indicadores salen de la base (IndicadoresGimnasio), sin valores fijos.
 public class PanelModel : PageModel
 {
     private readonly GymDbContext _db;
-    public PanelModel(GymDbContext db) => _db = db;
+    private readonly IUsuarioActual _usuario;
+    private readonly GymCore.Web.Comercial.ServicioInventario _inventario;
+    private readonly GymCore.Web.Comercial.ReportesComerciales _comercial;
+    public PanelModel(GymDbContext db, IUsuarioActual usuario, GymCore.Web.Comercial.ServicioInventario inventario,
+        GymCore.Web.Comercial.ReportesComerciales comercial)
+    { _db = db; _usuario = usuario; _inventario = inventario; _comercial = comercial; }
 
-    // KPIs
-    public int SociosActivos { get; set; }
-    public int SuscripcionesVencidas { get; set; }
-    public decimal IngresosDelMes { get; set; }
-    public int AsistenciasHoy { get; set; }
+    public IndicadoresGimnasio.Cobranza Cobranza { get; private set; } = null!;
+    public IndicadoresGimnasio.Membresias Membresias { get; private set; } = null!;
+    public (Plan Plan, int Altas)? PlanMasContratado { get; private set; }
+    public List<(DateTime Mes, decimal Total)> RecaudacionMensual { get; private set; } = new();
+    public List<Pago> UltimosPagos { get; private set; } = new();
+    public int AsistenciasHoy { get; private set; }
+    // Solo para quien ve únicamente sus socios asignados (rol tipo entrenador)
+    public List<GymCore.Web.Pages.Socios.ResumenSocio>? MisSocios { get; private set; }
+    public List<EventoSistema> Actividad { get; private set; } = new();   // últimos 10 eventos de auditoría
+    public GymCore.Web.Comercial.ServicioInventario.ResumenStock? Stock { get; private set; }   // con PRODUCTOS_VER
+    public (decimal Importe, int Tickets)? VentasHoy { get; private set; }                        // con VENTAS_VER
 
     public async Task OnGetAsync()
     {
-        var ahoraLocal = DateTime.Now;
-        var hoyLocal = ahoraLocal.Date;
-        var inicioMesLocal = new DateTime(ahoraLocal.Year, ahoraLocal.Month, 1);
+        (Cobranza, Membresias, _) = await IndicadoresGimnasio.DelRequestAsync(HttpContext, _db);
+        PlanMasContratado = await IndicadoresGimnasio.PlanMasContratadoAsync(_db);
+        RecaudacionMensual = await IndicadoresGimnasio.RecaudacionMensualAsync(_db, 6);
 
-        // Convertir límites locales a UTC, porque guardamos fechas en UTC
-        DateTime ToUtc(DateTime dLocal)
+        UltimosPagos = await _db.Pagos.AsNoTracking()
+            .Include(p => p.Socio)
+            .Include(p => p.SocioPlan).ThenInclude(sp => sp!.Plan)
+            .OrderByDescending(p => p.FechaPago)
+            .Take(5)
+            .ToListAsync();
+
+        if (!_usuario.Puede(GymCore.Web.Seguridad.Permisos.SociosVer) && _usuario.Puede(GymCore.Web.Seguridad.Permisos.SociosVerAsignados))
         {
-            if (dLocal.Kind == DateTimeKind.Unspecified)
-                dLocal = DateTime.SpecifyKind(dLocal, DateTimeKind.Local);
-            return dLocal.ToUniversalTime();
+            var ids = await GymCore.Web.Pages.Socios.SociosConsultas.AsignadosAsync(_db, _usuario.EntrenadorId);
+            MisSocios = (await GymCore.Web.Pages.Socios.SociosConsultas.ResumenAsync(_db, ids)).Values
+                .OrderBy(r => r.Socio.Apellido).ThenBy(r => r.Socio.Nombre).ToList();
         }
 
-        var hoyIniUtc = ToUtc(hoyLocal);
-        var hoyFinUtc = ToUtc(hoyLocal.AddDays(1));
-        var mesIniUtc = ToUtc(inicioMesLocal);
-        var mesFinUtc = ToUtc(inicioMesLocal.AddMonths(1));
+        Actividad = await _db.EventosSistema.AsNoTracking()
+            .OrderByDescending(e => e.FechaUtc).ThenByDescending(e => e.Id)
+            .Take(10)
+            .ToListAsync();
 
-        // Socios activos: socios con una suscripción vigente (por fechas)
-        SociosActivos = await _db.SocioPlanes
-            .AsNoTracking()
-            .Where(sp => sp.FechaInicio <= ahoraLocal && sp.FechaFin >= ahoraLocal)
-            .Select(sp => sp.SocioId)
-            .Distinct()
-            .CountAsync();
+        if (_usuario.Puede(GymCore.Web.Seguridad.Permisos.ProductosVer))
+            Stock = await _inventario.ResumenDelRequestAsync(HttpContext);
+        if (_usuario.Puede(GymCore.Web.Seguridad.Permisos.VentasVer))
+            VentasHoy = await _comercial.DelDiaAsync(DateOnly.FromDateTime(DateTime.Now));
 
-        // Suscripciones vencidas: por fechas (independiente del flag de estado)
-        SuscripcionesVencidas = await _db.SocioPlanes
-            .AsNoTracking()
-            .Where(sp => sp.FechaFin < ahoraLocal)
-            .CountAsync();
-
-        // Ingresos del mes (suma de pagos en el mes en UTC)
-        IngresosDelMes = await _db.Pagos
-            .AsNoTracking()
-            .Where(p => p.FechaPago >= mesIniUtc && p.FechaPago < mesFinUtc)
-            .SumAsync(p => (decimal?)p.Importe) ?? 0m;
-
-        // Asistencias de hoy (rango de hoy en UTC)
-        AsistenciasHoy = await _db.Asistencias
-            .AsNoTracking()
-            .Where(a => a.FechaHoraIngreso >= hoyIniUtc && a.FechaHoraIngreso < hoyFinUtc)
-            .CountAsync();
+        var hoyUtc = DateTime.Today.ToUniversalTime();
+        var mananaUtc = DateTime.Today.AddDays(1).ToUniversalTime();
+        AsistenciasHoy = await _db.Asistencias.AsNoTracking()
+            .CountAsync(a => a.FechaHoraIngreso >= hoyUtc && a.FechaHoraIngreso < mananaUtc);
     }
 }

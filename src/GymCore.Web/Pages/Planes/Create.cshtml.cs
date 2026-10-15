@@ -1,33 +1,32 @@
-using System.ComponentModel.DataAnnotations;
 using GymCore.Dominio.Entidades;
 using GymCore.Dominio.Enums;
 using GymCore.Infraestructura.Persistencia;
+using GymCore.Web.Componentes;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.EntityFrameworkCore;
 
 namespace GymCore.Web.Pages.Planes;
 
-public class CreateModel : PageModel
+public class CreateModel : PlanFormPageModel
 {
-    private readonly GymDbContext _db;
-    public CreateModel(GymDbContext db) => _db = db;
+    public CreateModel(GymDbContext db) : base(db) { }
 
-    [BindProperty, Required, StringLength(120)] public string Nombre { get; set; } = string.Empty;
-    [BindProperty] public string? Descripcion { get; set; }
-    [BindProperty, Required] public TipoPlan Tipo { get; set; } = TipoPlan.MensualIlimitado;
-    [BindProperty, Range(0, double.MaxValue)] public decimal Precio { get; set; }
-    [BindProperty, Required, StringLength(10)] public string Moneda { get; set; } = "ARS";
-    [BindProperty, Range(1, 365)] public int DuracionDias { get; set; } = 30;
-    [BindProperty] public int? MaxDiasPorSemana { get; set; }
-    [BindProperty] public bool PermiteAccesoSabado { get; set; } = true;
-    [BindProperty] public bool PermiteAccesoDomingo { get; set; } = true;
+    public override bool EsEdicion => false;
 
-    public IEnumerable<SelectListItem> Tipos => Enum.GetValues(typeof(TipoPlan))
-        .Cast<TipoPlan>()
-        .Select(t => new SelectListItem(t.ToString(), ((int)t).ToString()));
+    // Nombre del plan de origen cuando se llega desde "Duplicar"
+    public string? DuplicadoDe { get; private set; }
 
-    public void OnGet() { }
+    public async Task OnGetAsync(int? duplicar)
+    {
+        if (duplicar is null) return;
+        var origen = await Db.Planes.AsNoTracking().FirstOrDefaultAsync(x => x.Id == duplicar);
+        if (origen is null) return;
+        CargarDesde(origen);
+        var nombre = $"{origen.Nombre} (copia)";
+        Nombre = nombre.Length > 120 ? nombre[..120] : nombre;
+        DuplicadoDe = origen.Nombre;
+        DuplicadoDeId = origen.Id;
+    }
 
     public async Task<IActionResult> OnPostAsync()
     {
@@ -42,10 +41,16 @@ public class CreateModel : PageModel
             DuracionDias = DuracionDias,
             MaxDiasPorSemana = MaxDiasPorSemana,
             PermiteAccesoSabado = PermiteAccesoSabado,
-            PermiteAccesoDomingo = PermiteAccesoDomingo
+            PermiteAccesoDomingo = PermiteAccesoDomingo,
+            Activo = true,
+            FechaAlta = DateTime.UtcNow
         };
-        _db.Planes.Add(plan);
-        await _db.SaveChangesAsync();
+        Db.Planes.Add(plan);
+        Db.Auditar(TipoEventoSistema.PlanCreado, EntidadAuditada.Plan, null, plan.Nombre,
+            $"{GymCore.Web.Pages.Socios.SocioPresentacion.Dinero(plan.Precio, plan.Moneda)} · {PlanPresentacion.Duracion(plan.DuracionDias)} · {plan.Tipo.Texto()}",
+            DuplicadoDeId is { } origen ? $"Duplicado del plan #{origen}" : null, referencia: plan);
+        await Db.SaveChangesAsync();
+        TempData["Flash"] = $"Se creó el plan {plan.Nombre}.";
         return RedirectToPage("/Planes/Planes");
     }
 }

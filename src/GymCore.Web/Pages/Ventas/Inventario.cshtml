@@ -1,0 +1,187 @@
+@page
+@using GymCore.Dominio.Entidades
+@using GymCore.Web.Pages.Socios
+@model GymCore.Web.Pages.Ventas.InventarioModel
+@inject IUsuarioActual Usuario
+@{
+    ViewData["Title"] = "Inventario";
+    var r = Model.Resumen;
+    var filtro = (Model.F ?? "").ToLowerInvariant() switch
+    {
+        "sinstock" or "critico" or "proximo" or "todos" => Model.F!.ToLowerInvariant(),
+        _ => r.Alertas.Count > 0 ? "alerta" : "todos"
+    };
+    string Chip(string v) => filtro == v ? "active" : "";
+    var puedeAjustar = Usuario.Puede(Permisos.InventarioAdministrar);
+    var verValor = Usuario.PuedeAlguno(Permisos.InventarioAdministrar, Permisos.ReportesComercialesVer);
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+    string Tag(EstadoStock e) => e switch { EstadoStock.SinStock => "sinstock", EstadoStock.Critico => "critico", EstadoStock.ProximoAlMinimo => "proximo", _ => "normal" };
+}
+
+<section class="page-shell">
+    <div class="page-header">
+        <div>
+            <span class="eyebrow"><i class="bi bi-cart3"></i> Ventas e inventario</span>
+            <h2>Inventario</h2>
+            <p>Qué hay que reponer, cuánto stock tenés y cuánto vale. Cada entrada y salida queda registrada como movimiento.</p>
+        </div>
+        <div class="header-actions">
+            @if (puedeAjustar)
+            {
+                <a class="secondary-btn" asp-page="/Ventas/Movimientos"><i class="bi bi-arrow-left-right"></i> Movimientos</a>
+            }
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.Flash))
+    {
+        <div class="flash success" role="status"><i class="bi bi-check-circle-fill"></i> @Model.Flash</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.FlashError))
+    {
+        <div class="flash danger" role="alert"><i class="bi bi-exclamation-triangle-fill"></i> @Model.FlashError</div>
+    }
+
+    @* Semáforo de stock: 🔴 sin stock · 🟠 crítico · 🟡 próximo al mínimo *@
+    <div class="stock-alerts" role="group" aria-label="Alertas de stock">
+        <a class="stock-alert sin @(r.SinStock == 0 ? "is-zero" : "")" href="@Url.Page("Inventario", new { f = "sinstock" })">
+            <span class="stock-alert__icon"><i class="bi bi-x-octagon-fill"></i></span>
+            <span class="stock-alert__copy"><strong>@r.SinStock</strong><small>Sin stock</small></span>
+        </a>
+        <a class="stock-alert critico @(r.Criticos == 0 ? "is-zero" : "")" href="@Url.Page("Inventario", new { f = "critico" })">
+            <span class="stock-alert__icon"><i class="bi bi-exclamation-triangle-fill"></i></span>
+            <span class="stock-alert__copy"><strong>@r.Criticos</strong><small>Stock crítico</small></span>
+        </a>
+        <a class="stock-alert proximo @(r.Proximos == 0 ? "is-zero" : "")" href="@Url.Page("Inventario", new { f = "proximo" })">
+            <span class="stock-alert__icon"><i class="bi bi-exclamation-circle-fill"></i></span>
+            <span class="stock-alert__copy"><strong>@r.Proximos</strong><small>Próximos al mínimo</small></span>
+        </a>
+        @if (verValor)
+        {
+            <div class="stock-alert valor">
+                <span class="stock-alert__icon"><i class="bi bi-safe"></i></span>
+                <span class="stock-alert__copy"><strong>@SocioPresentacion.Dinero(Model.ValorCosto)</strong><small>Valor al costo · @Model.Unidades.ToString("N0") u.</small></span>
+            </div>
+        }
+    </div>
+
+    <div class="dashboard-grid inventario-grid">
+        <div class="data-card">
+            <div class="toolbar">
+                <div class="toolbar-group">
+                    <label class="search-input" aria-label="Buscar productos">
+                        <i class="bi bi-search"></i>
+                        <input type="search" placeholder="Buscar producto o código…" data-table-filter="#tablaInventario" />
+                    </label>
+                </div>
+                <div class="toolbar-group">
+                    <div class="filter-chips" role="group" aria-label="Filtrar por estado de stock" data-table-facet="#tablaInventario" data-facet="tags" data-facet-mode="tokens">
+                        <button type="button" class="filter-chip @Chip("todos")" data-value="">Todos <span class="count">@Model.Productos.Count</span></button>
+                        <button type="button" class="filter-chip @Chip("alerta")" data-value="alerta">Requieren atención <span class="count">@r.Alertas.Count</span></button>
+                        <button type="button" class="filter-chip @Chip("sinstock")" data-value="sinstock"><span class="stock-dot sin" aria-hidden="true"></span> Sin stock</button>
+                        <button type="button" class="filter-chip @Chip("critico")" data-value="critico"><span class="stock-dot critico" aria-hidden="true"></span> Crítico</button>
+                        <button type="button" class="filter-chip @Chip("proximo")" data-value="proximo"><span class="stock-dot proximo" aria-hidden="true"></span> Próximo</button>
+                    </div>
+                </div>
+            </div>
+            @if (Model.Productos.Count == 0)
+            {
+                <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-clipboard-data", "Sin productos activos", "Cargá productos para controlar su stock.", Usuario.Puede(Permisos.ProductosCrear) ? "Nuevo producto" : null, Url.Page("/Ventas/Productos/Editar"))' />
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="data-table stack-sm" id="tablaInventario" data-sortable>
+                        <thead>
+                            <tr>
+                                <th data-sort="text">Producto</th>
+                                <th data-sort="num" class="text-end">Stock</th>
+                                <th data-sort="num" class="text-end">Mínimo</th>
+                                <th data-sort="num" class="text-end">A reponer</th>
+                                <th>Estado</th>
+                                <th class="text-end"><span class="visually-hidden">Acciones</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var p in Model.Productos)
+                            {
+                                var (texto, icono, variante) = p.Estado.Estilo();
+                                var tag = Tag(p.Estado);
+                                // Sugerido: llegar al doble del mínimo (o 1 si no tiene mínimo y está agotado)
+                                var reponer = p.StockMinimo > 0 ? Math.Max(0, p.StockMinimo * 2 - p.StockActual) : (p.StockActual <= 0 ? 1 : 0);
+                                <tr data-search="@($"{p.Nombre} {p.Codigo} {p.CodigoBarras} {p.Categoria.Nombre}")" data-tags="@tag @(tag != "normal" ? "alerta" : "")">
+                                    <td class="cell-main" data-label="Producto" data-sort-value="@p.Nombre">
+                                        <div class="person-cell">
+                                            <div class="module-icon sm primary"><i class="bi @p.Categoria.Icono"></i></div>
+                                            <div class="person-cell__copy">
+                                                <a asp-page="/Ventas/Productos/Detalle" asp-route-id="@p.Id">@p.Nombre</a>
+                                                <small>@p.Categoria.Nombre · <span class="num">@p.Codigo</span></small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td data-label="Stock" class="text-end num fw-semibold" data-sort-value="@p.StockActual"><span class="@p.Estado.Punto()" aria-hidden="true"></span> @p.StockActual</td>
+                                    <td data-label="Mínimo" class="text-end num text-soft" data-sort-value="@p.StockMinimo">@p.StockMinimo</td>
+                                    <td data-label="A reponer" class="text-end num" data-sort-value="@reponer">@(reponer > 0 ? reponer.ToString() : "—")</td>
+                                    <td data-label="Estado"><span class="status-pill @variante"><i class="bi @icono"></i> @texto</span></td>
+                                    <td class="cell-actions text-end">
+                                        @if (puedeAjustar)
+                                        {
+                                            <div class="row-actions">
+                                                <button type="button" class="secondary-btn btn-compact" data-ajuste-stock="@p.Id" data-nombre="@p.Nombre" data-stock="@p.StockActual"
+                                                        data-tipo="Compra" data-sugerido="@reponer" data-costo="@p.PrecioCompra.ToString(inv)">
+                                                    <i class="bi bi-truck"></i> Compra
+                                                </button>
+                                                <button type="button" class="icon-btn" data-ajuste-stock="@p.Id" data-nombre="@p.Nombre" data-stock="@p.StockActual"
+                                                        data-tipo="Correccion" data-costo="@p.PrecioCompra.ToString(inv)" data-bs-toggle="tooltip" title="Corregir por conteo físico">
+                                                    <i class="bi bi-clipboard-check"></i>
+                                                </button>
+                                            </div>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                            <tr data-filter-empty hidden>
+                                <td colspan="6"><partial name="Components/_EmptyState" model='new EmptyStateVm("bi-check2-circle", "Nada por acá", "No hay productos en este estado.")' /></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="data-card__foot">
+                    <span>Mostrando <strong data-filter-count="#tablaInventario">@Model.Productos.Count</strong> de @Model.Productos.Count productos activos</span>
+                    <span class="d-none d-md-inline">“A reponer” sugiere llegar al doble del stock mínimo.</span>
+                </div>
+            }
+        </div>
+
+        @if (verValor && Model.PorCategoria.Count > 0)
+        {
+            <div class="panel-card">
+                <div class="panel-head mb-3"><h3><i class="bi bi-safe text-primary"></i> Valorización por categoría</h3></div>
+                <ul class="valuation-list">
+                    @foreach (var v in Model.PorCategoria)
+                    {
+                        var pct = Model.ValorCosto > 0 ? v.Costo * 100 / Model.ValorCosto : 0;
+                        <li>
+                            <div class="valuation-list__row">
+                                <span><i class="bi @v.Icono"></i> @v.Categoria</span>
+                                <strong class="num">@SocioPresentacion.Dinero(v.Costo)</strong>
+                            </div>
+                            <div class="hbars__pista" aria-hidden="true"><span class="hbars__barra" style="width: @pct.ToString("0.##", inv)%"></span></div>
+                            <small class="text-soft">@v.Unidades.ToString("N0") u. · a precio de venta @SocioPresentacion.Dinero(v.Venta)</small>
+                        </li>
+                    }
+                </ul>
+                <p class="kpi-footnote mb-0 mt-3"><i class="bi bi-info-circle"></i> A precio de venta el stock vale @SocioPresentacion.Dinero(Model.ValorVenta): margen potencial @SocioPresentacion.Dinero(Model.ValorVenta - Model.ValorCosto).</p>
+            </div>
+        }
+    </div>
+</section>
+
+@if (puedeAjustar)
+{
+    <partial name="_AjusteStock" model='Url.Page("Inventario", new { f = Model.F })' />
+}
+
+@section Scripts {
+    <script src="~/js/ventas.js" asp-append-version="true"></script>
+}

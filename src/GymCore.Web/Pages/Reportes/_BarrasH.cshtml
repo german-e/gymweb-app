@@ -1,0 +1,18 @@
+@model GymCore.Web.Reportes.BarrasHVm
+@{
+    var max = Model.Barras.Count == 0 ? 0 : Model.Barras.Max(b => b.Valor);
+}
+<ol class="hbars @(Model.Numerada ? "numerada" : "")" aria-label="@Model.Descripcion">
+    @foreach (var b in Model.Barras)
+    {
+        var pct = max <= 0 ? 0 : Math.Max(b.Valor > 0 ? 1.5m : 0, b.Valor * 100 / max);
+        <li class="hbars__fila" title="@b.Etiqueta: @b.Texto">
+            <span class="hbars__etiqueta">
+                @if (b.Href is not null) { <a href="@b.Href">@b.Etiqueta</a> } else { @b.Etiqueta }
+                @if (b.Detalle is not null) { <small>@b.Detalle</small> }
+            </span>
+            <span class="hbars__pista"><span class="hbars__barra" style="width: @pct.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)%"></span></span>
+            <span class="hbars__valor">@b.Texto</span>
+        </li>
+    }
+</ol>

@@ -6,6 +6,7 @@ using GymCore.Dominio.Enums;
 using GymCore.Aplicacion.Abstractiones;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Data.Sqlite;
+using GymCore.Web.Seguridad;
 // Ensure this using matches the actual namespace where ISocioRepository is defined
 
 var builder = WebApplication.CreateBuilder(args);
@@ -30,12 +31,61 @@ builder.Services.AddDbContext<GymDbContext>(opt => opt.UseSqlite(cs));
 
 // DI repositorios/servicios
 builder.Services.AddScoped<ISocioRepository, SocioRepository>();
+// ---------- Seguridad: autenticación por cookie, autorización por permisos ----------
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<GymCore.Web.Componentes.IUsuarioActual, GymCore.Web.Componentes.UsuarioActual>();
+// La persistencia completa el responsable de la auditoría con el usuario autenticado
+builder.Services.AddScoped<IOperadorAuditoria>(sp => sp.GetRequiredService<GymCore.Web.Componentes.IUsuarioActual>());
+builder.Services.Configure<OpcionesSeguridad>(builder.Configuration.GetSection("Seguridad"));
+builder.Services.AddScoped<Autenticacion>();
 
+// ---------- Inteligencia de negocio: una fuente de hechos por request y métricas centralizadas ----------
+builder.Services.AddScoped<GymCore.Web.Reportes.IFuenteHechos, GymCore.Web.Reportes.FuenteHechosDb>();
+builder.Services.AddScoped<GymCore.Web.Reportes.ServicioReportes>();
+builder.Services.AddScoped<GymCore.Web.Reportes.Exportador>();
+// Ventas e inventario: servicios independientes (inventario, cobranza, ventas, reportes comerciales)
+builder.Services.AddScoped<GymCore.Web.Comercial.ServicioInventario>();
+builder.Services.AddScoped<GymCore.Web.Comercial.ServicioCobranza>();
+builder.Services.AddScoped<GymCore.Web.Comercial.ServicioVentas>();
+builder.Services.AddScoped<GymCore.Web.Comercial.ReportesComerciales>();
 
+var opcionesSeguridad = builder.Configuration.GetSection("Seguridad").Get<OpcionesSeguridad>() ?? new OpcionesSeguridad();
+builder.Services.AddAuthentication(Autenticacion.Esquema)
+    .AddCookie(Autenticacion.Esquema, o =>
+    {
+        o.Cookie.Name = ".GymCore.Sesion";
+        o.Cookie.HttpOnly = true;
+        o.Cookie.SameSite = SameSiteMode.Lax;
+        o.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;   // Always en producción con HTTPS
+        o.LoginPath = "/Cuenta/Login";
+        o.LogoutPath = "/Cuenta/Logout";
+        o.AccessDeniedPath = "/Cuenta/AccesoDenegado";
+        o.ExpireTimeSpan = TimeSpan.FromHours(opcionesSeguridad.HorasSesion);   // inactividad máxima
+        o.SlidingExpiration = true;
+        o.Events.OnValidatePrincipal = Autenticacion.ValidarSesionAsync;
+        // La API responde con códigos HTTP en lugar de redirigir al login
+        o.Events.OnRedirectToLogin = c => { if (c.Request.Path.StartsWithSegments("/api")) c.Response.StatusCode = 401; else c.Response.Redirect(c.RedirectUri); return Task.CompletedTask; };
+        o.Events.OnRedirectToAccessDenied = c => { if (c.Request.Path.StartsWithSegments("/api")) c.Response.StatusCode = 403; else c.Response.Redirect(c.RedirectUri); return Task.CompletedTask; };
+    });
 
+builder.Services.AddAuthorization(o =>
+{
+    // Todo requiere sesión salvo lo marcado como anónimo (login, configuración inicial, errores)
+    o.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+    // Una política por permiso (nombre = código), para endpoints y convenciones
+    foreach (var permiso in Permisos.Codigos)
+        o.AddPolicy(permiso, p => p.RequireAuthenticatedUser().RequireAssertion(c =>
+            c.User.HasClaim(Reclamos.AccesoTotal, "true") || c.User.HasClaim(Reclamos.Permiso, permiso)));
+});
 
-// Add services to the container.
-builder.Services.AddRazorPages();
+builder.Services.AddRazorPages(o =>
+{
+    o.Conventions.AllowAnonymousToPage("/Cuenta/Login");
+    o.Conventions.AllowAnonymousToPage("/Cuenta/Configurar");
+    o.Conventions.AllowAnonymousToPage("/Error");
+    // Página sin PageModel: se protege por convención
+    o.Conventions.AuthorizePage("/Asistencias/Ingreso", Permisos.AsistenciasRegistrar);
+}).AddMvcOptions(o => o.Filters.Add<FiltroPermisos>());
 
 var app = builder.Build();
 
@@ -52,6 +102,7 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapRazorPages();
@@ -91,6 +142,19 @@ using (var scope = app.Services.CreateScope())
 
     // Alinea una base existente con el modelo: columnas nuevas (nullable) y tablas nuevas
     try { await EsquemaSqlite.ActualizarAsync(db); } catch { /* best-effort */ }
+
+    // Roles iniciales: se crean si faltan (no se pisan los cambios hechos desde Administración > Roles)
+    foreach (var def in RolesIniciales.Todos)
+    {
+        if (await db.Roles.AnyAsync(r => r.Nombre == def.Nombre)) continue;
+        var rol = new Rol { Nombre = def.Nombre, Descripcion = def.Descripcion, AccesoTotal = def.AccesoTotal, EsSistema = true };
+        rol.AsignarPermisos(def.Permisos);
+        db.Roles.Add(rol);
+    }
+    await db.SaveChangesAsync();
+
+    // Categorías de productos por defecto (solo si no hay ninguna)
+    try { await GymCore.Web.Comercial.InventarioPresentacion.SembrarCategoriasAsync(db); } catch { /* best-effort */ }
 
     // Seed mínimo para pruebas de check-in
     if (!db.Planes.Any())
@@ -224,10 +288,14 @@ app.MapPost("/api/asistencias/checkin", async (GymDbContext db, CheckInRequest r
 
     return Results.Ok(new { ok = true, socio = new { socio.Id, nombre = $"{socio.Apellido}, {socio.Nombre}" }, mensaje = "Ingreso registrado" });
 })
+.RequireAuthorization(Permisos.AsistenciasRegistrar)
 .WithName("CheckIn")
 .Produces(200);
 
 app.Run();
+
+// Visible para las pruebas de integración (WebApplicationFactory)
+public partial class Program { }
 
 // DTOs mínimos
 public record CheckInRequest(string Code, bool? ConfirmExtra);

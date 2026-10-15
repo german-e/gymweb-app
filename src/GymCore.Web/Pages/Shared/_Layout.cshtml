@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿@inject GymCore.Web.Componentes.IUsuarioActual Usuario
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="utf-8" />
@@ -15,6 +16,11 @@
     <link rel="stylesheet" href="~/css/components.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/GymCore.Web.styles.css" asp-append-version="true" />
 </head>
+@{
+    // Resalta el módulo actual en el menú lateral
+    var pagina = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
+    string Activo(params string[] prefijos) => prefijos.Any(x => pagina.StartsWith(x, StringComparison.OrdinalIgnoreCase)) ? "active" : "";
+}
 <body class="app-body">
     <div class="app-shell">
         <aside class="sidebar" aria-label="Menú principal">
@@ -28,14 +34,15 @@
                 </div>
             </div>
 
+            @* Menú según permisos: lo que el usuario no puede usar no se muestra *@
             <nav class="sidebar-nav" aria-label="Navegación principal">
                 <div class="nav-section">
                     <span class="nav-label">General</span>
-                    <a class="nav-item active" asp-page="/Panel">
+                    <a class="nav-item @Activo("/Panel")" asp-page="/Panel">
                         <i class="bi bi-grid-1x2-fill"></i>
                         <span>Panel</span>
                     </a>
-                    <a class="nav-item" asp-page="/Index">
+                    <a class="nav-item @Activo("/Index")" asp-page="/Index">
                         <i class="bi bi-house-door"></i>
                         <span>Inicio</span>
                     </a>
@@ -43,44 +50,132 @@
 
                 <div class="nav-section">
                     <span class="nav-label">Operación</span>
-                    <a class="nav-item" asp-page="/Socios/Socios">
-                        <i class="bi bi-people"></i>
-                        <span>Socios</span>
-                    </a>
-                    <a class="nav-item" asp-page="/Entrenadores/Index">
-                        <i class="bi bi-person-badge"></i>
-                        <span>Entrenadores</span>
-                    </a>
-                    <a class="nav-item" asp-page="/Planes/Planes">
-                        <i class="bi bi-box-seam"></i>
-                        <span>Planes</span>
-                    </a>
-                    <a class="nav-item" href="#">
-                        <i class="bi bi-box2-heart"></i>
-                        <span>Insumos</span>
-                    </a>
-                    <a class="nav-item" asp-page="/Pagos/Index">
-                        <i class="bi bi-credit-card"></i>
-                        <span>Pagos</span>
-                    </a>
-                    <a class="nav-item" href="#">
-                        <i class="bi bi-bar-chart"></i>
-                        <span>Reportes</span>
-                    </a>
-                    <a class="nav-item" href="#">
-                        <i class="bi bi-sliders"></i>
-                        <span>Configuración</span>
-                    </a>
+                    @if (Usuario.PuedeAlguno(Permisos.SociosVer, Permisos.SociosVerAsignados))
+                    {
+                        <a class="nav-item @Activo("/Socios", "/Suscripciones")" asp-page="/Socios/Socios">
+                            <i class="bi bi-people"></i>
+                            <span>@(Usuario.Puede(Permisos.SociosVer) ? "Socios" : "Mis socios")</span>
+                        </a>
+                    }
+                    @if (Usuario.Puede(Permisos.AsistenciasRegistrar))
+                    {
+                        <a class="nav-item @Activo("/Asistencias")" asp-page="/Asistencias/Ingreso">
+                            <i class="bi bi-door-open"></i>
+                            <span>Control de ingreso</span>
+                        </a>
+                    }
+                    @if (Usuario.Puede(Permisos.EntrenadoresVer))
+                    {
+                        <a class="nav-item @Activo("/Entrenadores")" asp-page="/Entrenadores/Index">
+                            <i class="bi bi-person-badge"></i>
+                            <span>Entrenadores</span>
+                        </a>
+                    }
+                    @if (Usuario.Puede(Permisos.PlanesVer))
+                    {
+                        <a class="nav-item @Activo("/Planes")" asp-page="/Planes/Planes">
+                            <i class="bi bi-box-seam"></i>
+                            <span>Planes</span>
+                        </a>
+                    }
+                    @if (Usuario.Puede(Permisos.PagosVer))
+                    {
+                        <a class="nav-item @Activo("/Pagos")" asp-page="/Pagos/Index">
+                            <i class="bi bi-credit-card"></i>
+                            <span>Pagos</span>
+                        </a>
+                    }
                 </div>
+
+                @if (Usuario.PuedeAlguno(Permisos.VentasCrear, Permisos.VentasVer, Permisos.ProductosVer, Permisos.InventarioAdministrar, Permisos.ReportesComercialesVer))
+                {
+                    <div class="nav-section">
+                        <span class="nav-label">Ventas</span>
+                        @if (Usuario.Puede(Permisos.VentasCrear))
+                        {
+                            <a class="nav-item @Activo("/Ventas/Pos")" asp-page="/Ventas/Pos"><i class="bi bi-cart3"></i><span>Punto de Venta</span></a>
+                        }
+                        @if (Usuario.Puede(Permisos.VentasVer))
+                        {
+                            <a class="nav-item @(pagina is "/Ventas/Index" or "/Ventas/Ticket" ? "active" : "")" asp-page="/Ventas/Index"><i class="bi bi-receipt"></i><span>Ventas</span></a>
+                        }
+                        @if (Usuario.Puede(Permisos.ProductosVer))
+                        {
+                            <a class="nav-item @Activo("/Ventas/Productos")" asp-page="/Ventas/Productos/Index"><i class="bi bi-box2"></i><span>Productos</span></a>
+                            <a class="nav-item @Activo("/Ventas/Categorias")" asp-page="/Ventas/Categorias"><i class="bi bi-tags"></i><span>Categorías</span></a>
+                            <a class="nav-item @Activo("/Ventas/Inventario")" asp-page="/Ventas/Inventario"><i class="bi bi-clipboard-data"></i><span>Inventario</span></a>
+                        }
+                        @if (Usuario.Puede(Permisos.InventarioAdministrar))
+                        {
+                            <a class="nav-item @Activo("/Ventas/Movimientos")" asp-page="/Ventas/Movimientos"><i class="bi bi-arrow-left-right"></i><span>Movimientos</span></a>
+                        }
+                        @if (Usuario.Puede(Permisos.ReportesComercialesVer))
+                        {
+                            <a class="nav-item @Activo("/Ventas/Reportes")" asp-page="/Ventas/Reportes"><i class="bi bi-graph-up-arrow"></i><span>Reportes comerciales</span></a>
+                        }
+                    </div>
+                }
+
+                @if (Usuario.Puede(Permisos.ReportesVer))
+                {
+                    <div class="nav-section">
+                        <span class="nav-label">Inteligencia de negocio</span>
+                        <a class="nav-item @(pagina == "/Reportes/Index" ? "active" : "")" asp-page="/Reportes/Index">
+                            <i class="bi bi-speedometer2"></i>
+                            <span>Resumen ejecutivo</span>
+                        </a>
+                        <a class="nav-item @Activo("/Reportes/Socios")" asp-page="/Reportes/Socios"><i class="bi bi-graph-up"></i><span>Socios</span></a>
+                        <a class="nav-item @Activo("/Reportes/Ingresos")" asp-page="/Reportes/Ingresos"><i class="bi bi-cash-stack"></i><span>Ingresos</span></a>
+                        <a class="nav-item @Activo("/Reportes/Planes")" asp-page="/Reportes/Planes"><i class="bi bi-pie-chart"></i><span>Planes</span></a>
+                        <a class="nav-item @Activo("/Reportes/Entrenadores")" asp-page="/Reportes/Entrenadores"><i class="bi bi-person-lines-fill"></i><span>Entrenadores</span></a>
+                        <a class="nav-item @Activo("/Reportes/Riesgo")" asp-page="/Reportes/Riesgo"><i class="bi bi-exclamation-octagon"></i><span>Riesgo de abandono</span></a>
+                        @if (Usuario.Puede(Permisos.ReportesExportar))
+                        {
+                            <a class="nav-item @Activo("/Reportes/Exportaciones", "/Reportes/Imprimir")" asp-page="/Reportes/Exportaciones"><i class="bi bi-download"></i><span>Exportaciones</span></a>
+                        }
+                    </div>
+                }
+
+                @if (Usuario.PuedeAlguno(Permisos.UsuariosAdministrar, Permisos.AuditoriaVer, Permisos.ConfiguracionAdministrar))
+                {
+                    <div class="nav-section">
+                        <span class="nav-label">Administración</span>
+                        @if (Usuario.Puede(Permisos.UsuariosAdministrar))
+                        {
+                            <a class="nav-item @Activo("/Administracion/Usuarios")" asp-page="/Administracion/Usuarios/Index">
+                                <i class="bi bi-person-gear"></i>
+                                <span>Usuarios</span>
+                            </a>
+                            <a class="nav-item @Activo("/Administracion/Roles")" asp-page="/Administracion/Roles/Index">
+                                <i class="bi bi-shield-lock"></i>
+                                <span>Roles y permisos</span>
+                            </a>
+                        }
+                        @if (Usuario.Puede(Permisos.AuditoriaVer))
+                        {
+                            <a class="nav-item @Activo("/Administracion/Auditoria")" asp-page="/Administracion/Auditoria">
+                                <i class="bi bi-shield-check"></i>
+                                <span>Auditoría</span>
+                            </a>
+                        }
+                        @if (Usuario.Puede(Permisos.ConfiguracionAdministrar))
+                        {
+                            <a class="nav-item" href="#" aria-disabled="true">
+                                <i class="bi bi-sliders"></i>
+                                <span>Configuración</span>
+                                <span class="soon-badge ms-auto">Pronto</span>
+                            </a>
+                        }
+                    </div>
+                }
             </nav>
 
-            <div class="sidebar-footer">
-                <div class="mini-card">
-                    <span class="mini-card__label">Cobranza</span>
-                    <strong>$18.400</strong>
-                    <small>Este mes</small>
+            @if (Usuario.Puede(Permisos.PagosVer))
+            {
+                <div class="sidebar-footer">
+                    @await Component.InvokeAsync("SidebarMetricas", new { vista = "Sidebar" })
                 </div>
-            </div>
+            }
         </aside>
 
         <div class="main-panel">
@@ -101,18 +196,34 @@
                         <input type="search" placeholder="Buscar socios, pagos, planes..." />
                     </label>
 
-                    <button class="icon-button" type="button" aria-label="Notificaciones">
-                        <i class="bi bi-bell"></i>
-                        <span class="badge-dot">3</span>
-                    </button>
+                    @await Component.InvokeAsync("SidebarMetricas", new { vista = "Alertas" })
 
-                    <div class="user-menu" aria-label="Perfil del usuario">
-                        <div class="avatar">GP</div>
-                        <div class="user-meta">
-                            <strong>Germán</strong>
-                            <small>Admin</small>
+                    @* Menú de perfil *@
+                    <div class="dropdown">
+                        <button class="user-menu" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Menú de @Usuario.Nombre">
+                            <div class="avatar">@Usuario.Iniciales</div>
+                            <div class="user-meta">
+                                <strong>@Usuario.Nombre</strong>
+                                <small>@Usuario.Rol</small>
+                            </div>
+                            <i class="bi bi-chevron-down"></i>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end profile-menu">
+                            <div class="profile-menu__head">
+                                <span class="avatar-circle">@Usuario.Iniciales</span>
+                                <div class="min-w-0">
+                                    <strong>@Usuario.Nombre</strong>
+                                    <small>@@@Usuario.NombreUsuario · @Usuario.Rol</small>
+                                    <small class="text-soft"><i class="bi bi-clock-history"></i> Último acceso: @(Usuario.AccesoAnterior is { } previo ? previo.ToLocalTime().ToString("dd/MM/yyyy HH:mm") : "primer ingreso")</small>
+                                </div>
+                            </div>
+                            <a class="dropdown-item" asp-page="/Cuenta/Perfil"><i class="bi bi-person"></i> Mi perfil</a>
+                            <a class="dropdown-item" asp-page="/Cuenta/CambiarPassword"><i class="bi bi-key"></i> Cambiar contraseña</a>
+                            <div class="dropdown-divider"></div>
+                            <form method="post" asp-page="/Cuenta/Logout">
+                                <button type="submit" class="dropdown-item text-danger"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</button>
+                            </form>
                         </div>
-                        <i class="bi bi-chevron-down"></i>
                     </div>
                 </div>
             </header>

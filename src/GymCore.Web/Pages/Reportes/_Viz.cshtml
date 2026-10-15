@@ -1,0 +1,6 @@
+@model GymCore.Web.Reportes.VizVm
+@* Gráfico: skeleton hasta que charts.js lo dibuja. Siempre acompañado de su tabla equivalente en la vista. *@
+<div class="viz @(Model.Cuadrado ? "viz--cuadrado" : "") is-loading" data-chart="@Model.Tipo" data-config="@GymCore.Web.Reportes.Presentacion.Config(Model.Config)" style="--viz-alto: @(Model.Alto)px">
+    <span class="skeleton viz__skeleton" aria-hidden="true"></span>
+    <svg class="viz__svg" role="img" aria-label="@Model.Descripcion"></svg>
+</div>

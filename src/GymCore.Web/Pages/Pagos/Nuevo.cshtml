@@ -1,94 +1,164 @@
 @page
+@using GymCore.Dominio.Enums
+@using GymCore.Web.Pages.Socios
 @model GymCore.Web.Pages.Pagos.NuevoModel
 @{
     ViewData["Title"] = "Registrar pago";
 }
 
-<section class="container py-4">
-    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
+<section class="page-shell">
+    <div class="page-header">
         <div>
-            <h1 class="h4 mb-1">Registrar pago</h1>
-            <p class="text-muted mb-0">Cargá un nuevo pago para un socio existente.</p>
-        </div>
-        <div>
-            <a asp-page="/Pagos/Index" class="btn btn-outline-secondary">Volver</a>
+            <a class="text-decoration-none small fw-semibold" asp-page="Index"><i class="bi bi-arrow-left"></i> Pagos</a>
+            <h2>Registrar pago</h2>
+            <p>Cargá un cobro para un socio existente. Si tiene una suscripción vigente, se imputa a ese período.</p>
         </div>
     </div>
 
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <form method="post">
-                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <form method="post" class="pay-layout" data-submit-loading>
+        <div class="form-stack">
+            <div asp-validation-summary="ModelOnly" class="flash danger mb-0"></div>
 
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label">Socio (buscar por DNI o Nombre)</label>
-                        <input id="socio-search" class="form-control" list="socios-list" placeholder="Ej: 12345678 o Pérez" autocomplete="off" value="@Model.Input.Dni" />
-                        <datalist id="socios-list"></datalist>
-                        <small id="socio-elegido" class="text-muted d-block mt-1">@Model.SocioPreseleccionado</small>
-                        <input type="hidden" asp-for="VolverAFicha" />
-                        <input type="hidden" asp-for="Input.SocioId" />
-                        <input type="hidden" asp-for="Input.Dni" />
-                        <span asp-validation-for="Input.Dni" class="text-danger"></span>
+            @* ============ SOCIO ============ *@
+            <section class="form-section">
+                <header class="form-section__head">
+                    <div class="module-icon primary"><i class="bi bi-person"></i></div>
+                    <div>
+                        <h3>Socio</h3>
+                        <p>Buscalo por DNI, apellido o nombre.</p>
                     </div>
-
-                    <div class="col-md-4">
-                        <label asp-for="Input.Importe" class="form-label d-flex justify-content-between align-items-center">
-                            <span>@Html.DisplayNameFor(m => m.Input.Importe)</span>
-                            <button type="button" id="btn-pagar-total" class="btn btn-sm btn-outline-primary">Pagar total</button>
-                        </label>
-                        <input asp-for="Input.Importe" class="form-control" />
-                        <div class="form-text" id="ayuda-faltante" style="display:none;"></div>
-                        <span asp-validation-for="Input.Importe" class="text-danger"></span>
+                </header>
+                <div class="form-section__body">
+                    <label class="form-label" for="socio-search">Socio<span class="req text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input id="socio-search" class="form-control" list="socios-list" placeholder="Ej.: 12345678 o Pérez" autocomplete="off" value="@Model.Input.Dni" autofocus="@(Model.Input.SocioId is null)" />
                     </div>
-
-                    <div class="col-md-4">
-                        <label asp-for="Input.Moneda" class="form-label"></label>
-                        <input asp-for="Input.Moneda" class="form-control" />
-                        <span asp-validation-for="Input.Moneda" class="text-danger"></span>
-                    </div>
-
-                    <div class="col-md-4">
-                        <label asp-for="Input.Medio" class="form-label"></label>
-                        <select asp-for="Input.Medio" class="form-select" asp-items="Html.GetEnumSelectList<GymCore.Dominio.Enums.MedioPago>()"></select>
-                        <span asp-validation-for="Input.Medio" class="text-danger"></span>
-                    </div>
-
-                    <div class="col-md-4">
-                        <label asp-for="Input.ReferenciaExterna" class="form-label"></label>
-                        <input asp-for="Input.ReferenciaExterna" class="form-control" />
-                        <span asp-validation-for="Input.ReferenciaExterna" class="text-danger"></span>
-                    </div>
-
-                    <div class="col-12">
-                        <label asp-for="Input.Observaciones" class="form-label"></label>
-                        <textarea asp-for="Input.Observaciones" class="form-control" rows="3"></textarea>
-                        <span asp-validation-for="Input.Observaciones" class="text-danger"></span>
-                    </div>
+                    <datalist id="socios-list"></datalist>
+                    <small id="socio-elegido" class="selected-socio">@Model.SocioPreseleccionado</small>
+                    <input type="hidden" asp-for="VolverAFicha" />
+                    <input type="hidden" asp-for="Input.SocioId" />
+                    <input type="hidden" asp-for="Input.Dni" />
+                    <span asp-validation-for="Input.Dni" class="text-danger"></span>
                 </div>
+            </section>
 
-                <div id="saldo-panel" class="alert alert-info mt-3 d-none">
-                    <div class="d-flex flex-column gap-1">
-                        <div><strong>Plan:</strong> <span id="saldo-plan">-</span></div>
-                        <div>
-                            <strong>Periodo:</strong> <span id="saldo-desde">-</span> a <span id="saldo-hasta">-</span>
+            @* ============ IMPORTE Y MEDIO ============ *@
+            <section class="form-section">
+                <header class="form-section__head">
+                    <div class="module-icon success"><i class="bi bi-cash-coin"></i></div>
+                    <div>
+                        <h3>Importe y medio de pago</h3>
+                        <p>Cuánto abona y cómo.</p>
+                    </div>
+                </header>
+                <div class="form-section__body">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label asp-for="Input.Importe" class="form-label d-flex justify-content-between align-items-center">
+                                <span>@Html.DisplayNameFor(m => m.Input.Importe)<span class="req text-danger">*</span></span>
+                                <button type="button" id="btn-pagar-total" class="ghost-btn btn-compact" data-bs-toggle="tooltip" title="Completar con el saldo del período"><i class="bi bi-magic"></i> Pagar total</button>
+                            </label>
+                            <div class="input-group input-group-lg">
+                                <span class="input-group-text">$</span>
+                                <input asp-for="Input.Importe" class="form-control num fw-semibold" inputmode="decimal" />
+                            </div>
+                            <div class="form-text" id="ayuda-faltante" style="display:none;"></div>
+                            <span asp-validation-for="Input.Importe" class="text-danger"></span>
                         </div>
-                        <div class="d-flex gap-3 flex-wrap">
-                            <span><strong>Precio:</strong> $ <span id="saldo-precio">0</span></span>
-                            <span><strong>Pagado:</strong> $ <span id="saldo-pagado">0</span></span>
-                            <span><strong>Faltante:</strong> $ <span id="saldo-faltante">0</span></span>
+                        <div class="col-md-4">
+                            <label asp-for="Input.Moneda" class="form-label"></label>
+                            <input asp-for="Input.Moneda" class="form-control form-control-lg text-uppercase" />
+                            <span asp-validation-for="Input.Moneda" class="text-danger"></span>
                         </div>
-                        <div class="text-muted" id="saldo-sinplan" style="display:none;">No hay una suscripción activa. Podés registrar un pago libre.</div>
+                        <div class="col-12">
+                            <label class="form-label d-block">@Html.DisplayNameFor(m => m.Input.Medio)<span class="req text-danger">*</span></label>
+                            <div class="medio-picker" role="radiogroup" aria-label="Medio de pago">
+                                @foreach (var m in Enum.GetValues<MedioPago>())
+                                {
+                                    var idMedio = $"medio-{m}";
+                                    <input type="radio" id="@idMedio" name="Input.Medio" value="@m" checked="@(Model.Input.Medio == m)" />
+                                    <label for="@idMedio"><i class="bi @m.Icono()"></i> @m.Texto()</label>
+                                }
+                            </div>
+                            <span asp-validation-for="Input.Medio" class="text-danger"></span>
+                        </div>
                     </div>
                 </div>
+            </section>
 
-                <div class="mt-4 d-flex gap-2">
-                    <button type="submit" class="btn btn-primary">Guardar</button>
-                    <a asp-page="/Pagos/Index" class="btn btn-secondary">Cancelar</a>
+            @* ============ DETALLES ============ *@
+            <section class="form-section">
+                <header class="form-section__head">
+                    <div class="module-icon info"><i class="bi bi-chat-left-text"></i></div>
+                    <div>
+                        <h3>Detalles</h3>
+                        <p>Datos opcionales que aparecen en el comprobante.</p>
+                    </div>
+                </header>
+                <div class="form-section__body">
+                    <div class="row g-3">
+                        <div class="col-md-5">
+                            <label asp-for="Input.ReferenciaExterna" class="form-label"></label>
+                            <input asp-for="Input.ReferenciaExterna" class="form-control" placeholder="N° de operación, últimos 4 de la tarjeta…" />
+                            <span asp-validation-for="Input.ReferenciaExterna" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-7">
+                            <label asp-for="Input.Observaciones" class="form-label"></label>
+                            <textarea asp-for="Input.Observaciones" class="form-control" rows="2"></textarea>
+                            <span asp-validation-for="Input.Observaciones" class="text-danger"></span>
+                        </div>
+                    </div>
                 </div>
-            </form>
+            </section>
+
+            <div class="form-actions-bar">
+                <span class="hint d-none d-md-inline" data-bs-toggle="tooltip" title="Queda registrado en el comprobante y en la auditoría del pago"><i class="bi bi-person-check"></i> Registrará: <strong>@Model.Operador</strong> · se genera un comprobante imprimible.</span>
+                <a asp-page="Index" class="secondary-btn">Cancelar</a>
+                <button type="submit" class="primary-btn border-0" data-loading-text="Registrando…"><i class="bi bi-check2"></i> Registrar pago</button>
+            </div>
         </div>
-    </div>
+
+        @* ============ RESUMEN DE CUENTA ============ *@
+        <aside class="pay-aside">
+            <div class="panel-card">
+                <div class="panel-head mb-3">
+                    <h3>Estado de cuenta</h3>
+                    <i class="bi bi-wallet2 text-soft"></i>
+                </div>
+
+                <div id="saldo-empty" class="text-center text-muted py-3">
+                    <div class="empty-state__icon mb-2"><i class="bi bi-person-search"></i></div>
+                    <p class="small mb-0">Elegí un socio para ver su plan vigente y el saldo del período.</p>
+                </div>
+
+                <div id="saldo-loading" class="d-none" aria-busy="true" aria-label="Cargando estado de cuenta">
+                    <span class="skeleton skeleton-line w-75"></span>
+                    <span class="skeleton skeleton-line w-50"></span>
+                    <span class="skeleton skeleton-block"></span>
+                    <span class="skeleton skeleton-line"></span>
+                </div>
+
+                <div id="saldo-panel" class="d-none">
+                    <div id="saldo-conplan">
+                        <small class="text-muted">Plan vigente</small>
+                        <strong class="d-block fs-5" id="saldo-plan">-</strong>
+                        <small class="text-muted"><i class="bi bi-calendar-range"></i> <span id="saldo-desde">-</span> al <span id="saldo-hasta">-</span></small>
+
+                        <div class="progress-track mt-3" id="saldo-progress"><span style="width:0%"></span></div>
+                        <dl class="saldo-list">
+                            <div><dt>Precio</dt><dd class="num">$ <span id="saldo-precio">0</span></dd></div>
+                            <div><dt>Pagado</dt><dd class="num text-success">$ <span id="saldo-pagado">0</span></dd></div>
+                            <div class="total"><dt>Faltante</dt><dd class="num">$ <span id="saldo-faltante">0</span></dd></div>
+                        </dl>
+                    </div>
+                    <div class="flash mb-0 info-flash" id="saldo-sinplan" style="display:none;">
+                        <i class="bi bi-info-circle-fill"></i> No hay una suscripción activa. Podés registrar un pago libre (a cuenta).
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </form>
 </section>
 
 @section Scripts {
@@ -102,6 +172,10 @@
             const $inputDni = document.querySelector('input[name="Input.Dni"]');
 
             const $panel = document.getElementById('saldo-panel');
+            const $vacio = document.getElementById('saldo-empty');
+            const $cargando = document.getElementById('saldo-loading');
+            const $conPlan = document.getElementById('saldo-conplan');
+            const $progreso = document.querySelector('#saldo-progress > span');
             const $plan = document.getElementById('saldo-plan');
             const $desde = document.getElementById('saldo-desde');
             const $hasta = document.getElementById('saldo-hasta');
@@ -112,6 +186,14 @@
             const $importe = document.getElementById('Input_Importe');
             const $btnTotal = document.getElementById('btn-pagar-total');
             const $ayuda = document.getElementById('ayuda-faltante');
+
+            const fmt = (n) => (Number(n) || 0).toLocaleString('es-AR', { maximumFractionDigits: 2 });
+            // Estado visual del panel lateral: vacío | cargando (skeleton) | listo
+            function mostrar(estado) {
+                $vacio.classList.toggle('d-none', estado !== 'vacio');
+                $cargando.classList.toggle('d-none', estado !== 'cargando');
+                $panel.classList.toggle('d-none', estado !== 'listo');
+            }
 
             let debounce;
             let faltanteActual = null; // número o null
@@ -132,12 +214,14 @@
             }
 
             function cargarSaldo(socioId) {
+                mostrar('cargando');
                 fetch(`?handler=SaldoSocio&socioId=${encodeURIComponent(socioId)}`)
                     .then(r => r.json())
                     .then(x => {
-                        $panel.classList.remove('d-none');
-                        if (!x.ok) return;
+                        mostrar('listo');
+                        if (!x.ok) { mostrar('vacio'); return; }
                         if (x.sinPlan) {
+                            $conPlan.style.display = 'none';
                             $plan.textContent = '-';
                             $desde.textContent = '-';
                             $hasta.textContent = '-';
@@ -149,20 +233,26 @@
                             $ayuda.style.display = 'none';
                             return;
                         }
+                        $conPlan.style.display = '';
                         $sinplan.style.display = 'none';
                         $plan.textContent = x.plan;
                         $desde.textContent = new Date(x.periodo.desde).toLocaleDateString();
                         $hasta.textContent = new Date(x.periodo.hasta).toLocaleDateString();
-                        $precio.textContent = x.precio;
-                        $pagado.textContent = x.pagado;
-                        $faltante.textContent = x.faltante;
+                        $precio.textContent = fmt(x.precio);
+                        $pagado.textContent = fmt(x.pagado);
+                        $faltante.textContent = fmt(x.faltante);
+                        $faltante.parentElement.classList.toggle('text-danger', Number(x.faltante) > 0);
+                        $faltante.parentElement.classList.toggle('text-success', !(Number(x.faltante) > 0));
+                        const pct = Number(x.precio) > 0 ? Math.min(100, Number(x.pagado) * 100 / Number(x.precio)) : 0;
+                        $progreso.style.width = pct + '%';
+                        $progreso.parentElement.className = 'progress-track mt-3' + (pct >= 100 ? '' : pct > 0 ? ' warning' : ' danger');
                         faltanteActual = Number(x.faltante || 0);
                         if ($importe && (!+$importe.value || +$importe.value <= 0)) {
                             $importe.value = x.faltante || '';
                         }
                         actualizarAyuda();
                     })
-                    .catch(() => { /* noop */ });
+                    .catch(() => mostrar('vacio'));
             }
 
             $search.addEventListener('input', (e) => {
@@ -173,7 +263,7 @@
                 $inputSocioId.value = '';
                 $inputDni.value = term;
                 $elegido.textContent = '';
-                $panel.classList.add('d-none');
+                mostrar('vacio');
             });
 
             $search.addEventListener('change', () => {
@@ -198,7 +288,7 @@
                 if (!v) { $ayuda.style.display = 'none'; return; }
                 const queda = Math.max(0, faltanteActual - v);
                 if (queda > 0) {
-                    $ayuda.textContent = `Quedará faltante: $ ${queda}`;
+                    $ayuda.textContent = `Quedará faltante: $ ${fmt(queda)}`;
                     $ayuda.style.display = '';
                 } else {
                     $ayuda.textContent = '';
@@ -216,6 +306,8 @@
                         $importe.value = String(faltanteActual);
                         $importe.dispatchEvent(new Event('input'));
                         $importe.focus();
+                    } else if (window.GymUi) {
+                        GymUi.toast('Elegí un socio con plan vigente para completar el saldo.', 'info');
                     }
                 });
             }

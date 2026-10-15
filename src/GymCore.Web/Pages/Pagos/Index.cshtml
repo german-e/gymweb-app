@@ -1,61 +1,199 @@
 @page
+@using GymCore.Dominio.Enums
+@using GymCore.Web.Pages.Pagos
+@using GymCore.Web.Pages.Socios
 @model GymCore.Web.Pages.Pagos.IndexModel
+@inject IUsuarioActual Usuario
 @{
     ViewData["Title"] = "Pagos";
+    var hoy = DateTime.Today;
+    AlertCardItem Item(ResumenSocio r) => new(r.Socio.NombreCompleto, $"{r.PlanNombre} · {SocioPresentacion.Vencimiento(r.Vencimiento)}", Url.Page("/Socios/Detalle", new { id = r.Socio.Id }));
+    var c = Model.Cobranza;
+    var m = Model.Membresias;
+    var pctAlDia = m.Activos > 0 ? m.AlDia * 100 / m.Activos : 0;
 }
 
-<section class="container py-4">
-    @if (TempData["PagoOk"] is string okMsg)
-    {
-        <div class="alert alert-success" role="alert">@okMsg</div>
-    }
-    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
+<section class="page-shell">
+    <div class="page-header">
         <div>
-            <h1 class="h4 mb-1">Pagos</h1>
-            <p class="text-muted mb-0">Listado de pagos registrados.</p>
+            <span class="eyebrow"><i class="bi bi-credit-card"></i> Cobranza</span>
+            <h2>Pagos</h2>
+            <p>Cobros registrados, saldos pendientes y vencimientos de las membresías.</p>
         </div>
-        <div>
-            <a asp-page="/Pagos/Nuevo" class="btn btn-primary">Registrar pago</a>
-            <a asp-page="/Pagos/Pendientes" class="btn btn-outline-warning ms-2">Ver deudas</a>
+        <div class="header-actions">
+            <a class="secondary-btn" asp-page="Pendientes"><i class="bi bi-exclamation-diamond"></i> Ver deudas</a>
+            @if (Usuario.Puede(Permisos.PagosCrear))
+            {
+            <a class="primary-btn" asp-page="Nuevo"><i class="bi bi-plus-lg"></i> Registrar pago</a>
+            }
         </div>
     </div>
 
-    <div class="card shadow-sm">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Fecha</th>
-                        <th>DNI</th>
-                        <th>Socio</th>
-                        <th class="text-end">Importe</th>
-                        <th>Medio</th>
-                        <th>Observaciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                @if (Model.Items.Count == 0)
-                {
-                    <tr>
-                        <td colspan="6" class="text-center text-muted py-4">No hay pagos registrados</td>
-                    </tr>
-                }
-                else
-                {
-                    foreach (var p in Model.Items)
+    @if (TempData["PagoOk"] is string okMsg)
+    {
+        <div class="flash success" role="status"><i class="bi bi-check-circle-fill"></i> @okMsg</div>
+    }
+
+    <div class="stats-grid">
+        <partial name="Components/_StatCard" model='new StatCardVm("Recaudación del mes", SocioPresentacion.Dinero(c.Mes), "bi-cash-stack", "success", $"{c.PagosMes} pagos")' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Pagos pendientes", m.Morosos.ToString(), "bi-hourglass-split", "warning", m.Morosos > 0 ? SocioPresentacion.Dinero(m.SaldoPendiente) : null, m.Morosos > 0 ? Url.Page("Pendientes") : null)' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Cuotas vencidas", m.Vencidos.Count.ToString(), "bi-exclamation-triangle", "danger")' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Pagos del día", c.PagosHoy.ToString(), "bi-calendar-check", "primary", c.PagosHoy > 0 ? SocioPresentacion.Dinero(c.Hoy) : null)' />
+    </div>
+
+    @* ============ ALERTAS Y VENCIMIENTOS ============ *@
+    <div class="alert-cards">
+        <partial name="Components/_AlertCard" model='new AlertCardVm("danger", "bi-x-octagon", "Pagos vencidos", m.Vencidos.Count,
+            m.Vencidos.Count == 0 ? "No hay membresías vencidas sin renovar." : "Membresías vencidas que necesitan renovación.",
+            m.Vencidos.Take(3).Select(Item).ToList())' />
+        <partial name="Components/_AlertCard" model='new AlertCardVm("warning", "bi-alarm", "Próximos vencimientos", m.PorVencer.Count,
+            $"Vencen en los próximos {SociosConsultas.DiasAvisoVencimiento} días.",
+            m.PorVencer.Take(3).Select(Item).ToList(),
+            m.PorVencer.Count > 0 ? "Ver todos" : null, Url.Page("/Socios/Socios", new { f = "porvencer" }))' />
+        <partial name="Components/_AlertCard" model='new AlertCardVm("success", "bi-patch-check", "Pagos al día", m.AlDia,
+            m.Activos == 0 ? "Todavía no hay membresías vigentes." : $"{pctAlDia}% de las membresías vigentes no tiene saldo pendiente.",
+            Array.Empty<AlertCardItem>(), "Ver socios activos", Url.Page("/Socios/Socios", new { f = "activo" }))' />
+    </div>
+
+    @* ============ LISTADO ============ *@
+    <div class="data-card">
+        <div class="toolbar">
+            <div class="toolbar-group">
+                <label class="search-input" aria-label="Buscar pagos">
+                    <i class="bi bi-search"></i>
+                    <input type="search" placeholder="Socio, DNI, plan, referencia…" data-table-filter="#tablaPagos" />
+                    <kbd>/</kbd>
+                </label>
+            </div>
+            <div class="toolbar-group">
+                <div class="filter-chips" role="group" aria-label="Filtrar por período" data-table-facet="#tablaPagos" data-facet="periodo" data-facet-mode="tokens">
+                    <button type="button" class="filter-chip active" data-value="">Todos</button>
+                    <button type="button" class="filter-chip" data-value="hoy">Hoy <span class="count">@c.PagosHoy</span></button>
+                    <button type="button" class="filter-chip" data-value="mes">Este mes</button>
+                </div>
+                <select class="form-select" aria-label="Filtrar por método de pago" data-table-facet="#tablaPagos" data-facet="medio">
+                    <option value="">Todos los métodos</option>
+                    @foreach (var medio in Enum.GetValues<MedioPago>())
                     {
-                        <tr>
-                            <td>@p.FechaPago.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
-                            <td>@p.Socio?.Dni</td>
-                            <td>@(p.Socio is null ? "-" : $"{p.Socio.Apellido}, {p.Socio.Nombre}")</td>
-                            <td class="text-end">$ @p.Importe @p.Moneda</td>
-                            <td>@p.Medio</td>
-                            <td>@p.Observaciones</td>
-                        </tr>
+                        <option value="@medio">@medio.Texto()</option>
                     }
-                }
-                </tbody>
-            </table>
+                </select>
+                <select class="form-select" aria-label="Filtrar por estado" data-table-facet="#tablaPagos" data-facet="estado">
+                    <option value="">Todos los estados</option>
+                    <option value="@EstadoCobro.Pagado">@EstadoCobro.Pagado.Texto()</option>
+                    <option value="@EstadoCobro.Parcial">@EstadoCobro.Parcial.Texto()</option>
+                    <option value="@EstadoCobro.Anulado">@EstadoCobro.Anulado.Texto()</option>
+                </select>
+            </div>
         </div>
+
+        @if (Model.Items.Count == 0)
+        {
+            <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-cash-coin", "Todavía no hay pagos", "Registrá el primer cobro para emitir su comprobante y llevar la cuenta del socio.", "Registrar pago", Url.Page("Nuevo"))' />
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="data-table stack-sm" id="tablaPagos" data-sortable>
+                    <thead>
+                        <tr>
+                            <th data-sort="num">Fecha</th>
+                            <th data-sort="text">Socio</th>
+                            <th data-sort="text">Plan</th>
+                            <th>Método</th>
+                            <th data-sort="num" class="text-end">Importe</th>
+                            <th>Estado</th>
+                            <th data-sort="text">Registró</th>
+                            <th class="text-end"><span class="visually-hidden">Acciones</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in Model.Items)
+                        {
+                            var local = p.FechaPago.ToLocalTime();
+                            var estado = p.Estado(Model.PagadoPorPeriodo);
+                            var periodo = "todos" + (local.Date == hoy ? " hoy" : "") + (local.Year == hoy.Year && local.Month == hoy.Month ? " mes" : "");
+                            <tr data-search="@($"{p.Socio?.Apellido} {p.Socio?.Nombre} {p.Socio?.Dni} {p.Concepto()} {p.ReferenciaExterna} {p.Observaciones} {p.Numero()} {p.UsuarioCajero}")"
+                                data-periodo="@periodo" data-medio="@p.Medio" data-estado="@estado" class="@(p.Anulado ? "row-anulado" : "")">
+                                <td data-label="Fecha" class="num" data-sort-value="@p.FechaPago.Ticks">
+                                    @local.ToString("dd/MM/yyyy")
+                                    <small class="d-block text-soft">@local.ToString("HH:mm")</small>
+                                </td>
+                                <td class="cell-main" data-label="Socio" data-sort-value="@($"{p.Socio?.Apellido} {p.Socio?.Nombre}")">
+                                    @if (p.Socio is { } s)
+                                    {
+                                        <div class="person-cell">
+                                            <partial name="Components/_Avatar" model='new AvatarVm(s.FotoUrl, s.Iniciales, "sm", s.NombreCompleto)' />
+                                            <div class="person-cell__copy">
+                                                <a asp-page="/Socios/Detalle" asp-route-id="@s.Id" asp-fragment="tab-pagos">@s.Apellido, @s.Nombre</a>
+                                                <small>DNI @s.Dni</small>
+                                            </div>
+                                        </div>
+                                    }
+                                    else { <text>—</text> }
+                                </td>
+                                <td data-label="Plan">
+                                    @(p.SocioPlan?.Plan?.Nombre ?? "Pago a cuenta")
+                                    @if (!string.IsNullOrEmpty(p.Observaciones))
+                                    {
+                                        <i class="bi bi-chat-left-text text-soft ms-1" data-bs-toggle="tooltip" title="@p.Observaciones"></i>
+                                    }
+                                </td>
+                                <td data-label="Método" class="text-nowrap">
+                                    <i class="bi @p.Medio.Icono() text-soft"></i> @p.Medio.Texto()
+                                    @if (!string.IsNullOrEmpty(p.ReferenciaExterna)) { <small class="d-block text-soft">Ref. @p.ReferenciaExterna</small> }
+                                </td>
+                                <td data-label="Importe" class="text-end num fw-semibold" data-sort-value="@p.Importe.ToString(System.Globalization.CultureInfo.InvariantCulture)">@SocioPresentacion.Dinero(p.Importe, p.Moneda)</td>
+                                <td data-label="Estado">
+                                    <span class="status-pill @estado.Variante()" data-bs-toggle="@(p.Anulado ? "tooltip" : null)" title="@(p.Anulado ? $"Anulado por {p.UsuarioAnulo}: {p.MotivoAnulacion}" : null)">@estado.Texto()</span>
+                                </td>
+                                <td data-label="Registró" data-sort-value="@p.UsuarioCajero">
+                                    @if (p.UsuarioCajero is { } cajero)
+                                    {
+                                        <span class="audit-user" data-bs-toggle="tooltip" title="Registrado por @cajero el @local.ToString("dd/MM/yyyy") a las @local.ToString("HH:mm")"><i class="bi bi-person-check"></i> @cajero</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="audit-user muted" data-bs-toggle="tooltip" title="Pago anterior a la trazabilidad de cobros"><i class="bi bi-dash-circle"></i> Sin registro</span>
+                                    }
+                                </td>
+                                <td class="cell-actions text-end">
+                                    <div class="row-actions">
+                                        <a class="icon-btn d-none d-md-inline-grid" asp-page="Recibo" asp-route-id="@p.Id" data-bs-toggle="tooltip" title="Ver detalle"><i class="bi bi-eye"></i></a>
+                                        <div class="dropdown">
+                                            <button class="icon-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Más acciones">
+                                                <i class="bi bi-three-dots-vertical"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li><a class="dropdown-item" asp-page="Recibo" asp-route-id="@p.Id"><i class="bi bi-eye"></i> Ver detalle</a></li>
+                                                <li><a class="dropdown-item" asp-page="Recibo" asp-route-id="@p.Id" asp-route-imprimir="true" target="_blank"><i class="bi bi-printer"></i> Imprimir recibo</a></li>
+                                                @if (p.Socio is not null)
+                                                {
+                                                    <li><hr class="dropdown-divider" /></li>
+                                                    <li><a class="dropdown-item" asp-page="/Socios/Detalle" asp-route-id="@p.SocioId" asp-fragment="tab-pagos"><i class="bi bi-clock-history"></i> Historial del socio</a></li>
+                                                    @if (Usuario.Puede(Permisos.PagosCrear))
+                                                    {
+                                                    <li><a class="dropdown-item" asp-page="Nuevo" asp-route-socioId="@p.SocioId"><i class="bi bi-cash-coin"></i> Nuevo pago del socio</a></li>
+                                                    }
+                                                }
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        <tr data-filter-empty hidden>
+                            <td colspan="8">
+                                <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-search", "Sin resultados", "Probá con otro término o quitá los filtros activos.")' />
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="data-card__foot">
+                <span>Mostrando <strong data-filter-count="#tablaPagos">@Model.Items.Count</strong> de @Model.Items.Count · últimos 200 pagos</span>
+                <span class="d-none d-md-inline">Tip: hacé clic en un encabezado para ordenar · <kbd>/</kbd> para buscar</span>
+            </div>
+        }
     </div>
 </section>
