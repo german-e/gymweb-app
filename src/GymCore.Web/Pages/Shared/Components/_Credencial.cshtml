@@ -1,12 +1,23 @@
 @model GymCore.Web.Componentes.CredencialVm
-@inject Microsoft.Extensions.Configuration.IConfiguration Config
+@inject GymCore.Web.Marca.ServicioBranding Marca
 @{
-    var gimnasio = Config["Gimnasio:Nombre"] ?? "GymCore";
+    var marca = await Marca.ActualAsync();
+    var gimnasio = marca.Nombre;
 }
 @* El código de barras se dibuja en el cliente (components.js → JsBarcode, CODE128) con el código del sistema. *@
 <article class="credencial @Model.Variante @(Model.Mini ? "credencial-mini" : "")" id="@Model.Id" aria-label="Credencial de @Model.NombreCompleto">
     <div class="credencial__top">
-        <span class="credencial__brand"><i class="bi bi-lightning-charge-fill"></i> @gimnasio</span>
+        <span class="credencial__brand">
+            @if (marca.Isotipo is { } iso)
+            {
+                <img class="credencial__logo" src="@iso" alt="" />
+            }
+            else
+            {
+                <i class="bi bi-lightning-charge-fill"></i>
+            }
+            <span class="credencial__brand-nombre">@gimnasio</span>
+        </span>
         <span class="credencial__estado">@Model.EstadoTexto</span>
     </div>
     <div class="credencial__body">
@@ -36,4 +47,8 @@
     <div class="credencial__codigo">
         <svg data-barcode="@Model.Codigo" role="img" aria-label="Código de barras @Model.Codigo"></svg>
     </div>
+    @if (!Model.Mini)
+    {
+        <div class="credencial__pie">@marca.TextoCredencial@(string.IsNullOrEmpty(marca.Contacto) ? "" : " · " + marca.Contacto)</div>
+    }
 </article>

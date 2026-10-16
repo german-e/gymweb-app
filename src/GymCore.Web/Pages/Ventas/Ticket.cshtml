@@ -4,10 +4,12 @@
 @model GymCore.Web.Pages.Ventas.TicketModel
 @inject IUsuarioActual Usuario
 @inject Microsoft.Extensions.Configuration.IConfiguration Config
+@inject GymCore.Web.Marca.ServicioBranding Marca
 @{
     var v = Model.Venta;
     ViewData["Title"] = $"Ticket {v.Numero}";
-    var gimnasio = Config["Gimnasio:Nombre"] ?? "GymCore";
+    var marcaGym = await Marca.ActualAsync();
+    var gimnasio = marcaGym.Nombre;
     var local = v.Fecha.ToLocalTime();
     var cliente = GymCore.Web.Comercial.ServicioVentas.Cliente(v, v.Socio);
     var puedeAnular = !v.Anulada && Usuario.Puede(Permisos.VentasAnular);
@@ -66,7 +68,9 @@
         <article class="thermal-ticket @(v.Anulada ? "is-anulado" : "")" id="ticket" aria-label="Ticket @v.Numero">
             @if (v.Anulada) { <div class="thermal-ticket__void" aria-hidden="true">ANULADA</div> }
             <header class="thermal-ticket__head">
+                @if (marcaGym.Logo is { } logoT) { <img class="thermal-ticket__logo" src="@logoT" alt="" /> }
                 <strong>@gimnasio</strong>
+                @if (!string.IsNullOrEmpty(marcaGym.Contacto)) { <small>@marcaGym.Contacto</small> }
                 <small>Comprobante no válido como factura</small>
             </header>
             <dl class="thermal-ticket__meta">

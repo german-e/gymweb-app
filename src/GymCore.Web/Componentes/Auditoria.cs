@@ -117,6 +117,11 @@ public static class EventoPresentacion
         TipoEventoSistema.StockAjustado => ("Movimiento de stock", "bi-arrow-left-right", "warning"),
         TipoEventoSistema.VentaRealizada => ("Venta realizada", "bi-cart-check", "success"),
         TipoEventoSistema.VentaAnulada => ("Venta anulada", "bi-cart-x", "danger"),
+        TipoEventoSistema.BrandingModificado => ("Identidad visual modificada", "bi-palette", "primary"),
+        TipoEventoSistema.KioscoConfigurado => ("Kiosco configurado", "bi-display", "info"),
+        TipoEventoSistema.AvisoCreado => ("Aviso de recepción creado", "bi-megaphone", "success"),
+        TipoEventoSistema.AvisoEditado => ("Aviso de recepción modificado", "bi-megaphone", "primary"),
+        TipoEventoSistema.AvisoEliminado => ("Aviso de recepción eliminado", "bi-trash", "danger"),
         _ => (t.ToString(), "bi-dot", "muted")
     };
 
@@ -132,6 +137,8 @@ public static class EventoPresentacion
         EntidadAuditada.Producto => "Producto",
         EntidadAuditada.Venta => "Venta",
         EntidadAuditada.Categoria => "Categoría",
+        EntidadAuditada.Configuracion => "Configuración",
+        EntidadAuditada.Aviso => "Aviso",
         _ => e.ToString()
     };
 
@@ -150,6 +157,8 @@ public static class EventoPresentacion
             EntidadAuditada.Producto => url.Page("/Ventas/Productos/Detalle", new { id }),
             EntidadAuditada.Venta => url.Page("/Ventas/Ticket", new { id }),
             EntidadAuditada.Categoria => url.Page("/Ventas/Categorias"),
+            EntidadAuditada.Configuracion => url.Page("/Configuracion/Branding"),
+            EntidadAuditada.Aviso => ev.Tipo == TipoEventoSistema.AvisoEliminado ? null : url.Page("/Configuracion/Recepcion"),
             _ => null
         };
     }

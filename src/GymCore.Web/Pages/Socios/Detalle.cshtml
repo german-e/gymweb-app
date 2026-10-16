@@ -6,11 +6,13 @@
 @model GymCore.Web.Pages.Socios.DetalleModel
 @inject IUsuarioActual Usuario
 @inject Microsoft.Extensions.Configuration.IConfiguration Config
+@inject GymCore.Web.Marca.ServicioBranding Marca
 @{
     var s = Model.Socio;
     var r = Model.R;
     ViewData["Title"] = s.NombreCompleto;
-    var gimnasio = Config["Gimnasio:Nombre"] ?? "GymCore";
+    var marcaGym = await Marca.ActualAsync();
+    var gimnasio = marcaGym.Nombre;
     var numero = SocioPresentacion.Numero(s.NumeroVisible);
     var edad = EntrenadorPresentacion.Edad(s.FechaNacimiento);
     var ent = r.Entrenador;

@@ -4,12 +4,14 @@
 @model GymCore.Web.Pages.Pagos.ReciboModel
 @inject IUsuarioActual Usuario
 @inject Microsoft.Extensions.Configuration.IConfiguration Config
+@inject GymCore.Web.Marca.ServicioBranding Marca
 @{
     var p = Model.Pago;
     var s = p.Socio;
     var numero = p.Numero();
     ViewData["Title"] = $"Pago {numero}";
-    var gimnasio = Config["Gimnasio:Nombre"] ?? "GymCore";
+    var marcaGym = await Marca.ActualAsync();
+    var gimnasio = marcaGym.Nombre;
     var plan = p.SocioPlan?.Plan;
     var local = p.FechaPago.ToLocalTime();
     var estado = p.Estado(Model.PagadoPorPeriodo);
@@ -68,7 +70,7 @@
             @if (p.Anulado) { <div class="receipt__void" aria-hidden="true">ANULADO</div> }
             <header class="receipt__head">
                 <div class="d-flex gap-3 align-items-center">
-                    <div class="brand-mark"><i class="bi bi-lightning-charge-fill"></i></div>
+                    <partial name="_MarcaIsotipo" model="marcaGym" />
                     <div>
                         <strong class="fs-5">@gimnasio</strong>
                         <div class="small text-muted">Comprobante de pago · no válido como factura</div>

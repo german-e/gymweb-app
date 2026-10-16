@@ -3,7 +3,11 @@
 @using GymCore.Web.Pages.Socios
 @model GymCore.Web.Pages.PanelModel
 @inject IUsuarioActual Usuario
+@inject GymCore.Web.Marca.ServicioBranding Marca
 @{
+    var marca = await Marca.ActualAsync();
+    var hora = DateTime.Now.Hour;
+    var saludo = hora < 12 ? "Buen día" : hora < 20 ? "Buenas tardes" : "Buenas noches";
     ViewData["Title"] = "Panel de gestión";
     var c = Model.Cobranza;
     var m = Model.Membresias;
@@ -18,7 +22,7 @@
 <section class="page-shell">
     <div class="page-header">
         <div>
-            <span class="eyebrow"><i class="bi bi-graph-up-arrow"></i> Gestión general</span>
+            <span class="eyebrow eyebrow--marca"><partial name="_MarcaIsotipo" model="marca" /> @marca.Nombre · @saludo, @Usuario.Nombre.Split(' ')[0]</span>
             <h2>Panel de gestión</h2>
             <p>Indicadores del día, cobranza y vencimientos, calculados con los datos actuales del gimnasio.</p>
         </div>

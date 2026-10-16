@@ -1,0 +1,127 @@
+/* ==========================================================================
+   Kiosco de ingreso (pantalla completa, sin navegación). Usa la paleta del gimnasio.
+   Estados con color + ícono + texto: verde autorizado · naranja restringido · rojo denegado.
+   ========================================================================== */
+.kiosco-body { margin: 0; background: #0b1222; color: #fff; font-family: 'Inter', 'Segoe UI', sans-serif; overflow: hidden; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+.kiosco { position: fixed; inset: 0; display: grid; font-size: clamp(14px, 1.1vw + 0.6vh, 22px); }
+.kiosco.sin-cursor, .kiosco.sin-cursor * { cursor: none; }
+.kiosco [hidden] { display: none !important; }
+
+/* ---------- Listo para escanear ---------- */
+.kiosco-listo {
+  position: relative; display: grid; grid-template-rows: auto 1fr auto; min-height: 100%; padding: clamp(18px, 4vh, 48px) clamp(18px, 4vw, 64px);
+  background:
+    radial-gradient(1200px 600px at 85% -10%, rgb(var(--primary-rgb) / 0.45), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgb(var(--secondary-rgb) / 0.4), transparent 60%),
+    linear-gradient(180deg, #0f172a, #0b1222);
+}
+.kiosco-listo::before { content: ''; position: absolute; inset: 0; background: var(--kiosco-fondo, none) center / cover no-repeat; opacity: 0.16; pointer-events: none; }
+.kiosco-listo > * { position: relative; }
+.kiosco-marca { display: flex; align-items: center; justify-content: center; gap: 0.8em; min-height: 3.2em; }
+/* Placa clara: cualquier logo (oscuro o claro, con transparencia) se lee sobre el fondo del kiosco */
+.kiosco-marca__logo { max-height: clamp(56px, 12vh, 120px); max-width: min(60vw, 520px); object-fit: contain; padding: 10px 20px; border-radius: 20px; background: rgba(255, 255, 255, 0.94); box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35); }
+.kiosco-marca__iso { display: grid; place-items: center; width: 2.6em; height: 2.6em; border-radius: 0.7em; background: linear-gradient(135deg, var(--primary), var(--secondary)); font-size: 1.4em; }
+.kiosco-marca__nombre { font-size: clamp(1.6rem, 3vw, 2.6rem); letter-spacing: -0.03em; }
+
+.kiosco-centro { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 0.9em; }
+.kiosco-centro h1 { margin: 0.2em 0 0; font-size: clamp(2.2rem, 5.2vw, 4.8rem); font-weight: 800; letter-spacing: -0.04em; line-height: 1.05; }
+.kiosco-sub { margin: 0; font-size: clamp(1rem, 1.6vw, 1.5rem); color: rgba(226, 232, 240, 0.78); }
+.kiosco-scan { position: relative; display: grid; place-items: center; width: clamp(140px, 20vh, 220px); aspect-ratio: 1; border-radius: 28%; background: rgba(255, 255, 255, 0.06); border: 2px solid rgba(255, 255, 255, 0.14); box-shadow: 0 0 0 12px rgb(var(--primary-rgb) / 0.12), 0 30px 60px rgba(0, 0, 0, 0.35); overflow: hidden; }
+.kiosco-scan i { font-size: clamp(70px, 11vh, 120px); color: #fff; opacity: 0.92; }
+.kiosco-scan__laser { position: absolute; left: 12%; right: 12%; height: 3px; border-radius: 3px; background: #f43f5e; box-shadow: 0 0 14px 3px rgba(244, 63, 94, 0.75); animation: kiosco-laser 2.2s ease-in-out infinite; }
+@keyframes kiosco-laser { 0%, 100% { top: 22%; } 50% { top: 76%; } }
+.kiosco-estado { display: inline-flex; align-items: center; gap: 0.55em; margin-top: 0.4em; padding: 0.55em 1.2em; border-radius: 999px; background: rgba(34, 197, 94, 0.14); border: 1px solid rgba(74, 222, 128, 0.4); color: #bbf7d0; font-weight: 700; font-size: clamp(0.95rem, 1.3vw, 1.25rem); }
+.kiosco-estado__punto { width: 0.7em; height: 0.7em; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6); animation: kiosco-pulso 1.6s infinite; }
+.kiosco-estado.is-busy { background: rgba(245, 158, 11, 0.16); border-color: rgba(251, 191, 36, 0.45); color: #fde68a; }
+.kiosco-estado.is-busy .kiosco-estado__punto { background: #f59e0b; }
+@keyframes kiosco-pulso { 0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6); } 70% { box-shadow: 0 0 0 14px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
+/* El campo del lector está siempre enfocado pero no ocupa lugar visual */
+.kiosco-captura { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
+.kiosco-captura input { font-size: 16px; }
+.kiosco-dni { margin-top: 1.4em; min-height: 56px; padding: 0.8em 1.6em; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.08); color: #e2e8f0; font-size: clamp(1rem, 1.3vw, 1.2rem); font-weight: 600; }
+.kiosco-dni:active { background: rgba(255, 255, 255, 0.16); }
+.kiosco-dni i { margin-right: 0.4em; }
+
+.kiosco-pie { display: flex; justify-content: space-between; align-items: flex-end; gap: 1em; color: rgba(226, 232, 240, 0.7); font-size: 0.9em; }
+.kiosco-reloj { display: flex; flex-direction: column; line-height: 1.1; }
+.kiosco-reloj strong { font-size: clamp(1.8rem, 3vw, 2.8rem); color: #fff; font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+.kiosco-pie__marca { text-align: right; max-width: 60%; }
+
+/* ---------- Resultado ---------- */
+.kiosco-resultado { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: clamp(14px, 3vh, 40px); --estado: #16a34a; --estado-2: #15803d; background: linear-gradient(160deg, var(--estado), var(--estado-2)); animation: kiosco-in 0.22s ease both; cursor: pointer; }
+.is-restringido .kiosco-resultado { --estado: #ea580c; --estado-2: #c2410c; }
+.is-denegado .kiosco-resultado { --estado: #dc2626; --estado-2: #991b1b; }
+@keyframes kiosco-in { from { opacity: 0; transform: scale(1.02); } to { opacity: 1; transform: none; } }
+.kiosco-resultado__panel { width: min(1180px, 100%); display: flex; flex-direction: column; align-items: center; gap: clamp(14px, 3vh, 34px); text-align: center; }
+.kiosco-resultado__titulo { display: flex; align-items: center; gap: 0.4em; }
+.kiosco-resultado__titulo i { font-size: clamp(3rem, 7vw, 6rem); }
+.kiosco-resultado__titulo h2 { margin: 0; font-size: clamp(2.2rem, 6vw, 5.4rem); font-weight: 800; letter-spacing: -0.02em; line-height: 1; }
+.kiosco-resultado__cuerpo { display: flex; align-items: center; gap: clamp(18px, 4vw, 56px); text-align: left; background: rgba(0, 0, 0, 0.16); border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 32px; padding: clamp(16px, 3.4vh, 40px) clamp(18px, 3vw, 48px); width: 100%; }
+.kiosco-foto { flex: 0 0 auto; width: clamp(150px, 30vh, 320px); aspect-ratio: 1; border-radius: 28px; overflow: hidden; display: grid; place-items: center; background: rgba(255, 255, 255, 0.2); border: 4px solid rgba(255, 255, 255, 0.85); box-shadow: 0 24px 50px rgba(0, 0, 0, 0.28); font-size: clamp(3.5rem, 9vh, 7rem); font-weight: 800; }
+.kiosco-foto img { width: 100%; height: 100%; object-fit: cover; }
+.kiosco-resultado__datos { min-width: 0; display: flex; flex-direction: column; gap: 0.4em; }
+.kiosco-resultado__nombre { font-size: clamp(1.8rem, 4.2vw, 3.8rem); line-height: 1.05; letter-spacing: -0.03em; overflow-wrap: anywhere; }
+.kiosco-resultado__mensaje { margin: 0; font-size: clamp(1.15rem, 2.2vw, 2rem); font-weight: 600; opacity: 0.95; }
+.kiosco-resultado__dl { margin: 0.4em 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8em 2.2em; }
+.kiosco-resultado__dl div { min-width: 0; }
+.kiosco-resultado__dl dt { font-size: 0.82em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.78; }
+.kiosco-resultado__dl dd { margin: 0; font-size: clamp(1.1rem, 1.9vw, 1.8rem); font-weight: 700; overflow-wrap: anywhere; }
+.kiosco-resultado__nota { margin: 0.4em 0 0; font-size: clamp(1.1rem, 2vw, 1.9rem); font-weight: 800; }
+.kiosco-resultado__nota:empty { display: none; }
+.kiosco-resultado__progreso { width: min(480px, 70%); height: 8px; border-radius: 8px; background: rgba(255, 255, 255, 0.25); overflow: hidden; }
+.kiosco-resultado__progreso span { display: block; height: 100%; width: 100%; background: #fff; }
+.kiosco-resultado__tocar { opacity: 0.8; font-size: 0.95em; }
+
+/* ---------- Teclado en pantalla ---------- */
+.kiosco-teclado { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: rgba(2, 6, 23, 0.78); backdrop-filter: blur(6px); padding: 16px; }
+.kiosco-teclado__caja { width: min(440px, 100%); display: flex; flex-direction: column; gap: 14px; padding: 24px; border-radius: 28px; background: #0f172a; border: 1px solid rgba(148, 163, 184, 0.25); box-shadow: 0 40px 80px rgba(0, 0, 0, 0.45); text-align: center; }
+.kiosco-teclado__caja h2 { margin: 0; font-size: 1.5rem; }
+.kiosco-teclado__display { display: block; min-height: 1.6em; padding: 10px; border-radius: 16px; background: rgba(255, 255, 255, 0.07); font-size: 2.2rem; font-weight: 800; letter-spacing: 0.06em; font-variant-numeric: tabular-nums; }
+.kiosco-teclado__teclas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.kiosco-teclado__teclas button { min-height: clamp(62px, 9vh, 86px); border-radius: 18px; border: 1px solid rgba(148, 163, 184, 0.25); background: rgba(255, 255, 255, 0.08); color: #fff; font-size: 1.8rem; font-weight: 700; }
+.kiosco-teclado__teclas button:active { background: rgba(255, 255, 255, 0.2); transform: scale(0.97); }
+.kiosco-teclado__teclas .ok { background: #16a34a; border-color: #16a34a; }
+.kiosco-teclado__cancelar { min-height: 52px; border: 0; border-radius: 14px; background: transparent; color: #cbd5e1; font-size: 1.1rem; font-weight: 600; }
+
+/* ---------- Pantalla de espera ---------- */
+.kiosco-espera { position: fixed; inset: 0; z-index: 10; display: grid; grid-template-rows: 1fr auto; background: #0b1222; }
+.kiosco-espera__slide { position: relative; display: grid; grid-template-columns: 1.3fr 1fr; align-items: center; gap: 4vw; padding: 6vh 6vw 2vh; }
+.kiosco-espera__slide.sin-imagen { grid-template-columns: 1fr; text-align: center; background: radial-gradient(900px 500px at 50% 0%, rgb(var(--primary-rgb) / 0.5), transparent 70%); }
+.kiosco-espera__slide.entra { animation: kiosco-slide 0.6s ease both; }
+@keyframes kiosco-slide { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.kiosco-espera__img { width: 100%; max-height: 70vh; object-fit: cover; border-radius: 32px; box-shadow: 0 30px 70px rgba(0, 0, 0, 0.45); }
+.kiosco-espera__texto { display: flex; flex-direction: column; gap: 0.6em; }
+.kiosco-espera__tipo { align-self: flex-start; padding: 0.35em 0.9em; border-radius: 999px; background: var(--primary); color: var(--on-primary); font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.85em; }
+.sin-imagen .kiosco-espera__tipo { align-self: center; }
+.kiosco-espera__texto h2 { margin: 0; font-size: clamp(2.2rem, 5vw, 4.6rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; }
+.kiosco-espera__texto p { margin: 0; font-size: clamp(1.15rem, 2vw, 2rem); color: rgba(226, 232, 240, 0.85); }
+.kiosco-espera__fecha { font-size: clamp(1.1rem, 1.8vw, 1.7rem); font-weight: 700; color: #fde68a; }
+.kiosco-espera__pie { display: flex; align-items: center; gap: 14px; padding: 16px 6vw 22px; color: rgba(226, 232, 240, 0.85); font-size: 1.05em; }
+.kiosco-espera__pie img { height: 44px; width: 44px; object-fit: contain; border-radius: 12px; background: #fff; padding: 4px; }
+.kiosco-espera__puntos { margin-left: auto; display: flex; gap: 8px; }
+.kiosco-espera__puntos span { width: 10px; height: 10px; border-radius: 50%; background: rgba(255, 255, 255, 0.3); }
+.kiosco-espera__puntos span.activo { background: #fff; }
+
+/* ---------- Controles del personal ---------- */
+.kiosco-controles { position: fixed; z-index: 40; top: 14px; right: 14px; display: flex; gap: 8px; opacity: 0.35; transition: opacity 0.2s; }
+.kiosco-controles:hover, .kiosco-controles:focus-within { opacity: 1; }
+.kiosco-controles button, .kiosco-controles a { position: relative; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(15, 23, 42, 0.6); color: #fff; font-size: 1.15rem; text-decoration: none; }
+.kiosco-salir__anillo { position: absolute; inset: -3px; border-radius: 16px; border: 3px solid #f43f5e; clip-path: inset(0 100% 0 0); }
+.presionando .kiosco-salir__anillo { animation: kiosco-salir 1.5s linear forwards; }
+@keyframes kiosco-salir { to { clip-path: inset(0 0 0 0); } }
+
+/* ---------- Tamaños de pantalla ---------- */
+@media (max-width: 900px), (orientation: portrait) {
+  .kiosco-resultado__cuerpo { flex-direction: column; text-align: center; }
+  .kiosco-resultado__dl { grid-template-columns: 1fr 1fr; text-align: left; }
+  .kiosco-espera__slide { grid-template-columns: 1fr; text-align: center; }
+  .kiosco-espera__tipo { align-self: center; }
+  .kiosco-pie__marca { display: none; }
+}
+@media (max-height: 700px) {
+  .kiosco-scan { width: 120px; }
+  .kiosco-dni { margin-top: 0.6em; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kiosco-scan__laser, .kiosco-estado__punto, .kiosco-resultado, .kiosco-espera__slide.entra { animation: none; }
+}

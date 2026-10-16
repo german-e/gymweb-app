@@ -1,0 +1,53 @@
+@page
+@model GymCore.Web.Pages.Configuracion.IndexModel
+@inject IUsuarioActual Usuario
+@{
+    ViewData["Title"] = "Configuración";
+    var m = Model.Marca;
+}
+
+<section class="page-shell">
+    <div class="page-header">
+        <div>
+            <span class="eyebrow"><i class="bi bi-sliders"></i> Administración</span>
+            <h2>Configuración</h2>
+            <p>Identidad del gimnasio y experiencia de la recepción.</p>
+        </div>
+    </div>
+
+    <div class="config-grid">
+        <a class="config-card" asp-page="Branding">
+            <span class="config-card__marca" style="background: linear-gradient(135deg, @m.Primario.Hex, @m.Secundario.Hex)">
+                @if (m.Isotipo is { } iso) { <img src="@iso" alt="" /> } else { <i class="bi bi-palette"></i> }
+            </span>
+            <span class="config-card__copy">
+                <strong>Branding</strong>
+                <small>Nombre comercial, logos, favicon, colores y datos de contacto.</small>
+                <span class="config-card__estado"><i class="bi bi-building"></i> @m.Nombre @(m.EsPaletaPorDefecto ? "· colores originales" : "· colores propios")</span>
+            </span>
+            <i class="bi bi-chevron-right config-card__ir"></i>
+        </a>
+        <a class="config-card" asp-page="Recepcion">
+            <span class="config-card__marca neutro"><i class="bi bi-display"></i></span>
+            <span class="config-card__copy">
+                <strong>Recepción y kiosco</strong>
+                <small>Pantalla de autoservicio de ingreso, tiempos, sonido y avisos que rotan.</small>
+                <span class="config-card__estado"><i class="bi bi-megaphone"></i> @Model.AvisosVigentes @(Model.AvisosVigentes == 1 ? "aviso vigente" : "avisos vigentes") · pantalla de espera @(m.Kiosco.PantallaEspera ? "activa" : "desactivada")</span>
+            </span>
+            <i class="bi bi-chevron-right config-card__ir"></i>
+        </a>
+        @if (Usuario.Puede(Permisos.UsuariosAdministrar))
+        {
+            <a class="config-card" asp-page="/Administracion/Usuarios/Index">
+                <span class="config-card__marca neutro"><i class="bi bi-person-gear"></i></span>
+                <span class="config-card__copy"><strong>Usuarios</strong><small>Personal con acceso al sistema.</small></span>
+                <i class="bi bi-chevron-right config-card__ir"></i>
+            </a>
+            <a class="config-card" asp-page="/Administracion/Roles/Index">
+                <span class="config-card__marca neutro"><i class="bi bi-shield-lock"></i></span>
+                <span class="config-card__copy"><strong>Roles y permisos</strong><small>Qué puede ver y hacer cada rol.</small></span>
+                <i class="bi bi-chevron-right config-card__ir"></i>
+            </a>
+        }
+    </div>
+</section>

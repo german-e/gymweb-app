@@ -1,6 +1,6 @@
 /* Vista de impresión de reportes (PDF): misma identidad visual que la app, optimizada para A4 horizontal. */
 @page { size: A4 landscape; margin: 14mm 12mm; }
-:root { --ink: #0f172a; --soft: #64748b; --line: #e2e8f0; --brand: #2563eb; --brand-2: #4f46e5; --tint: #eef4ff; }
+:root { --ink: #0f172a; --soft: #64748b; --line: #e2e8f0; --brand: var(--primary, #2563eb); --brand-2: var(--secondary, #4f46e5); --tint: #eef4ff; }
 * { box-sizing: border-box; }
 body { margin: 0; padding: 24px; font-family: Inter, "Segoe UI", system-ui, sans-serif; color: var(--ink); background: #fff; font-size: 11px; }
 
@@ -11,6 +11,7 @@ body { margin: 0; padding: 24px; font-family: Inter, "Segoe UI", system-ui, sans
 .marca { display: flex; align-items: center; gap: 10px; }
 .marca__icono { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg, var(--brand), var(--brand-2)); font-size: 16px; }
 .marca strong { display: block; font-size: 14px; }
+.marca__logo { max-height: 40px; max-width: 160px; object-fit: contain; }
 .marca small { color: var(--soft); }
 .meta { text-align: right; }
 .meta h1 { margin: 0; font-size: 18px; letter-spacing: -0.02em; }

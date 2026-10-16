@@ -1,0 +1,13 @@
+@model GymCore.Web.Marca.Branding
+@if (Model.Favicon is { } fav)
+{
+    <link rel="icon" href="@fav" />
+}
+else if (Model.LogoReducido is { } iso)
+{
+    <link rel="icon" href="@iso" />
+}
+else
+{
+    <link rel="icon" href="~/favicon.ico" />
+}

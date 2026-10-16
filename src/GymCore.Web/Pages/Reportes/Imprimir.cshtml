@@ -3,10 +3,12 @@
 @model GymCore.Web.Pages.Reportes.ImprimirModel
 @inject IUsuarioActual Usuario
 @inject Microsoft.Extensions.Configuration.IConfiguration Config
+@inject GymCore.Web.Marca.ServicioBranding Marca
 @{
     Layout = null;
     var t = Model.Tabla;
-    var gimnasio = Config["Gimnasio:Nombre"] ?? "GymCore";
+    var marcaGym = await Marca.ActualAsync();
+    var gimnasio = marcaGym.Nombre;
 }
 <!DOCTYPE html>
 <html lang="es">
@@ -17,6 +19,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" crossorigin="anonymous">
     <link rel="stylesheet" href="~/css/reporte-impresion.css" asp-append-version="true" />
+    <partial name="_Favicon" model="marcaGym" />
+    <style>:root{@Html.Raw(marcaGym.VariablesCss)}</style>
 </head>
 <body>
     <div class="acciones no-print">
@@ -24,7 +28,7 @@
         <span>En el diálogo, elegí <strong>Guardar como PDF</strong> como destino.</span>
     </div>
     <header class="cabecera">
-        <div class="marca"><span class="marca__icono"><i class="bi bi-lightning-charge-fill"></i></span><div><strong>@gimnasio</strong><small>Inteligencia de negocio</small></div></div>
+        <div class="marca">@if (marcaGym.Logo is { } logoR) { <img class="marca__logo" src="@logoR" alt="@gimnasio" /> } else { <span class="marca__icono"><i class="bi bi-lightning-charge-fill"></i></span> }<div><strong>@gimnasio</strong><small>Inteligencia de negocio@(string.IsNullOrEmpty(marcaGym.Contacto) ? "" : " · " + marcaGym.Contacto)</small></div></div>
         <div class="meta">
             <h1>@t.Titulo</h1>
             <p>@t.Subtitulo</p>

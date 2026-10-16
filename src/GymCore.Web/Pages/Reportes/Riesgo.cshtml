@@ -3,12 +3,14 @@
 @using GymCore.Web.Pages.Socios
 @model GymCore.Web.Pages.Reportes.RiesgoModel
 @inject Microsoft.Extensions.Configuration.IConfiguration Config
+@inject GymCore.Web.Marca.ServicioBranding Marca
 @{
     ViewData["Title"] = "Riesgo de abandono";
     var r = Model.Reporte;
     var inicial = Model.Nivel?.ToLowerInvariant() is "alto" or "medio" or "bajo" ? Model.Nivel.ToLowerInvariant() : (r.Alto > 0 ? "alto" : "");
     string Chip(string v) => inicial == v ? "active" : "";
-    var gimnasio = Config["Gimnasio:Nombre"] ?? "el gimnasio";
+    var marcaGym = await Marca.ActualAsync();
+    var gimnasio = marcaGym.Nombre;
 }
 
 <section class="page-shell viz-root">

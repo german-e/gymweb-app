@@ -1,2 +1,21 @@
-﻿<script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+﻿@* jquery-validation no está en wwwroot/lib (solo su licencia): se sirve desde CDN con integridad verificada *@
+<script src="https://cdn.jsdelivr.net/npm/jquery-validation@1.21.0/dist/jquery.validate.min.js" integrity="sha384-INLNT6YPpjCRFM2xpOexEE3T4i2mIigf+Kr19b7a59RFtrVBZQzZWXkGuiMA/q1r" crossorigin="anonymous"></script>
 <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+<script>
+    // Números con coma o punto decimal (es-AR): el servidor ya los acepta; el cliente no debe rechazarlos
+    (function ($) {
+        if (!$ || !$.validator) return;
+        const aNumero = (v) => {
+            v = String(v).trim();
+            if (v.includes(',')) v = v.replace(/\./g, '').replace(',', '.');
+            return parseFloat(v);
+        };
+        $.validator.methods.number = function (v, el) {
+            return this.optional(el) || /^-?(?:\d+|\d{1,3}(?:\.\d{3})+)?(?:[.,]\d+)?$/.test(String(v).trim());
+        };
+        $.validator.methods.range = function (v, el, p) {
+            const n = aNumero(v);
+            return this.optional(el) || (n >= p[0] && n <= p[1]);
+        };
+    })(window.jQuery);
+</script>

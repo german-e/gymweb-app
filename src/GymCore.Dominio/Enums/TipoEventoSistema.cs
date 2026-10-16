@@ -63,7 +63,14 @@ public enum TipoEventoSistema
     CategoriaEditada = 805,
     StockAjustado = 806,
     VentaRealizada = 807,
-    VentaAnulada = 808
+    VentaAnulada = 808,
+
+    // Configuración del gimnasio
+    BrandingModificado = 900,
+    KioscoConfigurado = 901,
+    AvisoCreado = 902,
+    AvisoEditado = 903,
+    AvisoEliminado = 904
 }
 
 // Entidad principal afectada por el evento.
@@ -78,5 +85,7 @@ public enum EntidadAuditada
     Reporte = 7,
     Producto = 8,
     Venta = 9,
-    Categoria = 10
+    Categoria = 10,
+    Configuracion = 11,
+    Aviso = 12
 }

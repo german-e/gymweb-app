@@ -34,6 +34,8 @@ public class GymDbContext : DbContext
     public DbSet<MovimientoStock> MovimientosStock => Set<MovimientoStock>();
     public DbSet<Venta> Ventas => Set<Venta>();
     public DbSet<VentaItem> VentaItems => Set<VentaItem>();
+    public DbSet<ConfiguracionGimnasio> ConfiguracionesGimnasio => Set<ConfiguracionGimnasio>();
+    public DbSet<AvisoRecepcion> AvisosRecepcion => Set<AvisoRecepcion>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

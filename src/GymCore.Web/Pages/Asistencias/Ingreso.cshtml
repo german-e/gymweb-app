@@ -1,50 +1,72 @@
 @page
 @{
-    ViewData["Title"] = "Ingreso";
+    ViewData["Title"] = "Control de ingreso";
 }
 
-<section class="container py-5" x-data>
-    <div class="row justify-content-center">
-        <div class="col-12 col-md-8 col-lg-6">
-            <div class="card shadow-sm">
-                <div class="card-body p-4">
-                    <h1 class="h4 mb-3">Punto de ingreso</h1>
-                    <p class="text-muted">Apoye la tarjeta en el lector o ingrese el DNI y presione Enter.</p>
-                    <form id="checkin-form" class="d-flex gap-2" onsubmit="return false">
-                        <input id="code" class="form-control form-control-lg" placeholder="DNI o código" autocomplete="off" autofocus />
-                        <button id="btn-ok" class="btn btn-primary btn-lg" type="button">OK</button>
-                    </form>
-                                        <div id="feedback" class="mt-3" role="status" aria-live="polite"></div>
-                    <hr class="my-4" />
-                    <div class="d-flex gap-2">
-                        <a asp-page="/Panel" class="btn btn-outline-secondary">Volver al panel</a>
-                    </div>
+<section class="page-shell">
+    <div class="page-header">
+        <div>
+            <span class="eyebrow"><i class="bi bi-door-open"></i> Operación</span>
+            <h2>Control de ingreso</h2>
+            <p>Escaneá la credencial con el lector o ingresá el DNI y presioná Enter. El personal puede autorizar ingresos con cargo extra.</p>
+        </div>
+        <div class="header-actions">
+            <a class="secondary-btn" asp-page="/Asistencias/Semanal"><i class="bi bi-calendar-week"></i> Reporte semanal</a>
+            <a class="primary-btn" asp-page="/Kiosk/Checkin" target="_blank"><i class="bi bi-display"></i> Abrir modo kiosco</a>
+        </div>
+    </div>
+
+    <div class="ingreso-layout">
+        <div class="data-card ingreso-card">
+            <form id="checkin-form" class="ingreso-form" onsubmit="return false" autocomplete="off">
+                <label class="form-label fw-semibold" for="code">Credencial o DNI</label>
+                <div class="ingreso-form__fila">
+                    <label class="search-input ingreso-input">
+                        <i class="bi bi-upc-scan"></i>
+                        <input id="code" placeholder="Escaneá o escribí el código…" autocomplete="off" autofocus />
+                    </label>
+                    <button id="btn-ok" class="primary-btn border-0" type="button"><i class="bi bi-box-arrow-in-right"></i> Registrar</button>
+                </div>
+                <span class="ingreso-listo"><span class="kiosk-dot"></span> Listo para escanear</span>
+            </form>
+            <div id="feedback" class="ingreso-feedback" role="status" aria-live="polite" hidden>
+                <span class="ingreso-feedback__icono" data-fb-icono><i class="bi"></i></span>
+                <div class="min-w-0">
+                    <strong data-fb-nombre></strong>
+                    <span data-fb-mensaje></span>
                 </div>
             </div>
+        </div>
+
+        <div class="panel-card">
+            <div class="panel-head mb-3"><h3><i class="bi bi-clock-history text-primary"></i> Ingresos de esta sesión</h3></div>
+            <ol class="ingreso-historial" id="historial" aria-live="polite"></ol>
+            <p class="small text-soft mb-0" id="historialVacio">Todavía no se registraron ingresos desde esta pantalla.</p>
         </div>
     </div>
 </section>
 
 <!-- Modal confirmación de cargo extra -->
-<div class="modal fade" id="extraModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="extraModal" tabindex="-1" aria-labelledby="extraModalTitulo" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Cupo semanal excedido</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
-            <div class="modal-body">
-                <p>Este socio excedió su cupo semanal de asistencias.</p>
-                <p class="mb-0">¿Deseás registrar el ingreso con un cargo extra?</p>
-                <small class="text-muted">El cargo extra puede registrarse en Pagos.</small>
+            <div class="modal-body p-4">
+                <div class="d-flex gap-3">
+                    <div class="module-icon warning"><i class="bi bi-exclamation-triangle"></i></div>
+                    <div>
+                        <h5 class="mb-1" id="extraModalTitulo">Cupo semanal excedido</h5>
+                        <p class="text-muted small mb-1" id="extraTexto">Este socio excedió su cupo semanal de asistencias.</p>
+                        <p class="small mb-0">¿Registrar el ingreso con cargo extra? El cargo puede cobrarse en Pagos.</p>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="btnConfirmExtra">Registrar con cargo extra</button>
+                <button type="button" class="secondary-btn" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="primary-btn border-0" id="btnConfirmExtra">Registrar con cargo extra</button>
             </div>
         </div>
     </div>
-    </div>
+</div>
 
 @section Scripts {
 <script>
@@ -52,6 +74,8 @@
     const input = document.getElementById('code');
     const btn = document.getElementById('btn-ok');
     const fb = document.getElementById('feedback');
+    const historial = document.getElementById('historial');
+    let ultimoCodigo = '';
 
     function beep(ok) {
         try {
@@ -67,12 +91,36 @@
         } catch {}
     }
 
-    async function submit(confirmExtra = false) {
-        const code = (input.value || '').trim();
+    // Los datos del socio se insertan como texto (nunca como HTML)
+    function mostrar(tipo, nombre, mensaje) {
+        const iconos = { ok: 'bi-check-circle-fill', warn: 'bi-exclamation-triangle-fill', error: 'bi-x-octagon-fill', info: 'bi-hourglass-split' };
+        fb.hidden = false;
+        fb.className = 'ingreso-feedback is-' + tipo;
+        fb.querySelector('[data-fb-icono] i').className = 'bi ' + iconos[tipo];
+        fb.querySelector('[data-fb-nombre]').textContent = nombre || '';
+        fb.querySelector('[data-fb-mensaje]').textContent = mensaje || '';
+    }
+
+    function agregarHistorial(tipo, nombre, mensaje) {
+        const li = document.createElement('li');
+        li.className = 'is-' + tipo;
+        const hora = document.createElement('time');
+        hora.textContent = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+        const texto = document.createElement('span');
+        texto.textContent = (nombre ? nombre + ' · ' : '') + mensaje;
+        li.append(hora, texto);
+        historial.prepend(li);
+        while (historial.children.length > 12) historial.lastChild.remove();
+        document.getElementById('historialVacio').hidden = true;
+    }
+
+    async function submit(confirmExtra = false, codigo = null) {
+        const code = (codigo ?? input.value ?? '').trim();
         if (!code) return;
+        ultimoCodigo = code;
         btn.disabled = true;
         input.disabled = true;
-        fb.innerHTML = '<div class="alert alert-info">Procesando...</div>';
+        mostrar('info', '', 'Procesando…');
         try {
             const res = await fetch('/api/asistencias/checkin', {
                 method: 'POST',
@@ -80,24 +128,27 @@
                 body: JSON.stringify({ code, confirmExtra })
             });
             const data = await res.json();
+            const nombre = data.socio?.nombre || '';
             if (data.requiresExtra) {
-                const modalEl = document.getElementById('extraModal');
-                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('extraModal'));
+                document.getElementById('extraTexto').textContent = (nombre ? nombre + ': ' : '') + (data.mensaje || '');
                 modal.show();
                 document.getElementById('btnConfirmExtra').onclick = async () => {
                     modal.hide();
-                    await submit(true);
+                    await submit(true, ultimoCodigo);   // reutiliza el código escaneado
                 };
-                fb.innerHTML = `<div class="alert alert-warning">${data.mensaje || 'Se requiere confirmación de cargo extra.'}</div>`;
+                mostrar('warn', nombre, data.mensaje || 'Se requiere confirmación de cargo extra.');
             } else if (data.ok) {
-                fb.innerHTML = `<div class="alert alert-success"><strong>${data.socio?.nombre || 'Socio'}</strong>: ${data.mensaje}</div>`;
+                mostrar('ok', nombre || 'Socio', data.mensaje);
+                agregarHistorial('ok', nombre, data.mensaje);
                 beep(true);
             } else {
-                fb.innerHTML = `<div class="alert alert-warning">${data.mensaje || 'No se pudo registrar'}</div>`;
+                mostrar('warn', nombre, data.mensaje || 'No se pudo registrar');
+                agregarHistorial('warn', nombre, data.mensaje || 'No se pudo registrar');
                 beep(false);
             }
         } catch (e) {
-            fb.innerHTML = '<div class="alert alert-danger">Error de comunicación</div>';
+            mostrar('error', '', 'Error de comunicación');
             beep(false);
         } finally {
             input.value = '';

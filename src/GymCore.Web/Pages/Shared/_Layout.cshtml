@@ -1,11 +1,21 @@
-﻿@inject GymCore.Web.Componentes.IUsuarioActual Usuario
+@inject GymCore.Web.Componentes.IUsuarioActual Usuario
+@inject GymCore.Web.Marca.ServicioBranding Marca
+@{
+    var marca = await Marca.ActualAsync();
+    var pagina = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
+    var menu = GymCore.Web.Componentes.Navegacion.Para(Usuario);
+    // Con pocos ítems (ej. entrenador) todos los grupos arrancan abiertos; si no, solo el de la pantalla actual
+    var todoAbierto = menu.Grupos.Sum(g => g.Items.Count) <= 8;
+}
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - GymCore.Web</title>
-    <meta name="description" content="Sistema de gestión para gimnasios y clubes deportivos." />
+    <title>@ViewData["Title"] - @marca.Nombre</title>
+    <meta name="description" content="Sistema de gestión de @marca.Nombre." />
+    <meta name="theme-color" content="@marca.Primario.Hex" />
+    <partial name="_Favicon" model="marca" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,177 +25,82 @@
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/components.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/GymCore.Web.styles.css" asp-append-version="true" />
+    @* Paleta del gimnasio (colores validados y ajustados para contraste en ServicioBranding) *@
+    <style id="marca-gimnasio">:root{@Html.Raw(marca.VariablesCss)}</style>
 </head>
-@{
-    // Resalta el módulo actual en el menú lateral
-    var pagina = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
-    string Activo(params string[] prefijos) => prefijos.Any(x => pagina.StartsWith(x, StringComparison.OrdinalIgnoreCase)) ? "active" : "";
-}
 <body class="app-body">
     <div class="app-shell">
-        <aside class="sidebar" aria-label="Menú principal">
-            <div class="sidebar-header">
-                <div class="brand-mark">
-                    <i class="bi bi-lightning-charge-fill"></i>
-                </div>
-                <div class="brand-copy">
-                    <span class="brand-name">GymCore</span>
-                    <small>Club Management</small>
-                </div>
-            </div>
+        <aside class="sidebar" id="sidebar" aria-label="Menú principal">
+            <a class="sidebar-header" asp-page="/Panel" aria-label="@marca.Nombre: ir al panel">
+                <partial name="_MarcaIsotipo" model="marca" />
+                <span class="brand-copy">
+                    <span class="brand-name">@marca.Nombre</span>
+                    <small>@marca.Eslogan</small>
+                </span>
+            </a>
 
-            @* Menú según permisos: lo que el usuario no puede usar no se muestra *@
-            <nav class="sidebar-nav" aria-label="Navegación principal">
-                <div class="nav-section">
-                    <span class="nav-label">General</span>
-                    <a class="nav-item @Activo("/Panel")" asp-page="/Panel">
-                        <i class="bi bi-grid-1x2-fill"></i>
-                        <span>Panel</span>
-                    </a>
-                    <a class="nav-item @Activo("/Index")" asp-page="/Index">
-                        <i class="bi bi-house-door"></i>
-                        <span>Inicio</span>
-                    </a>
-                </div>
-
-                <div class="nav-section">
-                    <span class="nav-label">Operación</span>
-                    @if (Usuario.PuedeAlguno(Permisos.SociosVer, Permisos.SociosVerAsignados))
-                    {
-                        <a class="nav-item @Activo("/Socios", "/Suscripciones")" asp-page="/Socios/Socios">
-                            <i class="bi bi-people"></i>
-                            <span>@(Usuario.Puede(Permisos.SociosVer) ? "Socios" : "Mis socios")</span>
-                        </a>
-                    }
-                    @if (Usuario.Puede(Permisos.AsistenciasRegistrar))
-                    {
-                        <a class="nav-item @Activo("/Asistencias")" asp-page="/Asistencias/Ingreso">
-                            <i class="bi bi-door-open"></i>
-                            <span>Control de ingreso</span>
-                        </a>
-                    }
-                    @if (Usuario.Puede(Permisos.EntrenadoresVer))
-                    {
-                        <a class="nav-item @Activo("/Entrenadores")" asp-page="/Entrenadores/Index">
-                            <i class="bi bi-person-badge"></i>
-                            <span>Entrenadores</span>
-                        </a>
-                    }
-                    @if (Usuario.Puede(Permisos.PlanesVer))
-                    {
-                        <a class="nav-item @Activo("/Planes")" asp-page="/Planes/Planes">
-                            <i class="bi bi-box-seam"></i>
-                            <span>Planes</span>
-                        </a>
-                    }
-                    @if (Usuario.Puede(Permisos.PagosVer))
-                    {
-                        <a class="nav-item @Activo("/Pagos")" asp-page="/Pagos/Index">
-                            <i class="bi bi-credit-card"></i>
-                            <span>Pagos</span>
-                        </a>
-                    }
-                </div>
-
-                @if (Usuario.PuedeAlguno(Permisos.VentasCrear, Permisos.VentasVer, Permisos.ProductosVer, Permisos.InventarioAdministrar, Permisos.ReportesComercialesVer))
+            @* Navegación según permisos: lo que el usuario no puede usar no se muestra *@
+            <nav class="sidebar-nav" aria-label="Navegación principal" data-sidebar-nav data-nav-todo-abierto="@(todoAbierto ? "1" : "0")">
+                <a class="nav-item nav-item--top @(menu.Inicio.EsActivo(pagina) ? "active" : "")" asp-page="@menu.Inicio.Pagina"
+                   aria-current="@(menu.Inicio.EsActivo(pagina) ? "page" : null)">
+                    <i class="bi @menu.Inicio.Icono" aria-hidden="true"></i><span>@menu.Inicio.Texto</span>
+                </a>
+                @foreach (var g in menu.Grupos)
                 {
-                    <div class="nav-section">
-                        <span class="nav-label">Ventas</span>
-                        @if (Usuario.Puede(Permisos.VentasCrear))
-                        {
-                            <a class="nav-item @Activo("/Ventas/Pos")" asp-page="/Ventas/Pos"><i class="bi bi-cart3"></i><span>Punto de Venta</span></a>
-                        }
-                        @if (Usuario.Puede(Permisos.VentasVer))
-                        {
-                            <a class="nav-item @(pagina is "/Ventas/Index" or "/Ventas/Ticket" ? "active" : "")" asp-page="/Ventas/Index"><i class="bi bi-receipt"></i><span>Ventas</span></a>
-                        }
-                        @if (Usuario.Puede(Permisos.ProductosVer))
-                        {
-                            <a class="nav-item @Activo("/Ventas/Productos")" asp-page="/Ventas/Productos/Index"><i class="bi bi-box2"></i><span>Productos</span></a>
-                            <a class="nav-item @Activo("/Ventas/Categorias")" asp-page="/Ventas/Categorias"><i class="bi bi-tags"></i><span>Categorías</span></a>
-                            <a class="nav-item @Activo("/Ventas/Inventario")" asp-page="/Ventas/Inventario"><i class="bi bi-clipboard-data"></i><span>Inventario</span></a>
-                        }
-                        @if (Usuario.Puede(Permisos.InventarioAdministrar))
-                        {
-                            <a class="nav-item @Activo("/Ventas/Movimientos")" asp-page="/Ventas/Movimientos"><i class="bi bi-arrow-left-right"></i><span>Movimientos</span></a>
-                        }
-                        @if (Usuario.Puede(Permisos.ReportesComercialesVer))
-                        {
-                            <a class="nav-item @Activo("/Ventas/Reportes")" asp-page="/Ventas/Reportes"><i class="bi bi-graph-up-arrow"></i><span>Reportes comerciales</span></a>
-                        }
+                    var activo = g.Contiene(pagina);
+                    var abierto = activo || todoAbierto;
+                    <div class="nav-group @(abierto ? "is-open" : "") @(activo ? "has-active" : "")" data-nav-group="@g.Clave">
+                        <button type="button" class="nav-group__toggle" aria-expanded="@(abierto ? "true" : "false")" aria-controls="nav-@g.Clave">
+                            <i class="bi @g.Icono" aria-hidden="true"></i>
+                            <span class="nav-group__label">@g.Texto</span>
+                            <span class="nav-group__count" aria-hidden="true">@g.Items.Count</span>
+                            <i class="bi bi-chevron-down nav-group__chevron" aria-hidden="true"></i>
+                        </button>
+                        <div class="nav-group__items" id="nav-@g.Clave" role="group" aria-label="@g.Texto">
+                            @foreach (var it in g.Items)
+                            {
+                                var esActivo = it.EsActivo(pagina);
+                                <a class="nav-item @(esActivo ? "active" : "")" asp-page="@it.Pagina" aria-current="@(esActivo ? "page" : null)"
+                                   target="@(it.Externo ? "_blank" : null)">
+                                    <i class="bi @it.Icono" aria-hidden="true"></i><span>@it.Texto</span>
+                                </a>
+                            }
+                        </div>
                     </div>
                 }
 
-                @if (Usuario.Puede(Permisos.ReportesVer))
+                @if (Usuario.Puede(Permisos.PagosVer))
                 {
-                    <div class="nav-section">
-                        <span class="nav-label">Inteligencia de negocio</span>
-                        <a class="nav-item @(pagina == "/Reportes/Index" ? "active" : "")" asp-page="/Reportes/Index">
-                            <i class="bi bi-speedometer2"></i>
-                            <span>Resumen ejecutivo</span>
-                        </a>
-                        <a class="nav-item @Activo("/Reportes/Socios")" asp-page="/Reportes/Socios"><i class="bi bi-graph-up"></i><span>Socios</span></a>
-                        <a class="nav-item @Activo("/Reportes/Ingresos")" asp-page="/Reportes/Ingresos"><i class="bi bi-cash-stack"></i><span>Ingresos</span></a>
-                        <a class="nav-item @Activo("/Reportes/Planes")" asp-page="/Reportes/Planes"><i class="bi bi-pie-chart"></i><span>Planes</span></a>
-                        <a class="nav-item @Activo("/Reportes/Entrenadores")" asp-page="/Reportes/Entrenadores"><i class="bi bi-person-lines-fill"></i><span>Entrenadores</span></a>
-                        <a class="nav-item @Activo("/Reportes/Riesgo")" asp-page="/Reportes/Riesgo"><i class="bi bi-exclamation-octagon"></i><span>Riesgo de abandono</span></a>
-                        @if (Usuario.Puede(Permisos.ReportesExportar))
-                        {
-                            <a class="nav-item @Activo("/Reportes/Exportaciones", "/Reportes/Imprimir")" asp-page="/Reportes/Exportaciones"><i class="bi bi-download"></i><span>Exportaciones</span></a>
-                        }
-                    </div>
-                }
-
-                @if (Usuario.PuedeAlguno(Permisos.UsuariosAdministrar, Permisos.AuditoriaVer, Permisos.ConfiguracionAdministrar))
-                {
-                    <div class="nav-section">
-                        <span class="nav-label">Administración</span>
-                        @if (Usuario.Puede(Permisos.UsuariosAdministrar))
-                        {
-                            <a class="nav-item @Activo("/Administracion/Usuarios")" asp-page="/Administracion/Usuarios/Index">
-                                <i class="bi bi-person-gear"></i>
-                                <span>Usuarios</span>
-                            </a>
-                            <a class="nav-item @Activo("/Administracion/Roles")" asp-page="/Administracion/Roles/Index">
-                                <i class="bi bi-shield-lock"></i>
-                                <span>Roles y permisos</span>
-                            </a>
-                        }
-                        @if (Usuario.Puede(Permisos.AuditoriaVer))
-                        {
-                            <a class="nav-item @Activo("/Administracion/Auditoria")" asp-page="/Administracion/Auditoria">
-                                <i class="bi bi-shield-check"></i>
-                                <span>Auditoría</span>
-                            </a>
-                        }
-                        @if (Usuario.Puede(Permisos.ConfiguracionAdministrar))
-                        {
-                            <a class="nav-item" href="#" aria-disabled="true">
-                                <i class="bi bi-sliders"></i>
-                                <span>Configuración</span>
-                                <span class="soon-badge ms-auto">Pronto</span>
-                            </a>
-                        }
+                    <div class="sidebar-metricas">
+                        @await Component.InvokeAsync("SidebarMetricas", new { vista = "Sidebar" })
                     </div>
                 }
             </nav>
 
-            @if (Usuario.Puede(Permisos.PagosVer))
-            {
-                <div class="sidebar-footer">
-                    @await Component.InvokeAsync("SidebarMetricas", new { vista = "Sidebar" })
-                </div>
-            }
+            @* Usuario actual: siempre visible *@
+            <div class="sidebar-user">
+                <a class="sidebar-user__perfil" asp-page="/Cuenta/Perfil" title="Mi perfil">
+                    <span class="avatar-circle sm">@Usuario.Iniciales</span>
+                    <span class="sidebar-user__copy">
+                        <strong>@Usuario.Nombre</strong>
+                        <small>@Usuario.Rol</small>
+                    </span>
+                </a>
+                <form method="post" asp-page="/Cuenta/Logout" class="m-0">
+                    <button type="submit" class="sidebar-user__salir" aria-label="Cerrar sesión" title="Cerrar sesión"><i class="bi bi-box-arrow-right"></i></button>
+                </form>
+            </div>
         </aside>
+        <div class="sidebar-backdrop" data-sidebar-toggle aria-hidden="true"></div>
 
         <div class="main-panel">
             <header class="topbar">
                 <div class="topbar-left">
-                    <button class="sidebar-toggle" type="button" data-sidebar-toggle aria-label="Alternar menú">
+                    <button class="sidebar-toggle" type="button" data-sidebar-toggle aria-label="Abrir menú" aria-controls="sidebar">
                         <i class="bi bi-list"></i>
                     </button>
                     <div>
-                        <p class="topbar-kicker">Gestión del gimnasio</p>
+                        <p class="topbar-kicker">@marca.Nombre</p>
                         <h1>@ViewData["Title"]</h1>
                     </div>
                 </div>
@@ -238,16 +153,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     <script src="~/js/components.js" asp-append-version="true"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const toggle = document.querySelector('[data-sidebar-toggle]');
-            if (!toggle) return;
-
-            toggle.addEventListener('click', function () {
-                document.body.classList.toggle('sidebar-open');
-            });
-        });
-    </script>
+    <script src="~/js/navegacion.js" asp-append-version="true"></script>
 
     @await RenderSectionAsync("Scripts", required: false)
 </body>

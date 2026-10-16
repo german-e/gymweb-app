@@ -1,0 +1,186 @@
+@page
+@using GymCore.Dominio.Entidades
+@using GymCore.Web.Marca
+@model GymCore.Web.Pages.Configuracion.RecepcionModel
+@{
+    ViewData["Title"] = "Recepción y kiosco";
+    var c = Model.Config;
+    var hoy = DateOnly.FromDateTime(DateTime.Today);
+    var vigentes = Model.Avisos.Count(a => a.VigenteEn(hoy));
+}
+
+<section class="page-shell">
+    <div class="page-header">
+        <div>
+            <a class="text-decoration-none small fw-semibold" asp-page="Index"><i class="bi bi-arrow-left"></i> Configuración</a>
+            <h2>Recepción y kiosco</h2>
+            <p>Cómo se comporta la pantalla de autoservicio de ingreso y qué muestra mientras espera.</p>
+        </div>
+        <div class="header-actions">
+            <a class="primary-btn" asp-page="/Kiosk/Checkin" target="_blank"><i class="bi bi-display"></i> Abrir kiosco</a>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.Flash))
+    {
+        <div class="flash success" role="status"><i class="bi bi-check-circle-fill"></i> @Model.Flash</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.FlashError))
+    {
+        <div class="flash danger" role="alert"><i class="bi bi-exclamation-triangle-fill"></i> @Model.FlashError</div>
+    }
+
+    <div class="dashboard-grid recepcion-grid">
+        <form method="post" asp-page-handler="Kiosco" class="form-section" data-submit-loading>
+            <header class="form-section__head">
+                <div class="module-icon primary"><i class="bi bi-display"></i></div>
+                <div><h3>Kiosco de ingreso</h3><p>Para la tablet o monitor de la entrada (<span class="num">/kiosk/checkin</span>).</p></div>
+            </header>
+            <div class="form-section__body">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label" for="kMensaje">Mensaje de bienvenida</label>
+                        <input id="kMensaje" name="mensaje" class="form-control" maxlength="80" value="@c.KioscoMensaje" placeholder="@ServicioBranding.MensajeKioscoPorDefecto" />
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label" for="kResultado">Tiempo del resultado</label>
+                        <div class="input-group"><input id="kResultado" name="segundosResultado" type="number" min="2" max="30" class="form-control num" value="@c.KioscoSegundosResultado" /><span class="input-group-text">segundos</span></div>
+                        <div class="form-text">Cuánto queda visible “Acceso autorizado / restringido”.</div>
+                    </div>
+                    <div class="col-sm-6 d-flex align-items-end">
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" role="switch" id="kSonido" name="sonido" value="true" checked="@c.KioscoSonido" />
+                            <label class="form-check-label" for="kSonido">Sonido de confirmación</label>
+                        </div>
+                    </div>
+                    <div class="col-12"><hr class="my-1" /></div>
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="kEspera" name="pantallaEspera" value="true" checked="@c.KioscoPantallaEspera" />
+                            <label class="form-check-label fw-semibold" for="kEspera">Pantalla de espera con avisos</label>
+                        </div>
+                        <div class="form-text">Sin actividad, el kiosco muestra el logo y rota los avisos vigentes. Escanear una credencial vuelve al ingreso al instante.</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label" for="kInactividad">Activar después de</label>
+                        <div class="input-group"><input id="kInactividad" name="segundosInactividad" type="number" min="10" max="600" class="form-control num" value="@c.KioscoSegundosInactividad" /><span class="input-group-text">segundos</span></div>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label" for="kRotacion">Cambiar de aviso cada</label>
+                        <div class="input-group"><input id="kRotacion" name="segundosRotacion" type="number" min="3" max="60" class="form-control num" value="@c.KioscoSegundosRotacion" /><span class="input-group-text">segundos</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="form-section__foot">
+                <button type="submit" class="primary-btn border-0"><i class="bi bi-check2"></i> Guardar kiosco</button>
+            </div>
+        </form>
+
+        <div class="panel-card">
+            <div class="panel-head mb-3">
+                <h3><i class="bi bi-megaphone text-primary"></i> Avisos, promociones y eventos</h3>
+                <button type="button" class="primary-btn border-0 btn-compact" data-bs-toggle="modal" data-bs-target="#avisoModal" data-aviso-editar><i class="bi bi-plus-lg"></i> Nuevo</button>
+            </div>
+            <p class="small text-soft">@vigentes @(vigentes == 1 ? "aviso vigente" : "avisos vigentes") hoy@(c.KioscoPantallaEspera ? "" : " · la pantalla de espera está desactivada")</p>
+            @if (Model.Avisos.Count == 0)
+            {
+                <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-megaphone", "Sin avisos", "Cargá promociones, horarios especiales o próximos eventos para mostrarlos en la recepción.")' />
+            }
+            else
+            {
+                <ul class="aviso-lista">
+                    @foreach (var a in Model.Avisos)
+                    {
+                        var (icono, variante) = RecepcionModel.Estilo(a.Tipo);
+                        var vigente = a.VigenteEn(hoy);
+                        <li class="aviso-item @(vigente ? "" : "is-inactive")">
+                            <span class="aviso-item__img">
+                                @if (a.ImagenUrl is not null) { <img src="/@a.ImagenUrl" alt="" /> } else { <i class="bi @icono"></i> }
+                            </span>
+                            <div class="min-w-0 flex-grow-1">
+                                <strong>@a.Titulo</strong>
+                                <small class="d-block text-soft text-truncate">@(a.Texto ?? "Sin texto")</small>
+                                <span class="d-flex gap-2 flex-wrap mt-1">
+                                    <span class="status-pill @variante"><i class="bi @icono"></i> @RecepcionModel.Texto(a.Tipo)</span>
+                                    @if (!a.Activo) { <span class="status-pill muted">Pausado</span> }
+                                    else if (!vigente) { <span class="status-pill muted">Fuera de fecha</span> }
+                                    @if (a.FechaEvento is { } fe) { <span class="badge-light"><i class="bi bi-calendar3"></i> @fe.ToString("dd/MM HH:mm")</span> }
+                                    @if (a.VigenteHasta is { } vh) { <span class="badge-light">hasta @vh.ToString("dd/MM/yyyy")</span> }
+                                </span>
+                            </div>
+                            <div class="row-actions">
+                                <button type="button" class="icon-btn" title="Editar" aria-label="Editar @a.Titulo" data-bs-toggle="modal" data-bs-target="#avisoModal"
+                                        data-aviso-editar="@a.Id" data-tipo="@a.Tipo" data-titulo="@a.Titulo" data-texto="@a.Texto" data-orden="@a.Orden"
+                                        data-fecha-evento="@a.FechaEvento?.ToString("yyyy-MM-ddTHH:mm")" data-desde="@a.VigenteDesde?.ToString("yyyy-MM-dd")" data-hasta="@a.VigenteHasta?.ToString("yyyy-MM-dd")">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <form method="post" asp-page-handler="ToggleAviso" asp-route-id="@a.Id" class="m-0">
+                                    <button type="submit" class="icon-btn" title="@(a.Activo ? "Pausar" : "Activar")" aria-label="@(a.Activo ? "Pausar" : "Activar") @a.Titulo"><i class="bi @(a.Activo ? "bi-pause" : "bi-play")"></i></button>
+                                </form>
+                                <button type="button" class="icon-btn" title="Eliminar" aria-label="Eliminar @a.Titulo"
+                                        data-confirm-action="@Url.Page("Recepcion", "EliminarAviso", new { id = a.Id })"
+                                        data-confirm-title="¿Eliminar “@a.Titulo”?" data-confirm-text="Deja de mostrarse en el kiosco. Queda registrado en la auditoría."
+                                        data-confirm-label="Eliminar" data-confirm-variant="danger"><i class="bi bi-trash"></i></button>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    </div>
+</section>
+
+<partial name="Components/_ConfirmModal" />
+
+<div class="modal fade" id="avisoModal" tabindex="-1" aria-labelledby="avisoModalTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="post" asp-page-handler="Aviso" enctype="multipart/form-data" class="modal-content" data-submit-loading data-aviso-form>
+            <input type="hidden" name="id" data-aviso-id />
+            <div class="modal-header">
+                <h5 class="modal-title" id="avisoModalTitulo" data-aviso-titulo-modal>Nuevo aviso</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="segmented mb-3" role="radiogroup" aria-label="Tipo">
+                    @foreach (var t in Enum.GetValues<TipoAvisoRecepcion>())
+                    {
+                        var (icono, _) = RecepcionModel.Estilo(t);
+                        <label><input type="radio" name="tipo" value="@t" checked="@(t == TipoAvisoRecepcion.Aviso)" data-aviso-tipo /> <span><i class="bi @icono"></i> @RecepcionModel.Texto(t)</span></label>
+                    }
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="avTitulo">Título</label><span class="req text-danger">*</span>
+                    <input id="avTitulo" name="titulo" class="form-control" maxlength="80" required placeholder="Ej.: 2×1 en planes trimestrales" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="avTexto">Texto</label>
+                    <textarea id="avTexto" name="texto" class="form-control" rows="2" maxlength="300" placeholder="Detalle breve: se lee a distancia, menos es más."></textarea>
+                </div>
+                <div class="mb-3" data-solo-evento hidden>
+                    <label class="form-label" for="avFecha">Fecha y hora del evento</label>
+                    <input id="avFecha" name="fechaEvento" type="datetime-local" class="form-control" />
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-sm-5"><label class="form-label" for="avDesde">Mostrar desde</label><input id="avDesde" name="desde" type="date" class="form-control" /></div>
+                    <div class="col-sm-5"><label class="form-label" for="avHasta">Hasta</label><input id="avHasta" name="hasta" type="date" class="form-control" /></div>
+                    <div class="col-sm-2"><label class="form-label" for="avOrden">Orden</label><input id="avOrden" name="orden" type="number" min="0" max="999" value="0" class="form-control num" /></div>
+                </div>
+                <label class="form-label" for="avImagen">Imagen (opcional)</label>
+                <input id="avImagen" name="imagen" type="file" accept="@ImagenesMarca.AcceptImagen" class="form-control" />
+                <div class="form-check mt-2" data-aviso-quitar-wrap hidden>
+                    <input class="form-check-input" type="checkbox" id="avQuitar" name="quitarImagen" value="true" />
+                    <label class="form-check-label small" for="avQuitar">Quitar la imagen actual</label>
+                </div>
+                <div class="form-text">PNG, JPG o WEBP horizontal, hasta 3 MB.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="secondary-btn" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="primary-btn border-0"><i class="bi bi-check2"></i> Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/configuracion.js" asp-append-version="true"></script>
+}

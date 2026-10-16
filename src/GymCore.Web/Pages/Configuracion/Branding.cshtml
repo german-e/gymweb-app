@@ -1,0 +1,175 @@
+@page
+@using GymCore.Web.Marca
+@model GymCore.Web.Pages.Configuracion.BrandingModel
+@{
+    ViewData["Title"] = "Branding";
+    var v = Model.Vista;
+    var a = Model.Actual;
+    string? Err(string campo) => ViewData.ModelState[campo]?.Errors.FirstOrDefault()?.ErrorMessage;
+    var paletas = new (string Nombre, string Principal, string Secundario)[]
+    {
+        ("Azul (producto)", "#2563EB", "#4F46E5"), ("Energía", "#E11D48", "#F97316"), ("Fitness verde", "#059669", "#0EA5E9"),
+        ("Premium", "#7C3AED", "#DB2777"), ("Grafito", "#334155", "#0EA5E9"), ("Naranja", "#EA580C", "#CA8A04")
+    };
+}
+
+<section class="page-shell">
+    <div class="page-header">
+        <div>
+            <a class="text-decoration-none small fw-semibold" asp-page="Index"><i class="bi bi-arrow-left"></i> Configuración</a>
+            <h2>Branding</h2>
+            <p>Nombre, logos y colores del gimnasio. Se aplican en el menú, el login, el panel, las credenciales, el kiosco de ingreso, los tickets y los reportes.</p>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.Flash))
+    {
+        <div class="flash success" role="status"><i class="bi bi-check-circle-fill"></i> @Model.Flash</div>
+    }
+
+    <form method="post" enctype="multipart/form-data" novalidate class="form-layout branding-layout" data-submit-loading data-branding-form>
+        <div class="form-stack">
+            <div asp-validation-summary="ModelOnly" class="flash danger mb-0"></div>
+
+            <section class="form-section" id="sec-identidad">
+                <header class="form-section__head">
+                    <div class="module-icon primary"><i class="bi bi-building"></i></div>
+                    <div><h3>Identidad</h3><p>Cómo se presenta el gimnasio a socios y personal.</p></div>
+                </header>
+                <div class="form-section__body">
+                    <div class="row g-3">
+                        <div class="col-md-7">
+                            <label asp-for="Input.NombreComercial" class="form-label"></label><span class="req text-danger">*</span>
+                            <input asp-for="Input.NombreComercial" class="form-control" maxlength="80" data-pv-marca="nombre" />
+                            <span asp-validation-for="Input.NombreComercial" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-5">
+                            <label asp-for="Input.Eslogan" class="form-label"></label>
+                            <input asp-for="Input.Eslogan" class="form-control" maxlength="80" placeholder="@ServicioBranding.EsloganPorDefecto" data-pv-marca="eslogan" />
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="form-section" id="sec-imagenes">
+                <header class="form-section__head">
+                    <div class="module-icon info"><i class="bi bi-images"></i></div>
+                    <div><h3>Logos e imágenes</h3><p>PNG, JPG o WEBP (el favicon, PNG o ICO). Por seguridad no se aceptan SVG.</p></div>
+                </header>
+                <div class="form-section__body imagen-campos">
+                    <partial name="_CampoImagen" model='new CampoImagenVm("Input.Logo", "Input.QuitarLogo", "Logo", "Horizontal, fondo transparente. Login, kiosco, credenciales y reportes. Hasta 1 MB.", v.Logo, ImagenesMarca.AcceptImagen, "bi-card-image", "ancho", Err("Input.Logo"))' />
+                    <partial name="_CampoImagen" model='new CampoImagenVm("Input.LogoReducido", "Input.QuitarLogoReducido", "Logo reducido", "Cuadrado (isotipo). Menú lateral y pestañas. Hasta 1 MB.", v.LogoReducido, ImagenesMarca.AcceptImagen, "bi-square", "cuadrado", Err("Input.LogoReducido"))' />
+                    <partial name="_CampoImagen" model='new CampoImagenVm("Input.Favicon", "Input.QuitarFavicon", "Favicon", "32×32 o 64×64 px. Si falta se usa el logo reducido. Hasta 256 KB.", v.Favicon, ImagenesMarca.AcceptFavicon, "bi-app", "cuadrado", Err("Input.Favicon"))' />
+                    <partial name="_CampoImagen" model='new CampoImagenVm("Input.ImagenBienvenida", "Input.QuitarImagenBienvenida", "Imagen de bienvenida", "Foto del gimnasio para el login y el kiosco. Horizontal, hasta 3 MB.", v.ImagenBienvenida, ImagenesMarca.AcceptImagen, "bi-image", "ancho", Err("Input.ImagenBienvenida"))' />
+                </div>
+            </section>
+
+            <section class="form-section" id="sec-colores">
+                <header class="form-section__head">
+                    <div class="module-icon warning"><i class="bi bi-palette"></i></div>
+                    <div><h3>Colores corporativos</h3><p>El principal se usa en botones, enlaces y elementos activos; el secundario, en degradados y credenciales.</p></div>
+                </header>
+                <div class="form-section__body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label" for="colorPrincipalTexto">Color principal</label>
+                            <div class="color-campo">
+                                <input type="color" value="@Model.Input.ColorPrincipal" aria-label="Elegir color principal" data-color-picker="#colorPrincipalTexto" />
+                                <input id="colorPrincipalTexto" name="Input.ColorPrincipal" value="@Model.Input.ColorPrincipal" class="form-control num text-uppercase" maxlength="7" data-color-texto="principal" />
+                            </div>
+                            <span asp-validation-for="Input.ColorPrincipal" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="colorSecundarioTexto">Color secundario</label>
+                            <div class="color-campo">
+                                <input type="color" value="@Model.Input.ColorSecundario" aria-label="Elegir color secundario" data-color-picker="#colorSecundarioTexto" />
+                                <input id="colorSecundarioTexto" name="Input.ColorSecundario" value="@Model.Input.ColorSecundario" class="form-control num text-uppercase" maxlength="7" data-color-texto="secundario" />
+                            </div>
+                            <span asp-validation-for="Input.ColorSecundario" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12">
+                            <span class="form-label d-block">Paletas sugeridas</span>
+                            <div class="paletas" role="group" aria-label="Paletas sugeridas">
+                                @foreach (var p in paletas)
+                                {
+                                    <button type="button" class="paleta" data-paleta="@p.Principal,@p.Secundario" title="@p.Nombre">
+                                        <span style="background: linear-gradient(135deg, @p.Principal, @p.Secundario)"></span>@p.Nombre
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="contraste-aviso" data-contraste aria-live="polite" @(v.TonoAjustado ? "" : "hidden")>
+                                <i class="bi bi-universal-access"></i>
+                                <span>El color principal es muy claro para texto sobre blanco: se usa un tono más oscuro (<span class="num" data-contraste-tono>@v.Primario.Hex</span>) para que botones y enlaces se lean bien.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="form-section" id="sec-contacto">
+                <header class="form-section__head">
+                    <div class="module-icon success"><i class="bi bi-person-vcard"></i></div>
+                    <div><h3>Datos de contacto y credencial</h3><p>Aparecen en las credenciales, los tickets y los reportes impresos. Todos opcionales.</p></div>
+                </header>
+                <div class="form-section__body">
+                    <div class="row g-3">
+                        <div class="col-md-6"><label asp-for="Input.Direccion" class="form-label"></label><input asp-for="Input.Direccion" class="form-control" /></div>
+                        <div class="col-md-6"><label asp-for="Input.Telefono" class="form-label"></label><input asp-for="Input.Telefono" class="form-control" inputmode="tel" /></div>
+                        <div class="col-md-6"><label asp-for="Input.Email" class="form-label"></label><input asp-for="Input.Email" class="form-control" type="email" /><span asp-validation-for="Input.Email" class="text-danger small"></span></div>
+                        <div class="col-md-6"><label asp-for="Input.SitioWeb" class="form-label"></label><input asp-for="Input.SitioWeb" class="form-control" placeholder="www.migimnasio.com · @@migimnasio" /></div>
+                        <div class="col-12">
+                            <label asp-for="Input.TextoCredencial" class="form-label"></label>
+                            <input asp-for="Input.TextoCredencial" class="form-control" maxlength="120" placeholder="@ServicioBranding.TextoCredencialPorDefecto" data-pv-marca="credencial" />
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="form-actions-bar">
+                <span class="hint d-none d-md-inline">
+                    <i class="bi bi-clock-history"></i>
+                    @(a.FechaModificacion is { } f ? $"Última modificación: {f.ToLocalTime():dd/MM/yyyy HH:mm} · {a.UsuarioModifico}" : "Todavía con la identidad por defecto")
+                </span>
+                <button type="submit" class="secondary-btn" formaction="@Url.Page("Branding", "ColoresPorDefecto")" formnovalidate><i class="bi bi-arrow-counterclockwise"></i> Colores originales</button>
+                <button type="submit" class="primary-btn border-0" data-loading-text="Guardando…"><i class="bi bi-check2"></i> Guardar identidad</button>
+            </div>
+        </div>
+
+        @* ============ Vista previa en vivo ============ *@
+        <aside class="form-aside branding-preview" aria-label="Vista previa">
+            <span class="plan-preview__label">Vista previa</span>
+            <div class="marca-preview" data-marca-preview style="--pv-a: @v.Primario.Hex; --pv-b: @v.Secundario.Hex; --pv-ink: @v.TextoSobrePrimario.Hex">
+                <div class="marca-preview__sidebar">
+                    <div class="marca-preview__brand">
+                        <span class="marca-preview__iso" data-pv-iso>
+                            @if (v.Isotipo is { } iso) { <img src="@iso" alt="" /> } else { <i class="bi bi-lightning-charge-fill"></i> }
+                        </span>
+                        <span class="min-w-0"><strong data-pv="nombre">@v.Nombre</strong><small data-pv="eslogan">@v.Eslogan</small></span>
+                    </div>
+                    <span class="marca-preview__item is-active"><i class="bi bi-grid-1x2-fill"></i> Panel</span>
+                    <span class="marca-preview__item"><i class="bi bi-people"></i> Socios</span>
+                    <span class="marca-preview__item"><i class="bi bi-cart3"></i> Punto de Venta</span>
+                </div>
+                <div class="marca-preview__body">
+                    <span class="marca-preview__btn">Registrar pago</span>
+                    <span class="marca-preview__link">Ver detalle →</span>
+                    <div class="marca-preview__cred">
+                        <span class="marca-preview__cred-top"><strong data-pv="nombre">@v.Nombre</strong><small>Activo</small></span>
+                        <span class="marca-preview__cred-name">Juan Pérez</span>
+                        <small data-pv="credencial">@v.TextoCredencial</small>
+                        <span class="marca-preview__barcode" aria-hidden="true"></span>
+                    </div>
+                </div>
+            </div>
+            <p class="small text-soft mt-3 mb-0"><i class="bi bi-info-circle"></i> Las imágenes nuevas se ven acá al elegirlas; se aplican en todo el sistema al guardar.</p>
+            <a class="secondary-btn w-100 mt-3" asp-page="/Kiosk/Checkin" target="_blank"><i class="bi bi-display"></i> Ver el kiosco de ingreso</a>
+        </aside>
+    </form>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/configuracion.js" asp-append-version="true"></script>
+}

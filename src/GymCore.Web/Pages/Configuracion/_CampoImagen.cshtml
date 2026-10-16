@@ -1,0 +1,32 @@
+@model GymCore.Web.Pages.Configuracion.CampoImagenVm
+@* Campo de imagen con vista previa inmediata, quitar y reglas visibles. Lo maneja configuracion.js (data-imagen-campo). *@
+<div class="imagen-campo @Model.Forma" data-imagen-campo>
+    <div class="imagen-campo__preview" data-imagen-preview>
+        @if (Model.UrlActual is { } url)
+        {
+            <img src="@url" alt="@Model.Titulo actual" />
+        }
+        else
+        {
+            <span class="imagen-campo__vacio"><i class="bi @Model.Icono"></i><small>Sin imagen</small></span>
+        }
+    </div>
+    <div class="imagen-campo__copy">
+        <strong>@Model.Titulo</strong>
+        <small class="text-soft">@Model.Ayuda</small>
+        <div class="imagen-campo__acciones">
+            <label class="secondary-btn btn-compact mb-0">
+                <i class="bi bi-upload"></i> @(Model.UrlActual is null ? "Subir" : "Reemplazar")
+                <input type="file" name="@Model.Nombre" accept="@Model.Accept" class="visually-hidden" data-imagen-input />
+            </label>
+            @if (Model.UrlActual is not null)
+            {
+                <label class="form-check m-0 small">
+                    <input type="checkbox" class="form-check-input" name="@Model.NombreQuitar" value="true" data-imagen-quitar />
+                    <span class="form-check-label">Quitar</span>
+                </label>
+            }
+        </div>
+        <span class="text-danger small" data-valmsg-for="@Model.Nombre" data-valmsg-replace="true">@Model.Error</span>
+    </div>
+</div>

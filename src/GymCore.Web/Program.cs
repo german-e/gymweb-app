@@ -43,6 +43,10 @@ builder.Services.AddScoped<Autenticacion>();
 builder.Services.AddScoped<GymCore.Web.Reportes.IFuenteHechos, GymCore.Web.Reportes.FuenteHechosDb>();
 builder.Services.AddScoped<GymCore.Web.Reportes.ServicioReportes>();
 builder.Services.AddScoped<GymCore.Web.Reportes.Exportador>();
+// Control de ingreso (recepción y kiosco) y branding del gimnasio
+builder.Services.AddScoped<GymCore.Web.Componentes.ServicioIngreso>();
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<GymCore.Web.Marca.ServicioBranding>();
 // Ventas e inventario: servicios independientes (inventario, cobranza, ventas, reportes comerciales)
 builder.Services.AddScoped<GymCore.Web.Comercial.ServicioInventario>();
 builder.Services.AddScoped<GymCore.Web.Comercial.ServicioCobranza>();
@@ -213,80 +217,13 @@ using (var scope = app.Services.CreateScope())
 }
 
 // Minimal API: Check-in de asistencias con lector tipo teclado (DNI/código)
-app.MapPost("/api/asistencias/checkin", async (GymDbContext db, CheckInRequest req) =>
+app.MapPost("/api/asistencias/checkin", async (GymCore.Web.Componentes.ServicioIngreso ingreso, CheckInRequest req) =>
 {
     if (string.IsNullOrWhiteSpace(req.Code))
         return Results.BadRequest(new { ok = false, mensaje = "Código vacío" });
-
-    var code = req.Code.Trim();
-
-    // Por ahora usamos DNI como código de acceso
-    var socio = await db.Socios
-        .Include(s => s.Suscripciones)
-            .ThenInclude(sp => sp.Plan)
-        .FirstOrDefaultAsync(s => s.TarjetaCodigo == code || s.Dni == code);
-
-    if (socio is null)
-        return Results.Ok(new { ok = false, mensaje = "Socio no encontrado" });
-
-    var ahora = DateTime.Now; // horario local del gym
-    var activo = socio.Suscripciones
-        .Where(sp => sp.Estado == EstadoSuscripcion.Activo
-                   && sp.FechaInicio <= ahora
-                   && sp.FechaFin >= ahora)
-        .OrderByDescending(sp => sp.FechaFin)
-        .FirstOrDefault();
-
-    if (activo is null)
-        return Results.Ok(new { ok = false, socio = new { socio.Id, nombre = $"{socio.Apellido}, {socio.Nombre}" }, mensaje = "Suscripción no activa o vencida" });
-
-    // Días permitidos
-    var dow = ahora.DayOfWeek;
-    if (dow == DayOfWeek.Saturday && !activo.Plan.PermiteAccesoSabado)
-        return Results.Ok(new { ok = false, socio = new { socio.Id, nombre = $"{socio.Apellido}, {socio.Nombre}" }, mensaje = "El plan no permite acceso los sábados" });
-    if (dow == DayOfWeek.Sunday && !activo.Plan.PermiteAccesoDomingo)
-        return Results.Ok(new { ok = false, socio = new { socio.Id, nombre = $"{socio.Apellido}, {socio.Nombre}" }, mensaje = "El plan no permite acceso los domingos" });
-
-    // Duplicado reciente (5 minutos)
-    var hace5 = ahora.AddMinutes(-5);
-    var duplicado = await db.Asistencias
-        .AnyAsync(a => a.SocioId == socio.Id && a.FechaHoraIngreso >= hace5);
-    if (duplicado)
-        return Results.Ok(new { ok = true, socio = new { socio.Id, nombre = $"{socio.Apellido}, {socio.Nombre}" }, mensaje = "Ingreso ya registrado recientemente" });
-
-    // Tope semanal si corresponde
-    if (activo.Plan.Tipo == TipoPlan.MensualDiasPorSemana && activo.Plan.MaxDiasPorSemana.HasValue)
-    {
-        var inicioSemana = ahora.Date.AddDays(-(int)(dow == 0 ? 6 : dow - DayOfWeek.Monday)); // lunes
-        var finSemana = inicioSemana.AddDays(7);
-        var usos = await db.Asistencias
-            .CountAsync(a => a.SocioId == socio.Id && a.SocioPlanId == activo.Id && a.FechaHoraIngreso >= inicioSemana && a.FechaHoraIngreso < finSemana);
-        if (usos >= activo.Plan.MaxDiasPorSemana.Value)
-        {
-            if (req.ConfirmExtra != true)
-            {
-                return Results.Ok(new
-                {
-                    ok = false,
-                    requiresExtra = true,
-                    socio = new { socio.Id, nombre = $"{socio.Apellido}, {socio.Nombre}" },
-                    extraPrice = (decimal?)null,
-                    mensaje = $"Cupo semanal excedido ({usos}/{activo.Plan.MaxDiasPorSemana}). Confirmar para registrar ingreso con cargo extra."
-                });
-            }
-        }
-    }
-
-    var asistencia = new Asistencia
-    {
-        SocioId = socio.Id,
-        SocioPlanId = activo.Id,
-        FechaHoraIngreso = DateTime.UtcNow
-    };
-    db.Asistencias.Add(asistencia);
-    await db.SaveChangesAsync();
-
-    return Results.Ok(new { ok = true, socio = new { socio.Id, nombre = $"{socio.Apellido}, {socio.Nombre}" }, mensaje = "Ingreso registrado" });
+    // Reglas en ServicioIngreso (compartidas con el kiosco); la respuesta JSON es la misma de siempre
+    var r = await ingreso.RegistrarAsync(req.Code, req.ConfirmExtra == true);
+    return Results.Ok(GymCore.Web.Componentes.ServicioIngreso.RespuestaApi(r));
 })
 .RequireAuthorization(Permisos.AsistenciasRegistrar)
 .WithName("CheckIn")

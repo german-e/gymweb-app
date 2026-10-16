@@ -1,0 +1,101 @@
+@page
+@using GymCore.Web.Pages.Socios
+@model GymCore.Web.Pages.Socios.EvolucionModel
+@{
+    ViewData["Title"] = "Evolución física";
+    var pendientes = Model.Filas.Count(f => f.Pendiente);
+    var sinMedicion = Model.Filas.Count(f => f.Mediciones == 0);
+}
+
+<section class="page-shell">
+    <div class="page-header">
+        <div>
+            <span class="eyebrow"><i class="bi bi-activity"></i> Seguimiento</span>
+            <h2>Evolución física</h2>
+            <p>@(Model.SoloAsignados ? "Tus socios asignados" : "Socios activos"), ordenados por a quién le toca medir. Se sugiere una medición cada @EvolucionModel.DiasSugeridos días.</p>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <partial name="Components/_StatCard" model='new StatCardVm(Model.SoloAsignados ? "Mis socios" : "Socios activos", Model.Filas.Count.ToString(), "bi-people", "primary")' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Para medir", pendientes.ToString(), "bi-clipboard2-pulse", "warning", $"más de {EvolucionModel.DiasSugeridos} días")' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Sin ninguna medición", sinMedicion.ToString(), "bi-question-circle", "danger")' />
+        <partial name="Components/_StatCard" model='new StatCardVm("Al día", (Model.Filas.Count - pendientes).ToString(), "bi-check2-circle", "success")' />
+    </div>
+
+    <div class="data-card">
+        <div class="toolbar">
+            <div class="toolbar-group">
+                <label class="search-input" aria-label="Buscar socios">
+                    <i class="bi bi-search"></i>
+                    <input type="search" placeholder="Nombre o DNI…" data-table-filter="#tablaEvolucion" />
+                </label>
+            </div>
+            <div class="toolbar-group">
+                <div class="filter-chips" role="group" aria-label="Filtrar" data-table-facet="#tablaEvolucion" data-facet="estado">
+                    <button type="button" class="filter-chip active" data-value="">Todos <span class="count">@Model.Filas.Count</span></button>
+                    <button type="button" class="filter-chip" data-value="pendiente">Para medir <span class="count">@pendientes</span></button>
+                    <button type="button" class="filter-chip" data-value="aldia">Al día <span class="count">@(Model.Filas.Count - pendientes)</span></button>
+                </div>
+            </div>
+        </div>
+        @if (Model.Filas.Count == 0)
+        {
+            <partial name="Components/_EmptyState" model='new EmptyStateVm("bi-people", Model.SoloAsignados ? "Todavía no tenés socios asignados" : "No hay socios activos", "Cuando haya socios vas a ver acá su seguimiento.")' />
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="data-table stack-sm" id="tablaEvolucion" data-sortable>
+                    <thead>
+                        <tr>
+                            <th data-sort="text">Socio</th>
+                            <th data-sort="num">Última medición</th>
+                            <th data-sort="num" class="text-end">Peso</th>
+                            <th data-sort="num" class="text-end">% graso</th>
+                            <th data-sort="num" class="text-end">Variación de peso</th>
+                            <th data-sort="num" class="text-center">Mediciones</th>
+                            <th class="text-end"><span class="visually-hidden">Acciones</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var f in Model.Filas)
+                        {
+                            var s = f.R.Socio;
+                            <tr data-search="@($"{s.Apellido} {s.Nombre} {s.Dni}")" data-estado="@(f.Pendiente ? "pendiente" : "aldia")">
+                                <td class="cell-main" data-label="Socio" data-sort-value="@s.Apellido">
+                                    <div class="person-cell">
+                                        <partial name="Components/_Avatar" model='new AvatarVm(s.FotoUrl, s.Iniciales, "sm", s.NombreCompleto)' />
+                                        <div class="person-cell__copy">
+                                            <a asp-page="Detalle" asp-route-id="@s.Id" asp-fragment="tab-evolucion">@s.Apellido, @s.Nombre</a>
+                                            <small>@(f.R.Vigente?.Plan.Nombre ?? "Sin plan vigente")@(f.R.Entrenador is { } e && !Model.SoloAsignados ? $" · {e.Nombre} {e.Apellido}" : "")</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td data-label="Última medición" data-sort-value="@(f.Dias ?? 99999)">
+                                    @if (f.Ultima is { } u)
+                                    {
+                                        <span class="num">@u.ToLocalTime().ToString("dd/MM/yyyy")</span>
+                                        <span class="status-pill @(f.Pendiente ? "warning" : "success") ms-1">hace @f.Dias d</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-pill danger"><i class="bi bi-question-circle"></i> Nunca</span>
+                                    }
+                                </td>
+                                <td data-label="Peso" class="text-end num" data-sort-value="@(f.Peso ?? 0)">@(f.Peso is { } p ? $"{p:0.#} kg" : "—")</td>
+                                <td data-label="% graso" class="text-end num" data-sort-value="@(f.Graso ?? 0)">@(f.Graso is { } g ? $"{g:0.#}%" : "—")</td>
+                                <td data-label="Variación de peso" class="text-end num" data-sort-value="@(f.VariacionPeso ?? 0)">@(f.VariacionPeso is { } v ? $"{(v > 0 ? "+" : "")}{v:0.#} kg" : "—")</td>
+                                <td data-label="Mediciones" class="text-center num" data-sort-value="@f.Mediciones">@f.Mediciones</td>
+                                <td class="cell-actions text-end">
+                                    <a class="secondary-btn btn-compact" asp-page="Detalle" asp-route-id="@s.Id" asp-fragment="tab-evolucion"><i class="bi bi-plus-lg"></i> Medir</a>
+                                </td>
+                            </tr>
+                        }
+                        <tr data-filter-empty hidden><td colspan="7"><partial name="Components/_EmptyState" model='new EmptyStateVm("bi-search", "Sin resultados", "Probá con otro término.")' /></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</section>

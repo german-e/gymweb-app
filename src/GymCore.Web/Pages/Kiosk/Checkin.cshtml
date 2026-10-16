@@ -1,0 +1,110 @@
+@page "/kiosk/checkin"
+@model GymCore.Web.Pages.Kiosk.CheckinModel
+@{
+    ViewData["Title"] = "Ingreso";
+    Layout = "_LayoutKiosco";
+    var m = Model.Marca;
+    var k = m.Kiosco;
+    var json = new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web);
+}
+
+<div class="kiosco" data-kiosco
+     data-url="@Url.Page("Checkin", "Ingreso")"
+     data-segundos-resultado="@k.SegundosResultado" data-sonido="@(k.Sonido ? "1" : "0")"
+     data-espera="@(k.PantallaEspera && Model.Avisos.Count > 0 ? "1" : "0")" data-segundos-inactividad="@k.SegundosInactividad" data-segundos-rotacion="@k.SegundosRotacion"
+     style="@(m.ImagenBienvenida is { } fondo ? $"--kiosco-fondo: url('{fondo}')" : null)">
+    @Html.AntiForgeryToken()
+
+    @* ============ LISTO PARA ESCANEAR ============ *@
+    <main class="kiosco-listo" data-pantalla="listo" aria-labelledby="kioscoMensaje">
+        <header class="kiosco-marca">
+            @if (m.Logo is { } logo)
+            {
+                <img class="kiosco-marca__logo" src="@logo" alt="@m.Nombre" />
+            }
+            else
+            {
+                <span class="kiosco-marca__iso"><i class="bi bi-lightning-charge-fill"></i></span>
+                <strong class="kiosco-marca__nombre">@m.Nombre</strong>
+            }
+        </header>
+
+        <div class="kiosco-centro">
+            <div class="kiosco-scan" aria-hidden="true">
+                <i class="bi bi-upc-scan"></i>
+                <span class="kiosco-scan__laser"></span>
+            </div>
+            <h1 id="kioscoMensaje">@k.Mensaje</h1>
+            <p class="kiosco-sub">Acercá el código de barras de tu credencial al lector</p>
+            <span class="kiosco-estado" data-kiosco-estado><span class="kiosco-estado__punto"></span> Listo para escanear</span>
+            <form class="kiosco-captura" data-kiosco-form autocomplete="off">
+                <label class="visually-hidden" for="kioscoCodigo">Código de barras o DNI</label>
+                <input id="kioscoCodigo" name="codigo" inputmode="none" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="40" data-kiosco-input />
+            </form>
+            <button type="button" class="kiosco-dni" data-kiosco-teclado-abrir><i class="bi bi-grid-3x3-gap"></i> No tengo mi credencial · Ingresar DNI</button>
+        </div>
+
+        <footer class="kiosco-pie">
+            <span class="kiosco-reloj"><strong data-kiosco-hora>--:--</strong><small data-kiosco-fecha></small></span>
+            <span class="kiosco-pie__marca">@m.Nombre@(string.IsNullOrEmpty(m.Contacto) ? "" : " · " + m.Contacto)</span>
+        </footer>
+    </main>
+
+    @* ============ RESULTADO ============ *@
+    <section class="kiosco-resultado" data-pantalla="resultado" hidden role="alert" aria-live="assertive">
+        <div class="kiosco-resultado__panel">
+            <div class="kiosco-resultado__titulo"><i class="bi" data-r-icono></i><h2 data-r-titulo></h2></div>
+            <div class="kiosco-resultado__cuerpo">
+                <div class="kiosco-foto" data-r-foto></div>
+                <div class="kiosco-resultado__datos">
+                    <strong class="kiosco-resultado__nombre" data-r-nombre></strong>
+                    <p class="kiosco-resultado__mensaje" data-r-mensaje></p>
+                    <dl class="kiosco-resultado__dl" data-r-dl></dl>
+                    <p class="kiosco-resultado__nota" data-r-nota></p>
+                </div>
+            </div>
+            <div class="kiosco-resultado__progreso"><span data-r-progreso></span></div>
+            <small class="kiosco-resultado__tocar">Tocá la pantalla para continuar</small>
+        </div>
+    </section>
+
+    @* ============ TECLADO EN PANTALLA (DNI) ============ *@
+    <section class="kiosco-teclado" data-kiosco-teclado hidden aria-label="Ingresar DNI">
+        <div class="kiosco-teclado__caja">
+            <h2>Ingresá tu DNI</h2>
+            <output class="kiosco-teclado__display" data-teclado-display aria-live="polite">&nbsp;</output>
+            <div class="kiosco-teclado__teclas">
+                @for (var n = 1; n <= 9; n++)
+                {
+                    <button type="button" data-tecla="@n">@n</button>
+                }
+                <button type="button" data-tecla="borrar" aria-label="Borrar"><i class="bi bi-backspace"></i></button>
+                <button type="button" data-tecla="0">0</button>
+                <button type="button" data-tecla="ok" class="ok" aria-label="Confirmar"><i class="bi bi-check-lg"></i></button>
+            </div>
+            <button type="button" class="kiosco-teclado__cancelar" data-kiosco-teclado-cerrar>Cancelar</button>
+        </div>
+    </section>
+
+    @* ============ PANTALLA DE ESPERA (avisos) ============ *@
+    <section class="kiosco-espera" data-pantalla="espera" hidden aria-live="off">
+        <div class="kiosco-espera__slide" data-espera-slide></div>
+        <div class="kiosco-espera__pie">
+            @if (m.Isotipo is { } iso) { <img src="@iso" alt="" /> }
+            <span><strong>@m.Nombre</strong> · Escaneá tu credencial para ingresar</span>
+            <span class="kiosco-espera__puntos" data-espera-puntos></span>
+        </div>
+    </section>
+
+    @* Controles del personal: pantalla completa y salir (mantener presionado) *@
+    <div class="kiosco-controles">
+        <button type="button" data-kiosco-fullscreen aria-label="Pantalla completa" title="Pantalla completa"><i class="bi bi-arrows-fullscreen"></i></button>
+        <a href="@Url.Page("/Asistencias/Ingreso")" data-kiosco-salir aria-label="Salir del kiosco (mantener presionado)" title="Mantener presionado para salir"><i class="bi bi-box-arrow-left"></i><span class="kiosco-salir__anillo"></span></a>
+    </div>
+</div>
+
+<script type="application/json" id="kioscoAvisos">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Avisos, json).Replace("</", "<\\/"))</script>
+
+@section Scripts {
+    <script src="~/js/kiosco.js" asp-append-version="true"></script>
+}

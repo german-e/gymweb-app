@@ -1,6 +1,7 @@
-@inject Microsoft.Extensions.Configuration.IConfiguration Config
+@inject GymCore.Web.Marca.ServicioBranding Marca
 @{
-    var gimnasio = Config["Gimnasio:Nombre"] ?? "GymCore";
+    var marca = await Marca.ActualAsync();
+    var gimnasio = marca.Nombre;
 }
 <!DOCTYPE html>
 <html lang="es">
@@ -9,6 +10,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - @gimnasio</title>
     <meta name="robots" content="noindex" />
+    <meta name="theme-color" content="@marca.Primario.Hex" />
+    <partial name="_Favicon" model="marca" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -16,15 +19,34 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" crossorigin="anonymous">
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/components.css" asp-append-version="true" />
+    <style id="marca-gimnasio">:root{@Html.Raw(marca.VariablesCss)}</style>
 </head>
-<body class="auth-body">
+<body class="auth-body @(marca.ImagenBienvenida is null ? "" : "has-imagen")">
+    @if (marca.ImagenBienvenida is { } imagen)
+    {
+        @* Panel de bienvenida con la foto del gimnasio (solo pantallas anchas) *@
+        <aside class="auth-hero" style="background-image: url('@imagen')" aria-hidden="true">
+            <div class="auth-hero__copy">
+                @if (marca.Logo is { } logoHero) { <img src="@logoHero" alt="" class="auth-hero__logo" /> }
+                <strong>@gimnasio</strong>
+                <span>@marca.Eslogan</span>
+            </div>
+        </aside>
+    }
     <main class="auth-shell">
         <div class="auth-brand">
-            <div class="brand-mark"><i class="bi bi-lightning-charge-fill"></i></div>
-            <div>
-                <strong>@gimnasio</strong>
-                <small>Club Management</small>
-            </div>
+            @if (marca.Logo is { } logo)
+            {
+                <img src="@logo" alt="@gimnasio" class="auth-brand__logo" />
+            }
+            else
+            {
+                <partial name="_MarcaIsotipo" model="marca" />
+                <div>
+                    <strong>@gimnasio</strong>
+                    <small>@marca.Eslogan</small>
+                </div>
+            }
         </div>
 
         @RenderBody()

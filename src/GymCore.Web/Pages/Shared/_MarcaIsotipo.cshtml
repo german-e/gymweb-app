@@ -1,0 +1,10 @@
+@model GymCore.Web.Marca.Branding
+@* Isotipo del gimnasio: logo reducido (o el logo), y si no hay imagen, el ícono por defecto sobre el color de marca *@
+@if (Model.Isotipo is { } src)
+{
+    <span class="brand-mark brand-mark--img"><img src="@src" alt="" /></span>
+}
+else
+{
+    <span class="brand-mark" aria-hidden="true"><i class="bi bi-lightning-charge-fill"></i></span>
+}

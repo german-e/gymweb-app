@@ -9,10 +9,10 @@ namespace GymCore.Web.Pages.Reportes;
 public class ExportacionesModel : ReportesPageModel
 {
     private readonly Exportador _exportador;
-    private readonly IConfiguration _config;
-    public ExportacionesModel(ServicioReportes reportes, Exportador exportador, IConfiguration config) : base(reportes)
+    private readonly GymCore.Web.Marca.ServicioBranding _branding;
+    public ExportacionesModel(ServicioReportes reportes, Exportador exportador, GymCore.Web.Marca.ServicioBranding branding) : base(reportes)
     {
-        _exportador = exportador; _config = config;
+        _exportador = exportador; _branding = branding;
     }
 
     [BindProperty(SupportsGet = true)] public TipoReporte Tipo { get; set; }
@@ -23,7 +23,7 @@ public class ExportacionesModel : ReportesPageModel
     {
         await CargarPeriodoAsync();
         var tabla = await _exportador.ConstruirAsync(Tipo, Periodo);
-        var bytes = _exportador.Excel(tabla, _config["Gimnasio:Nombre"] ?? "GymCore");
+        var bytes = _exportador.Excel(tabla, (await _branding.ActualAsync()).Nombre);
         await _exportador.AuditarAsync(tabla, "Excel");
         return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             $"{Tipo.ToString().ToLowerInvariant()}-{Periodo.Desde:yyyyMMdd}-{Periodo.Hasta:yyyyMMdd}.xlsx");

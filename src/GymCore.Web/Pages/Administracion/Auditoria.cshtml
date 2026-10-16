@@ -13,6 +13,7 @@
         ("Usuarios y roles", Enum.GetValues<TipoEventoSistema>().Where(t => (int)t / 100 == 6).ToArray()),
         ("Inteligencia de negocio", Enum.GetValues<TipoEventoSistema>().Where(t => (int)t / 100 == 7).ToArray()),
         ("Ventas e inventario", Enum.GetValues<TipoEventoSistema>().Where(t => (int)t / 100 == 8).ToArray()),
+        ("Configuración", Enum.GetValues<TipoEventoSistema>().Where(t => (int)t / 100 == 9).ToArray()),
     };
     var desdeN = (Model.Pagina - 1) * GymCore.Web.Pages.Administracion.AuditoriaModel.PorPagina + 1;
     var hastaN = desdeN + Model.Eventos.Count - 1;
