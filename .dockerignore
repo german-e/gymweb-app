@@ -1,0 +1,32 @@
+**/bin/
+**/obj/
+**/out/
+**/publish/
+**/TestResults/
+**/.vs/
+**/.vscode/
+**/.idea/
+**/*.user
+**/*.suo
+
+# Bases y archivos locales: nunca dentro de la imagen
+**/data/*.db
+**/data/*.db-shm
+**/data/*.db-wal
+**/*.db
+**/wwwroot/uploads/
+
+# Configuración local y secretos
+**/appsettings.*.Local.json
+**/appsettings.Local.json
+.env
+*.pfx
+*.key
+
+.git/
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose*.yml
+Caddyfile
+docs/

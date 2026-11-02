@@ -7,6 +7,7 @@ using GymCore.Aplicacion.Abstractiones;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Data.Sqlite;
 using GymCore.Web.Seguridad;
+using Microsoft.AspNetCore.DataProtection;
 // Ensure this using matches the actual namespace where ISocioRepository is defined
 
 var builder = WebApplication.CreateBuilder(args);
@@ -52,6 +53,19 @@ builder.Services.AddScoped<GymCore.Web.Comercial.ServicioInventario>();
 builder.Services.AddScoped<GymCore.Web.Comercial.ServicioCobranza>();
 builder.Services.AddScoped<GymCore.Web.Comercial.ServicioVentas>();
 builder.Services.AddScoped<GymCore.Web.Comercial.ReportesComerciales>();
+
+// ---------- Producción (Docker) ----------
+// Claves de Data Protection persistentes: sin esto, cada redeploy invalida las cookies y desloguea a todos.
+var rutaClaves = builder.Configuration["DataProtection:Ruta"];
+if (!string.IsNullOrWhiteSpace(rutaClaves))
+{
+    builder.Services.AddDataProtection()
+        .PersistKeysToFileSystem(new DirectoryInfo(rutaClaves))
+        .SetApplicationName("GymCore");
+}
+// Chequeo de salud para Docker / proxy (incluye conexión a la base)
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<GymDbContext>("base-de-datos");
 
 var opcionesSeguridad = builder.Configuration.GetSection("Seguridad").Get<OpcionesSeguridad>() ?? new OpcionesSeguridad();
 builder.Services.AddAuthentication(Autenticacion.Esquema)
@@ -110,6 +124,8 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapRazorPages();
+// Anónimo: la FallbackPolicy exige sesión en todo lo demás
+app.MapHealthChecks("/health").AllowAnonymous();
 
 // Inicializar base de datos (demo): crea esquema si no hay migraciones
 using (var scope = app.Services.CreateScope())

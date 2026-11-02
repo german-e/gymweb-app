@@ -1,0 +1,41 @@
+# GymCore en producción: app + proxy HTTPS (Caddy).
+#   1) cp .env.example .env   y completar DOMINIO
+#   2) docker compose up -d --build
+services:
+  gymcore:
+    build: .
+    image: gymcore:${VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      - Gimnasio__Nombre=${GIMNASIO_NOMBRE:-GymCore}
+    volumes:
+      - gymcore_data:/app/data                # base SQLite
+      - gymcore_keys:/app/keys                # claves de sesión
+      - gymcore_uploads:/app/wwwroot/uploads  # fotos
+    expose:
+      - "8080"
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMINIO=${DOMINIO}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - gymcore
+
+volumes:
+  gymcore_data:
+  gymcore_keys:
+  gymcore_uploads:
+  caddy_data:
+  caddy_config:
