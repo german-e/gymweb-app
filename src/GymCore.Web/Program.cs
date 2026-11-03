@@ -79,7 +79,10 @@ builder.Services.AddLimitesDeTasa();
 // Cookies solo por HTTPS fuera de desarrollo
 var produccion = !builder.Environment.IsDevelopment();
 var politicaCookie = produccion ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
-builder.Services.AddAntiforgery(o => o.Cookie.SecurePolicy = politicaCookie);
+// Antiforgery: SameAsRequest. Con "Always", ASP.NET Core lanza una excepción en cualquier request HTTP
+// (error 500 al probar en http://localhost). Detrás de Caddy o Cloudflare la request llega como HTTPS
+// (cabeceras reenviadas), así que en producción la cookie sale igualmente marcada como Secure.
+builder.Services.AddAntiforgery(o => o.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest);
 
 // HSTS: el navegador recuerda por un año que el sitio (y sus subdominios de gimnasio) solo se usa con HTTPS
 builder.Services.AddHsts(o => { o.MaxAge = TimeSpan.FromDays(365); o.IncludeSubDomains = true; });
