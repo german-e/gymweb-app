@@ -1,19 +1,42 @@
-# GymCore en producción: app + proxy HTTPS (Caddy).
-#   1) cp .env.example .env   y completar DOMINIO
+# GymCore en producción: PostgreSQL + app + proxy HTTPS (Caddy).
+#   1) cp .env.example .env   y completar DOMINIO y POSTGRES_PASSWORD
 #   2) docker compose up -d --build
 services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: gymcore
+      POSTGRES_USER: gymcore
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en .env}
+      TZ: America/Argentina/Buenos_Aires
+    volumes:
+      - gymcore_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gymcore -d gymcore"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # Sin "ports": la base solo es accesible desde los otros contenedores, no desde internet.
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
   gymcore:
     build: .
     image: gymcore:${VERSION:-latest}
     restart: unless-stopped
     environment:
+      - ConnectionStrings__Default=Host=db;Port=5432;Database=gymcore;Username=gymcore;Password=${POSTGRES_PASSWORD}
       - Gimnasio__Nombre=${GIMNASIO_NOMBRE:-GymCore}
     volumes:
-      - gymcore_data:/app/data                # base SQLite
       - gymcore_keys:/app/keys                # claves de sesión
       - gymcore_uploads:/app/uploads          # fotos e imágenes subidas
     expose:
       - "8080"
+    depends_on:
+      db:
+        condition: service_healthy
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
@@ -34,7 +57,7 @@ services:
       - gymcore
 
 volumes:
-  gymcore_data:
+  gymcore_pgdata:
   gymcore_keys:
   gymcore_uploads:
   caddy_data:

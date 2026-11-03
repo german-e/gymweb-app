@@ -13,7 +13,9 @@ public class GymDbContextFactory : IDesignTimeDbContextFactory<GymDbContext>
     public GymDbContext CreateDbContext(string[] args)
     {
         var optionsBuilder = new DbContextOptionsBuilder<GymDbContext>();
-        optionsBuilder.UseSqlite("Data Source=../data/gym.db"); // ruta relativa al proyecto Infra
+        // "migrations add" no se conecta: alcanza con indicar el proveedor. Para "database update" se usa la
+        // base de desarrollo de docker-compose.dev.yml.
+        optionsBuilder.UseNpgsql("Host=localhost;Port=5432;Database=gymcore;Username=gymcore;Password=gymcore_dev");
 
         return new GymDbContext(optionsBuilder.Options);
     }

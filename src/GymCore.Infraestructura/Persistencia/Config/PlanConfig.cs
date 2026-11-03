@@ -12,7 +12,6 @@ public class PlanConfig : IEntityTypeConfiguration<Plan>
         b.Property(x => x.Precio).HasColumnType("decimal(18,2)");
         b.Property(x => x.Moneda).HasMaxLength(10);
         // Bases existentes: la columna se agrega como NOT NULL DEFAULT 1 (todos los planes previos quedan activos)
-        b.Property(x => x.Activo).HasAnnotation(EsquemaSqlite.DefaultAlAgregar, "1");
     }
 }
 
@@ -40,7 +39,6 @@ public class PagoConfig : IEntityTypeConfiguration<Pago>
         b.Property(x => x.Moneda).HasMaxLength(10);
         b.Property(x => x.MotivoAnulacion).HasMaxLength(Pago.MotivoMaxLength);
         // Bases existentes: la columna se agrega como NOT NULL DEFAULT 0 (ningún pago previo queda anulado)
-        b.Property(x => x.Anulado).HasAnnotation(EsquemaSqlite.DefaultAlAgregar, "0");
 
         // Un pago anulado no impacta en recaudación, saldos ni indicadores. Para verlo (listado, detalle,
         // historial) la consulta debe pedirlo explícitamente con IgnoreQueryFilters().

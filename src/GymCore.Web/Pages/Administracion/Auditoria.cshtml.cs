@@ -91,7 +91,8 @@ public class AuditoriaModel : PageModel
         if (!string.IsNullOrWhiteSpace(Q))
         {
             var patron = $"%{Q.Trim()}%";
-            q = q.Where(e => EF.Functions.Like(e.EntidadNombre, patron) || EF.Functions.Like(e.Resumen!, patron) || EF.Functions.Like(e.Detalle!, patron));
+            // ILIKE: búsqueda sin distinguir mayúsculas (en PostgreSQL, LIKE sí las distingue; en SQLite no)
+            q = q.Where(e => EF.Functions.ILike(e.EntidadNombre, patron) || EF.Functions.ILike(e.Resumen!, patron) || EF.Functions.ILike(e.Detalle!, patron));
         }
         return q;
     }

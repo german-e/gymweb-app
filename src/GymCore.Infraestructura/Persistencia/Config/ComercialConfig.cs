@@ -31,7 +31,7 @@ public class ProductoConfig : IEntityTypeConfiguration<Producto>
         b.Ignore(x => x.Estado);
         b.Property(x => x.StockActual).IsConcurrencyToken();   // evita perder ventas simultáneas del mismo producto
         b.HasIndex(x => x.Codigo).IsUnique();
-        b.HasIndex(x => x.CodigoBarras).IsUnique();   // SQLite admite varios NULL en un índice único
+        b.HasIndex(x => x.CodigoBarras).IsUnique();   // PostgreSQL admite varios NULL en un índice único
         b.HasOne(x => x.Categoria).WithMany(c => c.Productos).HasForeignKey(x => x.CategoriaId).OnDelete(DeleteBehavior.Restrict);
     }
 }

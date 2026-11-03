@@ -2,7 +2,7 @@
 # =====================================================================
 #  GymCore — imagen de producción (ASP.NET Core 10 · Razor Pages)
 #  Build:  docker build -t gymcore:1.0.0 .
-#  Tests:  docker build --target test .
+#  Las pruebas necesitan PostgreSQL: se corren con "dotnet test" (ver docs/postgresql.md) y en el CI.
 # =====================================================================
 
 # ---------- Etapa 1: restore + build ----------
@@ -23,10 +23,6 @@ RUN dotnet restore GymCore.sln
 COPY . .
 RUN dotnet build GymCore.sln -c Release --no-restore
 
-# ---------- Etapa opcional: pruebas (docker build --target test .) ----------
-FROM build AS test
-RUN dotnet test GymCore.sln -c Release --no-build --logger "console;verbosity=normal"
-
 # ---------- Etapa 2: publish ----------
 FROM build AS publish
 RUN dotnet publish src/GymCore.Web/GymCore.Web.csproj \
@@ -45,18 +41,17 @@ ENV ASPNETCORE_ENVIRONMENT=Production \
     ASPNETCORE_HTTP_PORTS=8080 \
     ASPNETCORE_FORWARDEDHEADERS_ENABLED=true \
     TZ=America/Argentina/Buenos_Aires \
-    ConnectionStrings__Default="Data Source=/app/data/gym.db" \
     DataProtection__Ruta=/app/keys \
     Almacenamiento__Uploads=/app/uploads
 
 COPY --from=publish /app/publish .
 
 # Carpetas persistentes (se montan como volúmenes), con permisos para el usuario sin privilegios 'app':
-#   /app/data     -> base SQLite
 #   /app/keys     -> claves de Data Protection (cookies de sesión)
 #   /app/uploads  -> fotos e imágenes subidas (fuera de wwwroot: las fotos exigen sesión)
-RUN mkdir -p /app/data /app/keys /app/uploads \
- && chown -R app:app /app/data /app/keys /app/uploads
+# La base de datos es PostgreSQL (otro contenedor): la cadena llega por ConnectionStrings__Default.
+RUN mkdir -p /app/keys /app/uploads \
+ && chown -R app:app /app/keys /app/uploads
 
 USER app
 EXPOSE 8080

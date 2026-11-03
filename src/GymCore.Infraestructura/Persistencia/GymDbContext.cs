@@ -2,6 +2,7 @@ using GymCore.Aplicacion.Abstractiones;
 using GymCore.Dominio.Entidades;
 using GymCore.Dominio.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace GymCore.Infraestructura.Persistencia;
 
@@ -40,7 +41,22 @@ public class GymDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(GymDbContext).Assembly);
+
+        // Fechas: "timestamp without time zone", igual que se guardaban en SQLite (hora tal como la maneja
+        // la aplicación, sin zona). Npgsql solo acepta DateTime con Kind=Utc en "timestamptz"; acá se guardan
+        // con Kind=Unspecified y se leen igual, así el comportamiento no cambia respecto de SQLite.
+        // Deuda técnica registrada: unificar instantes en UTC (timestamptz) y vigencias en DateOnly.
+        foreach (var propiedad in modelBuilder.Model.GetEntityTypes().SelectMany(e => e.GetProperties())
+                     .Where(p => p.ClrType == typeof(DateTime) || p.ClrType == typeof(DateTime?)))
+        {
+            propiedad.SetColumnType("timestamp without time zone");
+            propiedad.SetValueConverter(FechaSinZona);
+        }
     }
+
+    private static readonly ValueConverter<DateTime, DateTime> FechaSinZona = new(
+        v => DateTime.SpecifyKind(v, DateTimeKind.Unspecified),
+        v => DateTime.SpecifyKind(v, DateTimeKind.Unspecified));
 
     // Completa la auditoría antes de guardar:
     //  - Usuario de los eventos nuevos (operador actual).

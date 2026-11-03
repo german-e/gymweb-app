@@ -1,0 +1,25 @@
+# PostgreSQL para DESARROLLO (dotnet run / dotnet watch / dotnet test). Solo escucha en tu PC.
+#   docker compose -f docker-compose.dev.yml up -d
+# Credenciales de desarrollo (también en appsettings.Development.json): gymcore / gymcore_dev
+name: gymcore-dev
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: gymcore
+      POSTGRES_USER: gymcore
+      POSTGRES_PASSWORD: gymcore_dev
+      TZ: America/Argentina/Buenos_Aires
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - gymcore_dev_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gymcore -d gymcore"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  gymcore_dev_pgdata:

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using GymCore.Infraestructura.Persistencia;
 using GymCore.Infraestructura.Repositorios;
 using GymCore.Dominio.Entidades;
@@ -15,22 +16,17 @@ using GymCore.Web.Marca;
 var builder = WebApplication.CreateBuilder(args);
 
 
-var cs = builder.Configuration.GetConnectionString("Default")
-         ?? "Data Source=./data/gym.db";
-// Normaliza ruta relativa de SQLite a absoluta y asegura carpeta existente
-if (cs.StartsWith("Data Source=./"))
-{
-    var relative = cs.Substring("Data Source=".Length).Trim();
-    // limpiar prefijo ./ o .\
-    while (relative.StartsWith("./") || relative.StartsWith(".\\"))
-        relative = relative.Substring(2);
-    var absPath = Path.Combine(builder.Environment.ContentRootPath, relative);
-    var dir = Path.GetDirectoryName(absPath);
-    if (!string.IsNullOrWhiteSpace(dir)) Directory.CreateDirectory(dir);
-    cs = $"Data Source={absPath}";
-}
+// PostgreSQL. La cadena viene de configuración: appsettings.Development.json en desarrollo,
+// variable de entorno ConnectionStrings__Default en Docker/producción.
+var cadena = new NpgsqlConnectionStringBuilder(builder.Configuration.GetConnectionString("Default")
+    ?? throw new InvalidOperationException("Falta la cadena de conexión ConnectionStrings:Default (PostgreSQL)."));
+// Zona horaria de la sesión: las consultas que usan DateTime.Now/Today se resuelven dentro de PostgreSQL,
+// que por defecto trabaja en UTC. Así "hoy" es el de Argentina, como con SQLite.
+if (string.IsNullOrWhiteSpace(cadena.Timezone)) cadena.Timezone = "America/Argentina/Buenos_Aires";
 
-builder.Services.AddDbContext<GymDbContext>(opt => opt.UseSqlite(cs));
+// Sin reintentos automáticos (EnableRetryOnFailure): GymDbContext abre transacciones propias al guardar
+// la auditoría, y la estrategia de reintentos no admite transacciones iniciadas por el usuario.
+builder.Services.AddDbContext<GymDbContext>(opt => opt.UseNpgsql(cadena.ConnectionString));
 
 // DI repositorios/servicios
 builder.Services.AddScoped<ISocioRepository, SocioRepository>();
@@ -174,7 +170,7 @@ app.MapRazorPages();
 // Anónimo: la FallbackPolicy exige sesión en todo lo demás
 app.MapHealthChecks("/health").AllowAnonymous();
 
-// Base de datos: aplica las migraciones pendientes (y adopta bases creadas antes con EnsureCreated).
+// Base de datos: aplica las migraciones pendientes de EF Core.
 // Si falla, la aplicación no arranca: mejor que operar con un esquema a medio actualizar.
 using (var scope = app.Services.CreateScope())
 {

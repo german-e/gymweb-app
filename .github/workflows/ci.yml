@@ -11,6 +11,23 @@ jobs:
   pruebas:
     name: Compilación y pruebas
     runs-on: ubuntu-latest
+    # PostgreSQL para las pruebas (mismo motor que producción)
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: gymcore
+          POSTGRES_PASSWORD: gymcore_ci
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gymcore"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      GYMCORE_PRUEBAS_POSTGRES: Host=localhost;Port=5432;Username=gymcore;Password=gymcore_ci;Database=postgres
     steps:
       - uses: actions/checkout@v4
 

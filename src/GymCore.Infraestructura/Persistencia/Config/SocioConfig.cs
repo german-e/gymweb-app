@@ -27,7 +27,7 @@ public class SocioConfig : IEntityTypeConfiguration<Socio>
         b.Ignore(x => x.NumeroVisible);
 
         b.HasIndex(x => x.Dni);
-        b.HasIndex(x => x.TarjetaCodigo).IsUnique(); // único; permite múltiples NULL en SQLite
+        b.HasIndex(x => x.TarjetaCodigo).IsUnique(); // único; PostgreSQL permite múltiples NULL
         b.HasIndex(x => x.NumeroSocio).IsUnique();
     }
 }

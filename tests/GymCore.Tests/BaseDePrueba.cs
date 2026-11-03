@@ -2,30 +2,23 @@ using GymCore.Aplicacion.Abstractiones;
 using GymCore.Dominio.Entidades;
 using GymCore.Dominio.Enums;
 using GymCore.Infraestructura.Persistencia;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymCore.Tests;
 
-// Base SQLite en memoria (mismo motor que producción). La conexión queda abierta durante el test.
+// Base PostgreSQL propia de cada prueba, con el esquema al día (copiada de la plantilla migrada).
+// Mismo motor que producción. Se borra al terminar la prueba.
 public sealed class BaseDePrueba : IDisposable
 {
-    private readonly SqliteConnection _conexion = new("Data Source=:memory:");
-
-    public BaseDePrueba()
-    {
-        _conexion.Open();
-        using var db = Contexto();
-        db.Database.EnsureCreated();
-    }
+    private readonly string _cadena = PostgresDePrueba.NuevaBase();
 
     private sealed record Operador(string Nombre, int? UsuarioId = 7) : IOperadorAuditoria;
 
     public GymDbContext Contexto(string? operador = "Cajero Test") =>
-        new(new DbContextOptionsBuilder<GymDbContext>().UseSqlite(_conexion).Options,
+        new(new DbContextOptionsBuilder<GymDbContext>().UseNpgsql(_cadena).Options,
             operador is null ? null : new Operador(operador));
 
-    public SqliteConnection Conexion => _conexion;
+    public string Cadena => _cadena;
 
     // Socio con una suscripción vigente al plan del precio indicado
     public async Task<(Socio Socio, SocioPlan Suscripcion)> SocioConPlanAsync(decimal precio = 1000m)
@@ -56,5 +49,5 @@ public sealed class BaseDePrueba : IDisposable
         await db.SaveChangesAsync();
     }
 
-    public void Dispose() => _conexion.Dispose();
+    public void Dispose() => PostgresDePrueba.Borrar(_cadena);
 }

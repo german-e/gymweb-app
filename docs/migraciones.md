@@ -1,7 +1,7 @@
-# Migraciones de base de datos (EF Core)
+# Migraciones de base de datos (EF Core + PostgreSQL)
 
-Desde la épica 1, el esquema de la base se maneja con **migraciones de EF Core**. Ya no se usa
-`EnsureCreated` ni `ALTER TABLE` escritos a mano.
+El esquema de la base se maneja con **migraciones de EF Core**. No se usa `EnsureCreated` ni
+`ALTER TABLE` escritos a mano. Para levantar PostgreSQL en desarrollo, ver `docs/postgresql.md`.
 
 ## Preparación (una sola vez por equipo)
 
@@ -9,7 +9,10 @@ Desde la épica 1, el esquema de la base se maneja con **migraciones de EF Core*
 dotnet tool restore          # instala dotnet-ef en la versión fijada en .config/dotnet-tools.json
 ```
 
-## Generar la migración inicial (una sola vez, al aplicar la épica 1)
+## Generar la migración inicial (una sola vez)
+
+Desde la épica 2 la base es PostgreSQL: las migraciones de SQLite de la épica 1 se borran y se genera
+una nueva migración inicial. Necesitás PostgreSQL corriendo solo para aplicarlas, no para generarlas.
 
 ```bash
 dotnet ef migrations add Inicial \
@@ -28,7 +31,8 @@ Se crean tres archivos en `src/GymCore.Infraestructura/Persistencia/Migraciones/
    dotnet ef migrations add AgregarAptoMedicoASocio \
      --project src/GymCore.Infraestructura --startup-project src/GymCore.Web
    ```
-3. **Revisás el archivo generado** (`Up` y `Down`). Prestá atención a todo lo que borre columnas o tablas.
+3. **Revisás el archivo generado** (`Up` y `Down`). Prestá atención a todo lo que borre columnas o tablas,
+   y a columnas nuevas obligatorias en tablas con datos (necesitan un valor por defecto).
 4. Corrés la app: la migración se aplica sola al arrancar.
 5. Commit del cambio de la entidad **junto con** la migración.
 
@@ -43,25 +47,7 @@ y el paso "Migraciones al día con el modelo" del CI fallan.
 | ¿Hay cambios del modelo sin migrar? | `dotnet ef migrations has-pending-model-changes` |
 | Deshacer la última migración (si **no** se aplicó ni se subió) | `dotnet ef migrations remove` |
 | Ver el SQL que se ejecutaría | `dotnet ef migrations script --idempotent` |
-
-## Bases existentes (creadas antes de las migraciones)
-
-Al arrancar, `InicializadorBaseDatos` detecta una base que tiene tablas pero no tiene historial de
-migraciones (tu `gym.db` local, los volúmenes de Docker de pruebas y de la demo):
-
-1. completa el esquema con `EsquemaSqlite`,
-2. registra la migración inicial como aplicada,
-3. aplica las migraciones posteriores.
-
-No se pierden datos. Igual, **antes de la primera vez hacé una copia** de la base:
-
-```bash
-# Base local de desarrollo
-cp src/GymCore.Web/data/gym.db src/GymCore.Web/data/gym.db.respaldo
-
-# Volumen de Docker
-docker run --rm -v gymcore_data:/data -v "$PWD":/backup alpine cp /data/gym.db /backup/gym.db.respaldo
-```
+| Aplicar a mano sobre la base de desarrollo | `dotnet ef database update` |
 
 ## Si una migración falla al arrancar
 
