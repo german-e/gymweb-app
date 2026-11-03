@@ -54,9 +54,11 @@ public class SeguridadEndurecimientoTests : IClassFixture<AppDePrueba>
         var nonce = Regex.Match(csp, "'nonce-([^']+)'").Groups[1].Value;
         var html = await r.Content.ReadAsStringAsync();
 
+        // Se compara el valor del atributo ya decodificado, como lo lee el navegador
         var scripts = Regex.Matches(html, "<script[^>]*>").Select(m => m.Value).ToList();
         Assert.NotEmpty(scripts);
-        Assert.All(scripts, s => Assert.Contains($"nonce=\"{nonce}\"", s));
+        Assert.All(scripts, s =>
+            Assert.Equal(nonce, WebUtility.HtmlDecode(Regex.Match(s, "nonce=\"([^\"]*)\"").Groups[1].Value)));
 
         // El nonce cambia en cada request
         var otra = await _app.Cliente().GetAsync("/Cuenta/Login");

@@ -26,7 +26,9 @@ public static class CabecerasSeguridad
 
         return app.Use(async (http, next) =>
         {
-            var nonce = Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));
+            // Hexadecimal: 128 bits aleatorios sin "+", "/" ni "=". En Base64 el "+" se escribe en el HTML como
+            // "&#x2B;" (el navegador lo decodifica bien, pero el HTML no coincide textualmente con la cabecera).
+            var nonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
             http.Items[ClaveNonce] = nonce;
 
             var h = http.Response.Headers;
