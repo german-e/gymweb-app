@@ -40,7 +40,7 @@
         </div>
         <div class="header-actions">
             <button type="button" class="secondary-btn" id="btnPdf"><i class="bi bi-file-earmark-arrow-down"></i> Descargar PDF</button>
-            <button type="button" class="primary-btn border-0" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir recibo</button>
+            <button type="button" class="primary-btn border-0" data-accion="imprimir"><i class="bi bi-printer"></i> Imprimir recibo</button>
             @if (Model.PuedeAnular)
             {
                 <button type="button" class="danger-btn" data-bs-toggle="modal" data-bs-target="#anularModal"><i class="bi bi-x-octagon"></i> Anular</button>
@@ -176,7 +176,7 @@
             <div class="panel-card">
                 <div class="panel-head mb-3"><h3>Acciones</h3></div>
                 <div class="quick-actions single">
-                    <button type="button" class="quick-action" onclick="window.print()">
+                    <button type="button" class="quick-action" data-accion="imprimir">
                         <i class="bi bi-printer"></i><span>Imprimir recibo<small>Formato A5 listo para entregar</small></span>
                     </button>
                     <button type="button" class="quick-action" data-pdf-trigger>

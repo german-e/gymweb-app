@@ -24,7 +24,7 @@
 </head>
 <body>
     <div class="acciones no-print">
-        <button type="button" onclick="window.print()"><i class="bi bi-file-earmark-pdf"></i> Guardar como PDF / Imprimir</button>
+        <button type="button" data-accion="imprimir"><i class="bi bi-file-earmark-pdf"></i> Guardar como PDF / Imprimir</button>
         <span>En el diálogo, elegí <strong>Guardar como PDF</strong> como destino.</span>
     </div>
     <header class="cabecera">
@@ -74,6 +74,9 @@
         <span>@t.Filas.Count registros · Generado por @Usuario.Nombre el @DateTime.Now.ToString("dd/MM/yyyy HH:mm")</span>
         <span>Documento con datos personales · uso interno</span>
     </footer>
-    <script>window.addEventListener('load', () => setTimeout(() => window.print(), 400));</script>
+    <script>
+        document.querySelectorAll('[data-accion="imprimir"]').forEach((b) => b.addEventListener('click', () => window.print()));
+        window.addEventListener('load', () => setTimeout(() => window.print(), 400));
+    </script>
 </body>
 </html>

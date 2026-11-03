@@ -1,3 +1,4 @@
+using GymCore.Web.Componentes;
 using GymCore.Web.Seguridad;
 using GymCore.Dominio.Entidades;
 using GymCore.Dominio.Enums;
@@ -12,8 +13,8 @@ namespace GymCore.Web.Pages.Entrenadores;
 public class DetalleModel : PageModel
 {
     private readonly GymDbContext _db;
-    private readonly IWebHostEnvironment _env;
-    public DetalleModel(GymDbContext db, IWebHostEnvironment env) { _db = db; _env = env; }
+    private readonly AlmacenamientoArchivos _archivos;
+    public DetalleModel(GymDbContext db, AlmacenamientoArchivos archivos) { _db = db; _archivos = archivos; }
 
     public record SocioAsignado(
         int AsignacionId, int SocioId, string Nombre, string Dni, string? NumeroSocio,
@@ -200,7 +201,7 @@ public class DetalleModel : PageModel
     [RequierePermiso(Permisos.EntrenadoresEditar)]
     public async Task<IActionResult> OnPostEliminarAsync()
     {
-        TempData["Flash"] = await EntrenadorAcciones.EliminarAsync(_db, _env, Id);
+        TempData["Flash"] = await EntrenadorAcciones.EliminarAsync(_db, _archivos, Id);
         return RedirectToPage("Index");
     }
 

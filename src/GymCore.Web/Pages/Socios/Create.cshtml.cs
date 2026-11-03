@@ -12,7 +12,7 @@ namespace GymCore.Web.Pages.Socios;
 [RequierePermiso(Permisos.SociosCrear)]
 public class CreateModel : SocioFormPageModel
 {
-    public CreateModel(GymDbContext db, IWebHostEnvironment env) : base(db, env) { }
+    public CreateModel(GymDbContext db, AlmacenamientoArchivos archivos) : base(db, archivos) { }
 
     public override bool EsEdicion => false;
 

@@ -1,3 +1,4 @@
+using GymCore.Web.Componentes;
 using GymCore.Web.Seguridad;
 using GymCore.Dominio.Entidades;
 using GymCore.Dominio.Enums;
@@ -9,7 +10,7 @@ namespace GymCore.Web.Pages.Entrenadores;
 [RequierePermiso(Permisos.EntrenadoresEditar)]
 public class CreateModel : EntrenadorFormPageModel
 {
-    public CreateModel(GymDbContext db, IWebHostEnvironment env) : base(db, env) { }
+    public CreateModel(GymDbContext db, AlmacenamientoArchivos archivos) : base(db, archivos) { }
 
     public override bool EsEdicion => false;
 

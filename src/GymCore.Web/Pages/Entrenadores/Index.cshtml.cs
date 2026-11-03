@@ -1,3 +1,4 @@
+using GymCore.Web.Componentes;
 using GymCore.Web.Seguridad;
 using GymCore.Dominio.Entidades;
 using GymCore.Infraestructura.Persistencia;
@@ -11,8 +12,8 @@ namespace GymCore.Web.Pages.Entrenadores;
 public class IndexModel : PageModel
 {
     private readonly GymDbContext _db;
-    private readonly IWebHostEnvironment _env;
-    public IndexModel(GymDbContext db, IWebHostEnvironment env) { _db = db; _env = env; }
+    private readonly AlmacenamientoArchivos _archivos;
+    public IndexModel(GymDbContext db, AlmacenamientoArchivos archivos) { _db = db; _archivos = archivos; }
 
     public record Fila(Entrenador Entrenador, int SociosAsignados);
 
@@ -64,7 +65,7 @@ public class IndexModel : PageModel
     [RequierePermiso(Permisos.EntrenadoresEditar)]
     public async Task<IActionResult> OnPostEliminarAsync(int id)
     {
-        Flash = await EntrenadorAcciones.EliminarAsync(_db, _env, id);
+        Flash = await EntrenadorAcciones.EliminarAsync(_db, _archivos, id);
         return RedirectToPage();
     }
 }

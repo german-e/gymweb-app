@@ -11,9 +11,9 @@ namespace GymCore.Web.Pages.Socios;
 public abstract class SocioFormPageModel : PageModel
 {
     protected readonly GymDbContext Db;
-    private readonly IWebHostEnvironment _env;
+    private readonly AlmacenamientoArchivos _archivos;
 
-    protected SocioFormPageModel(GymDbContext db, IWebHostEnvironment env) { Db = db; _env = env; }
+    protected SocioFormPageModel(GymDbContext db, AlmacenamientoArchivos archivos) { Db = db; _archivos = archivos; }
 
     [BindProperty] public SocioInput Input { get; set; } = new();
 
@@ -47,7 +47,7 @@ public abstract class SocioFormPageModel : PageModel
 
     protected async Task ProcesarFotoAsync(Socio s)
     {
-        var (url, _) = await FotoStorage.ProcesarAsync(_env, "socios", s.FotoUrl, Input.Foto, Input.QuitarFoto);
+        var (url, _) = await FotoStorage.ProcesarAsync(_archivos, "socios", s.FotoUrl, Input.Foto, Input.QuitarFoto);
         s.FotoUrl = url;
     }
 }

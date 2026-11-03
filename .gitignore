@@ -77,6 +77,8 @@ wwwroot/lib/
 src/**/data/*.db
 src/**/data/*.db-shm
 src/**/data/*.db-wal
+# Archivos subidos en desarrollo (fotos, imágenes de marca)
+src/**/data/uploads/
 
 # AppSettings locales (mantener Development.json normal si no tiene secretos)
 appsettings.*.Local.json

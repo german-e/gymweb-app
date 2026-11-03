@@ -11,12 +11,12 @@ namespace GymCore.Web.Pages.Entrenadores;
 public abstract class EntrenadorFormPageModel : PageModel
 {
     protected readonly GymDbContext Db;
-    private readonly IWebHostEnvironment _env;
+    private readonly AlmacenamientoArchivos _archivos;
 
-    protected EntrenadorFormPageModel(GymDbContext db, IWebHostEnvironment env)
+    protected EntrenadorFormPageModel(GymDbContext db, AlmacenamientoArchivos archivos)
     {
         Db = db;
-        _env = env;
+        _archivos = archivos;
     }
 
     [BindProperty]
@@ -40,7 +40,7 @@ public abstract class EntrenadorFormPageModel : PageModel
     // Guarda/quita la foto y actualiza FotoUrl. Devuelve true si cambió.
     protected async Task<bool> ProcesarFotoAsync(Entrenador e)
     {
-        var (url, cambio) = await FotoStorage.ProcesarAsync(_env, "entrenadores", e.FotoUrl, Input.Foto, Input.QuitarFoto);
+        var (url, cambio) = await FotoStorage.ProcesarAsync(_archivos, "entrenadores", e.FotoUrl, Input.Foto, Input.QuitarFoto);
         e.FotoUrl = url;
         return cambio;
     }

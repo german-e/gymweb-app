@@ -16,10 +16,10 @@ public class RecepcionModel : PageModel
 {
     private readonly GymDbContext _db;
     private readonly ServicioBranding _branding;
-    private readonly IWebHostEnvironment _env;
+    private readonly AlmacenamientoArchivos _archivos;
     private readonly IUsuarioActual _usuario;
-    public RecepcionModel(GymDbContext db, ServicioBranding branding, IWebHostEnvironment env, IUsuarioActual usuario)
-    { _db = db; _branding = branding; _env = env; _usuario = usuario; }
+    public RecepcionModel(GymDbContext db, ServicioBranding branding, AlmacenamientoArchivos archivos, IUsuarioActual usuario)
+    { _db = db; _branding = branding; _archivos = archivos; _usuario = usuario; }
 
     public ConfiguracionGimnasio Config { get; private set; } = null!;
     public List<AvisoRecepcion> Avisos { get; private set; } = new();
@@ -82,7 +82,7 @@ public class RecepcionModel : PageModel
         a.VigenteDesde = desde;
         a.VigenteHasta = hasta;
         a.Orden = Math.Clamp(orden, 0, 999);
-        a.ImagenUrl = (await FotoStorage.ProcesarAsync(_env, ImagenesMarca.Carpeta, a.ImagenUrl, imagen, quitarImagen)).Url;
+        a.ImagenUrl = (await FotoStorage.ProcesarAsync(_archivos, ImagenesMarca.Carpeta, a.ImagenUrl, imagen, quitarImagen)).Url;
         _db.Auditar(id is null ? TipoEventoSistema.AvisoCreado : TipoEventoSistema.AvisoEditado, EntidadAuditada.Aviso, a.Id, a.Titulo,
             $"{Texto(a.Tipo)}{(a.VigenteHasta is { } vh ? $" · hasta {vh:dd/MM/yyyy}" : "")}", referencia: id is null ? a : null);
         await _db.SaveChangesAsync();
@@ -109,7 +109,7 @@ public class RecepcionModel : PageModel
         _db.AvisosRecepcion.Remove(a);
         _db.Auditar(TipoEventoSistema.AvisoEliminado, EntidadAuditada.Aviso, a.Id, a.Titulo, Texto(a.Tipo));
         await _db.SaveChangesAsync();
-        FotoStorage.Borrar(_env, a.ImagenUrl);
+        FotoStorage.Borrar(_archivos, a.ImagenUrl);
         Flash = $"Aviso “{a.Titulo}” eliminado.";
         return RedirectToPage();
     }

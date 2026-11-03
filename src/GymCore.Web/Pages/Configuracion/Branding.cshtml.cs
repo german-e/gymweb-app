@@ -15,10 +15,10 @@ public class BrandingModel : PageModel
 {
     private readonly GymDbContext _db;
     private readonly ServicioBranding _branding;
-    private readonly IWebHostEnvironment _env;
+    private readonly AlmacenamientoArchivos _archivos;
     private readonly IUsuarioActual _usuario;
-    public BrandingModel(GymDbContext db, ServicioBranding branding, IWebHostEnvironment env, IUsuarioActual usuario)
-    { _db = db; _branding = branding; _env = env; _usuario = usuario; }
+    public BrandingModel(GymDbContext db, ServicioBranding branding, AlmacenamientoArchivos archivos, IUsuarioActual usuario)
+    { _db = db; _branding = branding; _archivos = archivos; _usuario = usuario; }
 
     [BindProperty] public InputModel Input { get; set; } = new();
     public ConfiguracionGimnasio Actual { get; private set; } = null!;
@@ -99,10 +99,10 @@ public class BrandingModel : PageModel
         Actual.Email = Limpio(Input.Email);
         Actual.SitioWeb = Limpio(Input.SitioWeb);
         Actual.TextoCredencial = Limpio(Input.TextoCredencial);
-        Actual.LogoUrl = (await FotoStorage.ProcesarAsync(_env, ImagenesMarca.Carpeta, Actual.LogoUrl, Input.Logo, Input.QuitarLogo)).Url;
-        Actual.LogoReducidoUrl = (await FotoStorage.ProcesarAsync(_env, ImagenesMarca.Carpeta, Actual.LogoReducidoUrl, Input.LogoReducido, Input.QuitarLogoReducido)).Url;
-        Actual.FaviconUrl = (await FotoStorage.ProcesarAsync(_env, ImagenesMarca.Carpeta, Actual.FaviconUrl, Input.Favicon, Input.QuitarFavicon)).Url;
-        Actual.ImagenBienvenidaUrl = (await FotoStorage.ProcesarAsync(_env, ImagenesMarca.Carpeta, Actual.ImagenBienvenidaUrl, Input.ImagenBienvenida, Input.QuitarImagenBienvenida)).Url;
+        Actual.LogoUrl = (await FotoStorage.ProcesarAsync(_archivos, ImagenesMarca.Carpeta, Actual.LogoUrl, Input.Logo, Input.QuitarLogo)).Url;
+        Actual.LogoReducidoUrl = (await FotoStorage.ProcesarAsync(_archivos, ImagenesMarca.Carpeta, Actual.LogoReducidoUrl, Input.LogoReducido, Input.QuitarLogoReducido)).Url;
+        Actual.FaviconUrl = (await FotoStorage.ProcesarAsync(_archivos, ImagenesMarca.Carpeta, Actual.FaviconUrl, Input.Favicon, Input.QuitarFavicon)).Url;
+        Actual.ImagenBienvenidaUrl = (await FotoStorage.ProcesarAsync(_archivos, ImagenesMarca.Carpeta, Actual.ImagenBienvenidaUrl, Input.ImagenBienvenida, Input.QuitarImagenBienvenida)).Url;
 
         var nueva = _db.Entry(Actual).State == Microsoft.EntityFrameworkCore.EntityState.Added;
         var cambios = nueva ? Etiquetas.Values.Take(4).ToList() : _db.CamposModificados(Actual, Etiquetas);

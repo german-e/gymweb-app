@@ -18,7 +18,7 @@
 
     <div class="ingreso-layout">
         <div class="data-card ingreso-card">
-            <form id="checkin-form" class="ingreso-form" onsubmit="return false" autocomplete="off">
+            <form id="checkin-form" class="ingreso-form" autocomplete="off">
                 <label class="form-label fw-semibold" for="code">Credencial o DNI</label>
                 <div class="ingreso-form__fila">
                     <label class="search-input ingreso-input">
@@ -71,6 +71,8 @@
 @section Scripts {
 <script>
 (function() {
+    // El envío lo maneja este script (fetch); se evita el submit nativo del formulario
+    document.getElementById('checkin-form').addEventListener('submit', (e) => e.preventDefault());
     const input = document.getElementById('code');
     const btn = document.getElementById('btn-ok');
     const fb = document.getElementById('feedback');

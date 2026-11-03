@@ -9,7 +9,17 @@ public class OpcionesSeguridad
     public int MinutosBloqueo { get; set; } = 15;
     public int HorasSesion { get; set; } = 8;          // inactividad máxima de una sesión normal (deslizante)
     public int DiasRecordarSesion { get; set; } = 14;  // "Recordar sesión": duración fija
+
+    // Límites de tasa por IP (ventana de 1 minuto). Frenan la fuerza bruta y el bloqueo intencional de cuentas.
+    public int IntentosLoginPorMinuto { get; set; } = 10;   // POST de login, configuración inicial y cambio de contraseña
+    public int IngresosPorMinuto { get; set; } = 120;       // check-in por API y kiosco (lector de credenciales)
+
+    // Content-Security-Policy. Sin valor: "SoloReporte" en Development (no rompe dotnet watch) y "Activa" en el resto.
+    // Si en producción algo deja de funcionar, se puede pasar a "SoloReporte" con una variable de entorno sin recompilar.
+    public ModoCsp? Csp { get; set; }
 }
+
+public enum ModoCsp { Activa, SoloReporte, Desactivada }
 
 // Reglas mínimas de contraseña. Se valida igual en el alta, el cambio y el reseteo.
 public static class PoliticaPassword

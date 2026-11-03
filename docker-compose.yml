@@ -11,7 +11,7 @@ services:
     volumes:
       - gymcore_data:/app/data                # base SQLite
       - gymcore_keys:/app/keys                # claves de sesión
-      - gymcore_uploads:/app/wwwroot/uploads  # fotos
+      - gymcore_uploads:/app/uploads          # fotos e imágenes subidas
     expose:
       - "8080"
     logging:

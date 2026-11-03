@@ -15,6 +15,7 @@
 **/data/*.db-wal
 **/*.db
 **/wwwroot/uploads/
+**/data/uploads/
 
 # Configuración local y secretos
 **/appsettings.*.Local.json

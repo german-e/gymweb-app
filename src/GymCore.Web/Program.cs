@@ -8,6 +8,9 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Data.Sqlite;
 using GymCore.Web.Seguridad;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.FileProviders;
+using GymCore.Web.Componentes;
+using GymCore.Web.Marca;
 // Ensure this using matches the actual namespace where ISocioRepository is defined
 
 var builder = WebApplication.CreateBuilder(args);
@@ -67,14 +70,31 @@ if (!string.IsNullOrWhiteSpace(rutaClaves))
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<GymDbContext>("base-de-datos");
 
+// Archivos subidos (fotos, imágenes de marca): fuera de wwwroot, con acceso controlado
+builder.Services.AddSingleton<AlmacenamientoArchivos>();
+
+// Límites de tasa por IP para login y check-in
+builder.Services.AddLimitesDeTasa();
+
+// Cookies solo por HTTPS fuera de desarrollo
+var produccion = !builder.Environment.IsDevelopment();
+var politicaCookie = produccion ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
+builder.Services.AddAntiforgery(o => o.Cookie.SecurePolicy = politicaCookie);
+
+// HSTS: el navegador recuerda por un año que el sitio (y sus subdominios de gimnasio) solo se usa con HTTPS
+builder.Services.AddHsts(o => { o.MaxAge = TimeSpan.FromDays(365); o.IncludeSubDomains = true; });
+
 var opcionesSeguridad = builder.Configuration.GetSection("Seguridad").Get<OpcionesSeguridad>() ?? new OpcionesSeguridad();
 builder.Services.AddAuthentication(Autenticacion.Esquema)
     .AddCookie(Autenticacion.Esquema, o =>
     {
-        o.Cookie.Name = ".GymCore.Sesion";
+        // Prefijo __Host-: el navegador exige HTTPS, Path=/ y sin Domain. La cookie queda atada al host exacto
+        // (cada subdominio de gimnasio tendrá la suya). En desarrollo se usa el nombre sin prefijo para HTTP.
+        o.Cookie.Name = produccion ? "__Host-GymCore.Sesion" : ".GymCore.Sesion";
+        o.Cookie.Path = "/";
         o.Cookie.HttpOnly = true;
         o.Cookie.SameSite = SameSiteMode.Lax;
-        o.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;   // Always en producción con HTTPS
+        o.Cookie.SecurePolicy = politicaCookie;
         o.LoginPath = "/Cuenta/Login";
         o.LogoutPath = "/Cuenta/Logout";
         o.AccessDeniedPath = "/Cuenta/AccesoDenegado";
@@ -111,17 +131,42 @@ var app = builder.Build();
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
-    app.UseHsts();
+    app.UseHsts();   // configurado arriba: 365 días, incluye subdominios
 }
 
+app.UseCabecerasSeguridad();
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
+// Archivos subidos: se mueven una única vez desde la ubicación anterior (wwwroot/uploads, pública)
+var archivos = app.Services.GetRequiredService<AlmacenamientoArchivos>();
+if (app.Environment.WebRootPath is { } webRoot)
+{
+    var movidos = archivos.MigrarDesde(Path.Combine(webRoot, AlmacenamientoArchivos.PrefijoUrl));
+    if (movidos > 0) app.Logger.LogInformation("Se movieron {Cantidad} archivos de wwwroot/uploads a {Destino}", movidos, archivos.Raiz);
+}
+
+// Imágenes de marca: públicas (las usan el login, el favicon y el kiosco antes de iniciar sesión)
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(archivos.Carpeta(ImagenesMarca.Carpeta)),
+    RequestPath = $"/{AlmacenamientoArchivos.PrefijoUrl}/{ImagenesMarca.Carpeta}"
+});
+
 app.UseRouting();
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Fotos de socios y entrenadores: se sirven DESPUÉS de UseAuthorization, así la FallbackPolicy exige sesión.
+// Sin sesión, la request se redirige al login; nunca se entrega el archivo.
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(archivos.Raiz),
+    RequestPath = $"/{AlmacenamientoArchivos.PrefijoUrl}",
+    OnPrepareResponse = c => c.Context.Response.Headers.CacheControl = "private, max-age=3600"
+});
 
 app.MapRazorPages();
 // Anónimo: la FallbackPolicy exige sesión en todo lo demás

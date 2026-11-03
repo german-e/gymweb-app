@@ -10,7 +10,7 @@ namespace GymCore.Web.Pages.Socios;
 [RequierePermiso(Permisos.SociosEditar)]
 public class EditModel : SocioFormPageModel
 {
-    public EditModel(GymDbContext db, IWebHostEnvironment env) : base(db, env) { }
+    public EditModel(GymDbContext db, AlmacenamientoArchivos archivos) : base(db, archivos) { }
 
     public override bool EsEdicion => true;
     public override int? IdSocio => Id;

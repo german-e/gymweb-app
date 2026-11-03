@@ -12,20 +12,29 @@ using Microsoft.Extensions.DependencyInjection;
 namespace GymCore.Tests;
 
 // App real en memoria (WebApplicationFactory) sobre una base SQLite temporal.
-public sealed class AppDePrueba : WebApplicationFactory<Program>
+public class AppDePrueba : WebApplicationFactory<Program>
 {
     public const string Clave = "Prueba-2026";
     public const string Coleccion = "Aplicación web";
     private readonly string _ruta = Path.Combine(Path.GetTempPath(), $"gymcore-test-{Guid.NewGuid():N}.db");
+    private readonly string _uploads = Path.Combine(Path.GetTempPath(), $"gymcore-uploads-{Guid.NewGuid():N}");
+
+    public string RutaUploads => _uploads;
 
     public int SocioAsignado { get; private set; }
     public int SocioAjeno { get; private set; }
     public int PagoId { get; private set; }
 
-    public AppDePrueba()
+    // Límites de tasa holgados: las pruebas hacen muchos logins desde la misma "IP"
+    public AppDePrueba() : this(intentosLoginPorMinuto: 10_000) { }
+
+    protected AppDePrueba(int intentosLoginPorMinuto)
     {
-        // Program lee la cadena de conexión al construir el host
+        // Program lee la configuración al construir el host
         Environment.SetEnvironmentVariable("ConnectionStrings__Default", $"Data Source={_ruta}");
+        Environment.SetEnvironmentVariable("Almacenamiento__Uploads", _uploads);
+        Environment.SetEnvironmentVariable("Seguridad__IntentosLoginPorMinuto", intentosLoginPorMinuto.ToString());
+        Environment.SetEnvironmentVariable("Seguridad__IngresosPorMinuto", "10000");
         Sembrar();
     }
 
@@ -78,6 +87,7 @@ public sealed class AppDePrueba : WebApplicationFactory<Program>
         base.Dispose(disposing);
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         try { File.Delete(_ruta); } catch { }
+        try { Directory.Delete(_uploads, recursive: true); } catch { }
     }
 }
 

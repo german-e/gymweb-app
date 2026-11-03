@@ -46,16 +46,17 @@ ENV ASPNETCORE_ENVIRONMENT=Production \
     ASPNETCORE_FORWARDEDHEADERS_ENABLED=true \
     TZ=America/Argentina/Buenos_Aires \
     ConnectionStrings__Default="Data Source=/app/data/gym.db" \
-    DataProtection__Ruta=/app/keys
+    DataProtection__Ruta=/app/keys \
+    Almacenamiento__Uploads=/app/uploads
 
 COPY --from=publish /app/publish .
 
 # Carpetas persistentes (se montan como volúmenes), con permisos para el usuario sin privilegios 'app':
-#   /app/data             -> base SQLite
-#   /app/keys             -> claves de Data Protection (cookies de sesión)
-#   /app/wwwroot/uploads  -> fotos de socios y entrenadores
-RUN mkdir -p /app/data /app/keys /app/wwwroot/uploads \
- && chown -R app:app /app/data /app/keys /app/wwwroot/uploads
+#   /app/data     -> base SQLite
+#   /app/keys     -> claves de Data Protection (cookies de sesión)
+#   /app/uploads  -> fotos e imágenes subidas (fuera de wwwroot: las fotos exigen sesión)
+RUN mkdir -p /app/data /app/keys /app/uploads \
+ && chown -R app:app /app/data /app/keys /app/uploads
 
 USER app
 EXPOSE 8080

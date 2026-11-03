@@ -93,14 +93,9 @@ public class EntrenadorInput : IValidatableObject
         if (FechaBaja.HasValue && FechaBaja.Value.Date < FechaAlta.Date)
             yield return new ValidationResult("La baja no puede ser anterior al alta.", new[] { nameof(FechaBaja) });
 
-        if (Foto is { Length: > 0 })
-        {
-            var ext = Path.GetExtension(Foto.FileName).ToLowerInvariant();
-            if (ext is not (".jpg" or ".jpeg" or ".png" or ".webp"))
-                yield return new ValidationResult("Formato no soportado (JPG, PNG o WEBP).", new[] { nameof(Foto) });
-            if (Foto.Length > 2 * 1024 * 1024)
-                yield return new ValidationResult("La foto no puede superar 2 MB.", new[] { nameof(Foto) });
-        }
+        // Misma validación que los socios: extensión, tamaño y contenido real del archivo
+        if (GymCore.Web.Componentes.FotoStorage.Validar(Foto) is { } error)
+            yield return new ValidationResult(error, new[] { nameof(Foto) });
     }
 
     public static EntrenadorInput Desde(Entrenador e) => new()

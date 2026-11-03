@@ -22,7 +22,7 @@ public static class EntrenadorAcciones
         return e.Activo ? $"Se reactivó a {e.NombreCompleto}." : $"Se desactivó a {e.NombreCompleto}.";
     }
 
-    public static async Task<string?> EliminarAsync(GymDbContext db, IWebHostEnvironment env, int id)
+    public static async Task<string?> EliminarAsync(GymDbContext db, AlmacenamientoArchivos archivos, int id)
     {
         var e = await db.Entrenadores.FirstOrDefaultAsync(x => x.Id == id);
         if (e is null) return null;
@@ -33,7 +33,7 @@ public static class EntrenadorAcciones
         db.Entrenadores.Remove(e); // asignaciones e historial se eliminan en cascada
         await db.SaveChangesAsync();
 
-        FotoStorage.Borrar(env, foto);
+        FotoStorage.Borrar(archivos, foto);
         return $"Se eliminó a {e.NombreCompleto}.";
     }
 }
