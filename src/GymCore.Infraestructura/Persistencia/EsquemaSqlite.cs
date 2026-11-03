@@ -3,6 +3,10 @@ using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace GymCore.Infraestructura.Persistencia;
 
+// SOLO PARA BASES HEREDADAS (creadas con EnsureCreated, antes de las migraciones). Lo usa
+// InicializadorBaseDatos una única vez, antes de registrar la migración inicial. Los cambios de esquema
+// nuevos se hacen con migraciones de EF Core, no acá. Se elimina al pasar a PostgreSQL.
+//
 // EnsureCreated no actualiza una base existente. Este helper la alinea con el modelo de forma
 // idempotente y sin migraciones:
 //   1. agrega columnas nuevas a tablas existentes (ALTER TABLE ADD COLUMN): nullables, o NOT NULL
@@ -79,5 +83,7 @@ public static class EsquemaSqlite
     {
         // Número de socio para altas anteriores a la columna
         try { await db.Database.ExecuteSqlRawAsync("UPDATE \"Socios\" SET \"NumeroSocio\" = \"Id\" WHERE \"NumeroSocio\" IS NULL;"); } catch { }
+        // Código de credencial para socios anteriores a la columna: el DNI (antes lo hacía Program.cs)
+        try { await db.Database.ExecuteSqlRawAsync("UPDATE \"Socios\" SET \"TarjetaCodigo\" = \"Dni\" WHERE \"TarjetaCodigo\" IS NULL;"); } catch { }
     }
 }

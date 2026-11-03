@@ -5,7 +5,6 @@ using GymCore.Dominio.Entidades;
 using GymCore.Dominio.Enums;
 using GymCore.Aplicacion.Abstractiones;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.Data.Sqlite;
 using GymCore.Web.Seguridad;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.FileProviders;
@@ -175,41 +174,13 @@ app.MapRazorPages();
 // Anónimo: la FallbackPolicy exige sesión en todo lo demás
 app.MapHealthChecks("/health").AllowAnonymous();
 
-// Inicializar base de datos (demo): crea esquema si no hay migraciones
+// Base de datos: aplica las migraciones pendientes (y adopta bases creadas antes con EnsureCreated).
+// Si falla, la aplicación no arranca: mejor que operar con un esquema a medio actualizar.
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<GymDbContext>();
-    try { db.Database.EnsureCreated(); } catch { /* opcional: log */ }
-
-    // Ajuste de esquema en SQLite: agregar columna TarjetaCodigo si falta e índice único
-    try
-    {
-        var conn = db.Database.GetDbConnection();
-        await conn.OpenAsync();
-        using (var cmd = conn.CreateCommand())
-        {
-            cmd.CommandText = "PRAGMA table_info('Socios')";
-            using var reader = await cmd.ExecuteReaderAsync();
-            var tieneTarjeta = false;
-            while (await reader.ReadAsync())
-            {
-                // PRAGMA table_info: 0:cid,1:name,2:type,...
-                var col = reader.GetString(1);
-                if (col == "TarjetaCodigo") { tieneTarjeta = true; break; }
-            }
-            if (!tieneTarjeta)
-            {
-                await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Socios\" ADD COLUMN \"TarjetaCodigo\" TEXT NULL;");
-                await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS \"IX_Socios_TarjetaCodigo\" ON \"Socios\" (\"TarjetaCodigo\");");
-                // Inicial: usar DNI como código de tarjeta
-                await db.Database.ExecuteSqlRawAsync("UPDATE \"Socios\" SET \"TarjetaCodigo\" = \"Dni\" WHERE \"TarjetaCodigo\" IS NULL;");
-            }
-        }
-    }
-    catch { /* best-effort */ }
-
-    // Alinea una base existente con el modelo: columnas nuevas (nullable) y tablas nuevas
-    try { await EsquemaSqlite.ActualizarAsync(db); } catch { /* best-effort */ }
+    var logBase = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("GymCore.BaseDeDatos");
+    await InicializadorBaseDatos.MigrarAsync(db, logBase);
 
     // Roles iniciales: se crean si faltan (no se pisan los cambios hechos desde Administración > Roles)
     foreach (var def in RolesIniciales.Todos)
@@ -222,7 +193,8 @@ using (var scope = app.Services.CreateScope())
     await db.SaveChangesAsync();
 
     // Categorías de productos por defecto (solo si no hay ninguna)
-    try { await GymCore.Web.Comercial.InventarioPresentacion.SembrarCategoriasAsync(db); } catch { /* best-effort */ }
+    try { await GymCore.Web.Comercial.InventarioPresentacion.SembrarCategoriasAsync(db); }
+    catch (Exception ex) { logBase.LogWarning(ex, "No se pudieron crear las categorías de productos por defecto"); }
 
     // Seed mínimo para pruebas de check-in
     if (!db.Planes.Any())
