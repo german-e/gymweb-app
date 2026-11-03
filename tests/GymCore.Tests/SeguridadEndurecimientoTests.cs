@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using GymCore.Web.Componentes;
 using GymCore.Web.Seguridad;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 
 namespace GymCore.Tests;
 
